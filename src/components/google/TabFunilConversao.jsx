@@ -1,6 +1,7 @@
 import { useState, useMemo } from "react";
 import { CLIENTES_WON, FUNIL, RESUMO } from "@/components/google/googleData.jsx";
 import { TrendingDown, TrendingUp, Users, ChevronRight } from "lucide-react";
+import KPICardsDraggable from "@/components/dashboard/KPICardsDraggable.jsx";
 
 // Dados simulados de pipeline baseados no cohort Google
 // Leads = cohort total, Qualificados = Won + Lost (avançaram), Proposta = Won + pct Lost, Fechado = Won
