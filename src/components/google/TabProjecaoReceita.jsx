@@ -198,7 +198,7 @@ export default function TabProjecaoReceita({ categoria = "Todos" }) {
             Projeção Mensal de Receita
           </h2>
           <p className="text-gray-500 text-xs mt-0.5">
-            Barras = receita mensal · Linha amarela = acumulado · Baseado em {leadsInput} leads/mês com taxa de conversão de {(TAXA_CONV * 100).toFixed(1)}%
+            Barras = receita mensal · Linha amarela = acumulado · Baseado em {leadsInput} leads/mês com taxa de conversão de {(taxaConv * 100).toFixed(1)}%
           </p>
         </div>
         <div className="flex items-center gap-4 mb-4 text-xs text-gray-400 flex-wrap">
