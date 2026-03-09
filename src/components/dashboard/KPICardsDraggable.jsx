@@ -18,9 +18,16 @@ function buildItems(cards) {
 
 export default function KPICardsDraggable({ cards, storageId = "kpi_layout" }) {
   const [items, setItems] = useState(() => buildItems(cards));
-  const [isSynced, setIsSynced] = useState(false);
+  const [loaded, setLoaded] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const dragFrom = useRef(null);
+  const [dragging, setDragging] = useState(null);
+  const [dragOver, setDragOver] = useState(null);
+  const menuDragFrom = useRef(null);
+  const [menuDragOver, setMenuDragOver] = useState(null);
+  const saveTimeoutRef = useRef(null);
 
-  // Carregar layout salvo do usuário
+  // Carregar layout salvo do usuário (apenas uma vez)
   useEffect(() => {
     const loadLayout = async () => {
       try {
@@ -29,39 +36,52 @@ export default function KPICardsDraggable({ cards, storageId = "kpi_layout" }) {
         if (kpis[storageId]) {
           setItems(kpis[storageId]);
         }
-        setIsSynced(true);
       } catch (err) {
         console.error("Erro ao carregar KPI layout:", err);
-        setIsSynced(true);
+      } finally {
+        setLoaded(true);
       }
     };
+    
     loadLayout();
   }, [storageId]);
 
-  // Salvar layout
-  const saveLayout = async (newItems) => {
-    try {
-      const user = await base44.auth.me();
-      const current = user?.layoutPreferences || {};
-      await base44.auth.updateMe({
-        layoutPreferences: {
-          ...current,
-          kpis: {
-            ...(current.kpis || {}),
-            [storageId]: newItems
-          }
-        }
-      });
-    } catch (err) {
-      console.error("Erro ao salvar KPI layout:", err);
+  // Salvar layout com debounce quando items mudar
+  useEffect(() => {
+    if (!loaded) return;
+    
+    // Limpar timeout anterior
+    if (saveTimeoutRef.current) {
+      clearTimeout(saveTimeoutRef.current);
     }
-  };
-  const [menuOpen, setMenuOpen] = useState(false);
-
-  // Drag refs
-  const dragFrom = useRef(null);
-  const [dragging, setDragging] = useState(null);
-  const [dragOver, setDragOver] = useState(null);
+    
+    // Agendar novo salvamento
+    saveTimeoutRef.current = setTimeout(async () => {
+      try {
+        console.log(`Salvando layout KPI ${storageId}:`, items);
+        const user = await base44.auth.me();
+        const current = user?.layoutPreferences || {};
+        await base44.auth.updateMe({
+          layoutPreferences: {
+            ...current,
+            kpis: {
+              ...(current.kpis || {}),
+              [storageId]: items
+            }
+          }
+        });
+        console.log(`Layout KPI ${storageId} salvo com sucesso`);
+      } catch (err) {
+        console.error(`Erro ao salvar layout KPI ${storageId}:`, err);
+      }
+    }, 500);
+    
+    return () => {
+      if (saveTimeoutRef.current) {
+        clearTimeout(saveTimeoutRef.current);
+      }
+    };
+  }, [items, loaded, storageId]);
 
   function reorder(arr, from, to) {
     const next = [...arr];
@@ -79,7 +99,6 @@ export default function KPICardsDraggable({ cards, storageId = "kpi_layout" }) {
     if (from !== null && to !== null && from !== to) {
       const newItems = reorder(items, from, to);
       setItems(newItems);
-      saveLayout(newItems);
     }
     dragFrom.current = null;
     setDragging(null);
@@ -87,9 +106,6 @@ export default function KPICardsDraggable({ cards, storageId = "kpi_layout" }) {
   };
 
   // Menu drag handlers
-  const menuDragFrom = useRef(null);
-  const [menuDragOver, setMenuDragOver] = useState(null);
-
   const onMenuDragStart = (idx) => { menuDragFrom.current = idx; };
   const onMenuDragEnter = (idx) => setMenuDragOver(idx);
   const onMenuDragEnd = () => {
@@ -98,7 +114,6 @@ export default function KPICardsDraggable({ cards, storageId = "kpi_layout" }) {
     if (from !== null && to !== null && from !== to) {
       const newItems = reorder(items, from, to);
       setItems(newItems);
-      saveLayout(newItems);
     }
     menuDragFrom.current = null;
     setMenuDragOver(null);
@@ -107,13 +122,10 @@ export default function KPICardsDraggable({ cards, storageId = "kpi_layout" }) {
   const toggleVisible = (idx) => {
     const newItems = items.map((item, i) => i === idx ? { ...item, visible: !item.visible } : item);
     setItems(newItems);
-    saveLayout(newItems);
   };
 
   const reset = () => {
-    const defaultItems = buildItems(cards);
-    setItems(defaultItems);
-    saveLayout(defaultItems);
+    setItems(buildItems(cards));
   };
 
   return (
