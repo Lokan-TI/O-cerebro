@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback, useMemo as useMemoCallback } from "react";
 import { RESUMO, FUNIL, RECOMPRAS } from "@/components/google/googleData.jsx";
 import { DATE_RANGE_DEFAULT } from "@/components/google/DateRangeFilter.jsx";
 import RadarDesempenho from "@/components/google/RadarDesempenho.jsx";
@@ -302,7 +302,7 @@ function SecaoPieCohort() {
 }
 
 export default function TabGoogleOverview({ dateRange = DATE_RANGE_DEFAULT }) {
-  const sections = [
+  const sections = useMemoCallback(() => [
     { label: "Banner ROAS / CAC / Retenção", content: <SecaoBanner /> },
     { label: "Radar de Desempenho", content: <RadarDesempenho /> },
     { label: "KPIs Principais", content: <SecaoKPIsPrincipais /> },
@@ -310,7 +310,7 @@ export default function TabGoogleOverview({ dateRange = DATE_RANGE_DEFAULT }) {
     { label: "Gráfico Mensal Interativo", content: <SecaoGraficoMensal dateRange={dateRange} /> },
     { label: "KPIs Secundários", content: <SecaoKPIsSecundarios /> },
     { label: "Distribuição do Cohort + Resumo", content: <SecaoPieCohort /> },
-  ];
+  ], [dateRange]);
 
-  return <SectionsDraggable sections={sections} />;
+  return <SectionsDraggable sections={sections} key="google-overview" />;
 }
