@@ -25,12 +25,13 @@ export default function KPICardsDraggable({ cards, storageId = "kpi_layout" }) {
     const loadLayout = async () => {
       try {
         const user = await base44.auth.me();
-        const key = `${storageId}_layout`;
-        if (user?.[key]) {
-          setItems(user[key]);
+        const kpis = user?.layoutPreferences?.kpis || {};
+        if (kpis[storageId]) {
+          setItems(kpis[storageId]);
         }
         setIsSynced(true);
-      } catch {
+      } catch (err) {
+        console.error("Erro ao carregar KPI layout:", err);
         setIsSynced(true);
       }
     };
@@ -40,10 +41,19 @@ export default function KPICardsDraggable({ cards, storageId = "kpi_layout" }) {
   // Salvar layout
   const saveLayout = async (newItems) => {
     try {
-      const key = `${storageId}_layout`;
-      await base44.auth.updateMe({ [key]: newItems });
-    } catch {
-      // Silencioso
+      const user = await base44.auth.me();
+      const current = user?.layoutPreferences || {};
+      await base44.auth.updateMe({
+        layoutPreferences: {
+          ...current,
+          kpis: {
+            ...(current.kpis || {}),
+            [storageId]: newItems
+          }
+        }
+      });
+    } catch (err) {
+      console.error("Erro ao salvar KPI layout:", err);
     }
   };
   const [menuOpen, setMenuOpen] = useState(false);
