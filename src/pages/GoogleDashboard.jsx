@@ -4,7 +4,9 @@ import TabGoogleFunil from "@/components/google/TabGoogleFunil.jsx";
 import TabGoogleRetencao from "@/components/google/TabGoogleRetencao.jsx";
 import TabGoogleClientes from "@/components/google/TabGoogleClientes.jsx";
 import TabProjecaoReceita from "@/components/google/TabProjecaoReceita.jsx";
+import ImportModal from "@/components/google/ImportModal.jsx";
 import { CATEGORIAS } from "@/components/google/googleData.jsx";
+import { Settings } from "lucide-react";
 
 const TABS = [
   { id: "overview",  label: "Visão Geral" },
