@@ -58,12 +58,69 @@ export default function TabGoogleOverview() {
 
   return (
     <div className="space-y-6">
+      {/* KPIs de performance de marketing */}
+      <div className="bg-gradient-to-r from-blue-950/50 to-gray-900 border border-blue-800 rounded-xl p-4 grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="text-center">
+          <p className="text-gray-400 text-xs uppercase tracking-wider mb-1">Investimento</p>
+          <p className="text-white font-bold text-2xl">R$ 200k</p>
+          <p className="text-gray-600 text-xs">período Jan–Nov/25</p>
+        </div>
+        <div className="text-center border-l border-gray-700">
+          <p className="text-green-400 text-xs uppercase tracking-wider mb-1 font-semibold">ROAS</p>
+          <p className="text-green-400 font-bold text-3xl">{ROAS.toFixed(2)}x</p>
+          <p className="text-gray-600 text-xs">R$ {ROAS.toFixed(2)} gerados por R$ 1 investido</p>
+        </div>
+        <div className="text-center border-l border-gray-700">
+          <p className="text-purple-400 text-xs uppercase tracking-wider mb-1 font-semibold">CAC</p>
+          <p className="text-purple-400 font-bold text-3xl">{fmtR(CAC)}</p>
+          <p className="text-gray-600 text-xs">custo por cliente convertido</p>
+        </div>
+        <div className="text-center border-l border-gray-700">
+          <p className="text-yellow-400 text-xs uppercase tracking-wider mb-1 font-semibold">Taxa de Retenção</p>
+          <p className="text-yellow-400 font-bold text-3xl">{fmtPct(TAXA_RETENCAO)}</p>
+          <p className="text-gray-600 text-xs">{RESUMO.clientes_recompra} de {RESUMO.clientes_won} clientes WON</p>
+        </div>
+      </div>
+
       {/* KPIs principais */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <KPI label="Cohort Google (leads)" value={fmt(RESUMO.cohort_total)} sub="first-touch via Google" />
         <KPI label="Conversão para FECHADO" value={fmtPct(RESUMO.taxa_conversao)} sub={`${RESUMO.clientes_won} clientes convertidos`} accent="border-green-500" />
         <KPI label="Receita Total FECHADO" value={fmtR(RESUMO.receita_fechado_total)} sub="todos os fechamentos do cohort" accent="border-blue-400" big />
         <KPI label="$$ Retido (pós 1º FECHADO)" value={fmtR(RESUMO.retido_pos_primeiro)} sub={`${fmtPct(RESUMO.share_retido)} da receita total`} accent="border-yellow-500" big />
+      </div>
+
+      {/* Gráfico de evolução mensal */}
+      <div className="bg-gray-900 rounded-xl border border-gray-800 p-5">
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h2 className="text-white font-semibold text-sm uppercase tracking-wider">Receita Gerada pelo Google — Evolução Mensal</h2>
+            <p className="text-gray-500 text-xs mt-0.5">Barras = receita · Linha = ROAS do mês · Investimento mensal ≈ R$ 18,2k</p>
+          </div>
+          <div className="flex items-center gap-4 text-xs">
+            <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded bg-blue-500 inline-block" /> 1º Fechamento</span>
+            <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded bg-purple-500 inline-block" /> Recompra</span>
+            <span className="flex items-center gap-1.5"><span className="w-2 h-0.5 bg-yellow-400 inline-block" /> ROAS</span>
+          </div>
+        </div>
+        <ResponsiveContainer width="100%" height={280}>
+          <ComposedChart data={RECEITA_MES_RAW} margin={{ left: 10, right: 40 }}>
+            <CartesianGrid strokeDasharray="3 3" stroke="#1f2937" />
+            <XAxis dataKey="mes" tick={{ fill: "#9ca3af", fontSize: 11 }} axisLine={false} tickLine={false} />
+            <YAxis yAxisId="left" tickFormatter={(v) => "R$" + (v / 1000).toFixed(0) + "k"} tick={{ fill: "#6b7280", fontSize: 10 }} axisLine={false} tickLine={false} />
+            <YAxis yAxisId="right" orientation="right" tickFormatter={(v) => v != null ? v.toFixed(1) + "x" : ""} tick={{ fill: "#fbbf24", fontSize: 10 }} axisLine={false} tickLine={false} domain={[0, 10]} />
+            <Tooltip
+              contentStyle={{ background: "#111827", border: "1px solid #374151", borderRadius: 6, fontSize: 12 }}
+              formatter={(v, name) => {
+                if (name === "ROAS") return [v != null ? v.toFixed(2) + "x" : "—", name];
+                return [fmtR(v), name];
+              }}
+            />
+            <Bar yAxisId="left" dataKey="receita_novos" name="1º Fechamento" stackId="a" fill="#3b82f6" radius={[0,0,0,0]} />
+            <Bar yAxisId="left" dataKey="recompra" name="Recompra" stackId="a" fill="#a855f7" radius={[4,4,0,0]} />
+            <Line yAxisId="right" type="monotone" dataKey="roas_mes" name="ROAS" stroke="#fbbf24" strokeWidth={2} dot={{ fill: "#fbbf24", r: 3 }} connectNulls />
+          </ComposedChart>
+        </ResponsiveContainer>
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
