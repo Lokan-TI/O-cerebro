@@ -1,10 +1,10 @@
 import { useState, useMemo } from "react";
-import { RESUMO, CLIENTES_WON, FUNIL } from "@/components/google/googleData.jsx";
+import { RESUMO, CLIENTES_WON, getCategoriaFromProduto } from "@/components/google/googleData.jsx";
 import {
   ComposedChart, Bar, Line, XAxis, YAxis, CartesianGrid, Tooltip,
-  ResponsiveContainer, ReferenceLine, Cell,
+  ResponsiveContainer, Cell,
 } from "recharts";
-import { TrendingUp, Users, DollarSign, Percent } from "lucide-react";
+import { DollarSign, Percent } from "lucide-react";
 
 const fmtR = (v) =>
   "R$ " + (v || 0).toLocaleString("pt-BR", { minimumFractionDigits: 0, maximumFractionDigits: 0 });
@@ -14,34 +14,26 @@ const fmtK = (v) => {
   return fmtR(v);
 };
 
-// ── Métricas base do cohort ──────────────────────────────────
-const TICKET_MEDIO_FT = CLIENTES_WON.reduce((s, c) => s + c.valor_ft, 0) / CLIENTES_WON.length;
-const TICKET_MEDIO_TOTAL = CLIENTES_WON.reduce((s, c) => s + c.receita_total, 0) / CLIENTES_WON.length;
-const TAXA_CONV = RESUMO.taxa_conversao; // 66/457
-const TAXA_RECOMPRA = RESUMO.clientes_recompra / RESUMO.clientes_won; // 13/66
-const TICKET_RECOMPRA =
-  CLIENTES_WON.filter((c) => c.fechados_pos > 0).reduce((s, c) => s + c.retido, 0) /
-  (CLIENTES_WON.filter((c) => c.fechados_pos > 0).length || 1);
+function calcMetricas(clientes) {
+  const n = clientes.length || 1;
+  const ticketFt = clientes.reduce((s, c) => s + c.valor_ft, 0) / n;
+  const comRecompra = clientes.filter(c => c.fechados_pos > 0);
+  const taxaRecompra = comRecompra.length / n;
+  const ticketRecompra = comRecompra.reduce((s, c) => s + c.retido, 0) / (comRecompra.length || 1);
+  return { ticketFt, taxaRecompra, ticketRecompra, n };
+}
 
-// ── Gera projeção mensal para N novos leads/mês ───────────────
-function gerarProjecao(novoLeadsMes, meses = 12) {
+function gerarProjecao(novoLeadsMes, meses, taxaConv, ticketFt, taxaRecompra, ticketRecompra) {
   const rows = [];
   let acumulado = 0;
   for (let i = 1; i <= meses; i++) {
-    const convertidos = Math.round(novoLeadsMes * TAXA_CONV);
-    const receita_ft = convertidos * TICKET_MEDIO_FT;
-    const recompras = Math.round(convertidos * TAXA_RECOMPRA);
-    const receita_recompra = recompras * TICKET_RECOMPRA;
+    const convertidos = Math.round(novoLeadsMes * taxaConv);
+    const receita_ft = convertidos * ticketFt;
+    const recompras = Math.round(convertidos * taxaRecompra);
+    const receita_recompra = recompras * ticketRecompra;
     const total = receita_ft + receita_recompra;
     acumulado += total;
-    rows.push({
-      mes: `M+${i}`,
-      convertidos,
-      receita_ft,
-      receita_recompra,
-      total,
-      acumulado,
-    });
+    rows.push({ mes: `M+${i}`, convertidos, receita_ft, receita_recompra, total, acumulado });
   }
   return rows;
 }
