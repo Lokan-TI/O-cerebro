@@ -4,6 +4,7 @@ import TabGoogleFunil from "@/components/google/TabGoogleFunil.jsx";
 import TabGoogleRetencao from "@/components/google/TabGoogleRetencao.jsx";
 import TabGoogleClientes from "@/components/google/TabGoogleClientes.jsx";
 import TabProjecaoReceita from "@/components/google/TabProjecaoReceita.jsx";
+import { CATEGORIAS } from "@/components/google/googleData.jsx";
 
 const TABS = [
   { id: "overview",  label: "Visão Geral" },
@@ -13,19 +14,52 @@ const TABS = [
   { id: "projecao",  label: "Projeção de Receita" },
 ];
 
+const CATEGORIA_COLORS = {
+  "Todos":     "bg-blue-600 text-white",
+  "Translift": "bg-orange-600 text-white",
+  "Elétrico":  "bg-green-600 text-white",
+  "Diesel":    "bg-yellow-600 text-gray-900",
+  "Outros":    "bg-gray-600 text-white",
+};
+
+const FILTERED_TABS = ["funil", "retencao", "projecao"];
+
 export default function GoogleDashboard() {
   const [activeTab, setActiveTab] = useState("overview");
+  const [categoria, setCategoria] = useState("Todos");
 
   return (
     <div className="min-h-screen bg-gray-950 p-6">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
-        <div className="mb-6">
-          <div className="flex items-center gap-3 mb-1">
-            <span className="text-xs font-bold bg-blue-600 text-white px-2 py-0.5 rounded uppercase tracking-wider">Google Ads</span>
-            <h1 className="text-white font-bold text-xl">First-Touch Analytics</h1>
+        <div className="mb-5 flex flex-wrap items-start justify-between gap-4">
+          <div>
+            <div className="flex items-center gap-3 mb-1">
+              <span className="text-xs font-bold bg-blue-600 text-white px-2 py-0.5 rounded uppercase tracking-wider">Google Ads</span>
+              <h1 className="text-white font-bold text-xl">First-Touch Analytics</h1>
+            </div>
+            <p className="text-gray-500 text-sm">Cohort de leads com origem Google · Jan–Nov 2025</p>
           </div>
-          <p className="text-gray-500 text-sm">Cohort de leads com origem Google · Jan–Nov 2025</p>
+
+          {/* Filtro global de categoria */}
+          {FILTERED_TABS.includes(activeTab) && (
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-gray-500 text-xs uppercase tracking-wider">Categoria:</span>
+              {CATEGORIAS.map(cat => (
+                <button
+                  key={cat}
+                  onClick={() => setCategoria(cat)}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
+                    categoria === cat
+                      ? CATEGORIA_COLORS[cat]
+                      : "bg-gray-800 text-gray-400 hover:text-white hover:bg-gray-700"
+                  }`}
+                >
+                  {cat}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Tab nav */}
@@ -47,10 +81,10 @@ export default function GoogleDashboard() {
 
         {/* Content */}
         {activeTab === "overview"  && <TabGoogleOverview />}
-        {activeTab === "funil"     && <TabGoogleFunil />}
-        {activeTab === "retencao"  && <TabGoogleRetencao />}
+        {activeTab === "funil"     && <TabGoogleFunil categoria={categoria} />}
+        {activeTab === "retencao"  && <TabGoogleRetencao categoria={categoria} />}
         {activeTab === "clientes"  && <TabGoogleClientes />}
-        {activeTab === "projecao"  && <TabProjecaoReceita />}
+        {activeTab === "projecao"  && <TabProjecaoReceita categoria={categoria} />}
       </div>
     </div>
   );
