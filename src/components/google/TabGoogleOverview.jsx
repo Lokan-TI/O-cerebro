@@ -242,20 +242,12 @@ export default function TabGoogleOverview({ dateRange = DATE_RANGE_DEFAULT }) {
       </div>
 
       {/* KPIs secundários */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        {[
-          { label: "Clientes com Recompra", value: RESUMO.clientes_recompra, sub: "fizeram ≥1 FECHADO futuro", accent: "border-purple-500" },
-          { label: "Taxa de Recompra (WON)", value: fmtPct(RESUMO.taxa_recompra_entre_won), sub: "entre quem já converteu", accent: "border-purple-400" },
-          { label: "Total de Negócios FECHADOS", value: RESUMO.total_negocios_fechado, sub: "contagem de vendas", accent: "border-gray-500" },
-          { label: "Total de Recompras", value: RESUMO.total_recompras, sub: "vendas após o 1º fechamento", accent: "border-gray-500" },
-        ].map(kpi => (
-          <div key={kpi.label} className={`bg-gray-900 border-l-4 ${kpi.accent} rounded-lg p-5`}>
-            <p className="text-gray-400 text-xs uppercase tracking-wider mb-1">{kpi.label}</p>
-            <p className="font-bold text-white leading-tight text-3xl">{kpi.value}</p>
-            <p className="text-gray-500 text-xs mt-1">{kpi.sub}</p>
-          </div>
-        ))}
-      </div>
+      <KPICardsDraggable cards={[
+        { label: "Clientes com Recompra", value: RESUMO.clientes_recompra, sub: "fizeram ≥1 FECHADO futuro", accent: "border-purple-500" },
+        { label: "Taxa de Recompra (WON)", value: fmtPct(RESUMO.taxa_recompra_entre_won), sub: "entre quem já converteu", accent: "border-purple-400" },
+        { label: "Total de Negócios FECHADOS", value: RESUMO.total_negocios_fechado, sub: "contagem de vendas", accent: "border-gray-500" },
+        { label: "Total de Recompras", value: RESUMO.total_recompras, sub: "vendas após o 1º fechamento", accent: "border-gray-500" },
+      ]} />
 
       {/* Funil Pie interativo + resumo */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
