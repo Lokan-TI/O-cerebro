@@ -153,6 +153,9 @@ export default function TabGoogleOverview() {
         ))}
       </div>
 
+      {/* Tendência mensal — leads + conversão */}
+      <TendenciaMensal />
+
       {/* Gráfico mensal interativo */}
       <div className="bg-gray-900 rounded-xl border border-gray-800 p-5">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-4 gap-2">
