@@ -57,8 +57,12 @@ export default function GoogleDashboard() {
             <p className="text-gray-500 text-sm">Cohort de leads com origem Google · Jan–Nov 2025</p>
           </div>
 
-          {/* Filtro global de categoria */}
-          <div className="flex items-center gap-3 flex-wrap">
+          {/* Filtros globais */}
+          <div className="flex items-center gap-4 flex-wrap">
+            {/* Filtro de datas — sempre visível */}
+            <DateRangeFilter dateRange={dateRange} onChange={setDateRange} />
+
+            {/* Filtro de categoria — só nas abas relevantes */}
             {FILTERED_TABS.includes(activeTab) && (
               <div className="flex items-center gap-2 flex-wrap">
                 <span className="text-gray-500 text-xs uppercase tracking-wider">Categoria:</span>
