@@ -310,7 +310,7 @@ export default function TabGoogleRetencao({ categoria = "Todos" }) {
             </tr>
           </thead>
           <tbody>
-            {RETIDO_POR_MES.map((m) => (
+            {retidoPorMesFiltrado.map((m) => (
               <tr
                 key={m.mes}
                 onClick={() => setSelectedMes(prev => prev === m.mes ? null : m.mes)}
