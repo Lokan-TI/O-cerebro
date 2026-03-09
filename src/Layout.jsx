@@ -48,9 +48,8 @@ const COLOR_MAP = {
 };
 
 export default function Layout({ children, currentPageName }) {
-  const isGoogle = currentPageName === "GoogleDashboard";
   const isFunil = currentPageName === "FunilConversao";
-  const accentColor = isGoogle ? "blue" : isFunil ? "green" : "red";
+  const accentColor = isFunil ? "green" : "blue";
   const c = COLOR_MAP[accentColor];
 
   return (
