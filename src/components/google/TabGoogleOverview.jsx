@@ -4,6 +4,7 @@ import { isInRange, DATE_RANGE_DEFAULT } from "@/components/google/DateRangeFilt
 import RadarDesempenho from "@/components/google/RadarDesempenho.jsx";
 import TendenciaMensal from "@/components/google/TendenciaMensal.jsx";
 import KPICardsDraggable from "@/components/dashboard/KPICardsDraggable.jsx";
+import SectionsDraggable from "@/components/dashboard/SectionsDraggable.jsx";
 import {
   PieChart, Pie, Cell, Tooltip, ResponsiveContainer, Legend,
   ComposedChart, Bar, Line, XAxis, YAxis, CartesianGrid, ReferenceLine,
