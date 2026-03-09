@@ -45,6 +45,14 @@ const COLOR_MAP = {
     dot: "bg-blue-500",
     indicator: "bg-blue-500",
   },
+  green: {
+    border: "border-green-500",
+    activeBg: "bg-green-600",
+    activeText: "text-white",
+    badge: "bg-green-700 text-green-100",
+    dot: "bg-green-500",
+    indicator: "bg-green-500",
+  },
 };
 
 export default function Layout({ children, currentPageName }) {
