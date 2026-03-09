@@ -7,6 +7,7 @@ import TabTemporal from "@/components/dashboard/tabs/TabTemporal.jsx";
 import TabPrazo from "@/components/dashboard/tabs/TabPrazo.jsx";
 import TabLeads from "@/components/dashboard/tabs/TabLeads.jsx";
 import TabCanais from "@/components/dashboard/tabs/TabCanais.jsx";
+import TabComparativo from "@/components/dashboard/tabs/TabComparativo.jsx";
 
 const TABS = [
   { id: "overview", label: "Visão Geral" },
