@@ -172,25 +172,16 @@ export default function TabFunilConversao() {
       </div>
 
       {/* Cards de conversão entre etapas */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        {conversoes.map((c, i) => {
-          const taxa = parseFloat(c.taxa);
-          const bom = taxa >= (i === 2 ? 20 : 50);
-          return (
-            <div key={i} className={`bg-gray-900 rounded-xl border p-5 ${bom ? "border-green-800" : "border-red-900"}`}>
-              <div className="flex items-center justify-between mb-3">
-                <span className="text-gray-400 text-xs uppercase tracking-wider">{c.de} → {c.para}</span>
-                {bom
-                  ? <TrendingUp className="w-4 h-4 text-green-500" />
-                  : <TrendingDown className="w-4 h-4 text-red-500" />
-                }
-              </div>
-              <p className={`text-3xl font-bold ${bom ? "text-green-400" : "text-red-400"}`}>{c.taxa}</p>
-              <p className="text-gray-600 text-xs mt-1">{c.perdidos} leads perdidos nesta transição</p>
-            </div>
-          );
-        })}
-      </div>
+      <KPICardsDraggable cards={conversoes.map((c, i) => {
+        const taxa = parseFloat(c.taxa);
+        const bom = taxa >= (i === 2 ? 20 : 50);
+        return {
+          label: `${c.de} → ${c.para}`,
+          value: c.taxa,
+          sub: `${c.perdidos} leads perdidos nesta transição`,
+          accent: bom ? "border-green-600" : "border-red-700",
+        };
+      })} />
 
       {/* Tabela por vendedor */}
       <div className="bg-gray-900 rounded-xl border border-gray-800 overflow-hidden">
