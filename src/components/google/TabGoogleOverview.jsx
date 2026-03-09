@@ -196,7 +196,7 @@ export default function TabGoogleOverview({ dateRange = DATE_RANGE_DEFAULT }) {
 
         <ResponsiveContainer width="100%" height={280}>
           <ComposedChart
-            data={RECEITA_MES_RAW}
+            data={receitaMes}
             margin={{ left: 10, right: 50 }}
             onClick={(e) => e?.activeLabel && setSelectedMes(prev => prev === e.activeLabel ? null : e.activeLabel)}
           >
