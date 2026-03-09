@@ -1,11 +1,11 @@
 import { useState, useMemo } from "react";
 import { RAW_LEADS } from "@/components/dashboard/leadsData";
-import TabOverview from "@/components/dashboard/tabs/TabOverview";
-import TabVendedores from "@/components/dashboard/tabs/TabVendedores";
-import TabProdutos from "@/components/dashboard/tabs/TabProdutos";
-import TabTemporal from "@/components/dashboard/tabs/TabTemporal";
-import TabPrazo from "@/components/dashboard/tabs/TabPrazo";
-import TabLeads from "@/components/dashboard/tabs/TabLeads";
+import TabOverview from "@/components/dashboard/tabs/TabOverview.jsx";
+import TabVendedores from "@/components/dashboard/tabs/TabVendedores.jsx";
+import TabProdutos from "@/components/dashboard/tabs/TabProdutos.jsx";
+import TabTemporal from "@/components/dashboard/tabs/TabTemporal.jsx";
+import TabPrazo from "@/components/dashboard/tabs/TabPrazo.jsx";
+import TabLeads from "@/components/dashboard/tabs/TabLeads.jsx";
 
 const TABS = [
   { id: "overview", label: "Visão Geral" },
