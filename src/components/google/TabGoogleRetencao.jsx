@@ -51,7 +51,7 @@ function DistribTooltip({ active, payload, label }) {
   );
 }
 
-export default function TabGoogleRetencao({ categoria = "Todos" }) {
+export default function TabGoogleRetencao({ categoria = "Todos", dateRange = DATE_RANGE_DEFAULT }) {
   const [selectedMes, setSelectedMes] = useState(null);
   const [activeDistrib, setActiveDistrib] = useState(null);
 
@@ -63,12 +63,12 @@ export default function TabGoogleRetencao({ categoria = "Todos" }) {
     [categoria]
   );
 
-  // Recompras filtradas por categoria (produto do cliente WON)
+  // Recompras filtradas por categoria E por data
   const clientesWonNomes = useMemo(() => new Set(clientesFiltrados.map(c => c.cliente)), [clientesFiltrados]);
-  const recomprasFiltradas = useMemo(() =>
-    categoria === "Todos" ? RECOMPRAS : RECOMPRAS.filter(r => clientesWonNomes.has(r.cliente)),
-    [categoria, clientesWonNomes]
-  );
+  const recomprasFiltradas = useMemo(() => {
+    let data = categoria === "Todos" ? RECOMPRAS : RECOMPRAS.filter(r => clientesWonNomes.has(r.cliente));
+    return data.filter(r => isInRange(r.data, dateRange));
+  }, [categoria, clientesWonNomes, dateRange]);
 
   // Receita retida por mês filtrada
   const retidoPorMesFiltrado = useMemo(() => {
