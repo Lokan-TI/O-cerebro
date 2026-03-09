@@ -146,9 +146,12 @@ export default function TabGoogleRetencao({ categoria = "Todos", dateRange = DAT
   return (
     <div className="space-y-6">
       {/* Badge de filtro ativo */}
-      {categoria !== "Todos" && (
-        <div className="bg-blue-950/40 border border-blue-800 rounded-lg px-4 py-2 text-xs text-blue-300">
-          Exibindo apenas produtos da categoria <strong>{categoria}</strong> · {clientesFiltrados.length} clientes WON filtrados
+      {(categoria !== "Todos" || dateRange.from !== DATE_RANGE_DEFAULT.from || dateRange.to !== DATE_RANGE_DEFAULT.to) && (
+        <div className="bg-blue-950/40 border border-blue-800 rounded-lg px-4 py-2 text-xs text-blue-300 flex flex-wrap gap-3">
+          {categoria !== "Todos" && <span>Categoria: <strong>{categoria}</strong> · {clientesFiltrados.length} clientes WON</span>}
+          {(dateRange.from !== DATE_RANGE_DEFAULT.from || dateRange.to !== DATE_RANGE_DEFAULT.to) && (
+            <span>Período: <strong>{dateRange.from}</strong> → <strong>{dateRange.to}</strong></span>
+          )}
         </div>
       )}
 
