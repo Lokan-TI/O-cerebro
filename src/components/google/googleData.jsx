@@ -17,9 +17,9 @@ export const RESUMO = {
 };
 
 export const FUNIL = [
-  { bucket: "OPEN (só ATIVO)", clientes: 286, pct: 0.6471 },
-  { bucket: "LOST (só ENCERRADO)", clientes: 93, pct: 0.2104 },
-  { bucket: "WON (tem FECHADO)", clientes: 66, pct: 0.1493 },
+  { bucket: "OPEN (só ATIVO)", clientes: 298, pct: 0.6521 },
+  { bucket: "LOST (só ENCERRADO)", clientes: 93, pct: 0.2035 },
+  { bucket: "WON (tem FECHADO)", clientes: 66, pct: 0.1444 },
 ];
 
 export const DISTRIB_RECOMPRA = [
