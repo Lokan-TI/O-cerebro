@@ -41,12 +41,12 @@ export default function Dashboard() {
 
   return (
     <div className="min-h-screen bg-gray-950 text-white">
-      {/* Header */}
-      <div className="bg-black border-b border-red-700 px-6 py-4 flex items-center gap-4">
-        <div className="w-1 h-10 bg-red-600 rounded-full" />
+      {/* Sub-header com filtros */}
+      <div className="bg-black border-b border-gray-800 px-6 py-3 flex items-center gap-3">
+        <div className="w-1 h-8 bg-red-600 rounded-full" />
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-white">Dashboard de Leads Perdidos</h1>
-          <p className="text-gray-400 text-sm">Análise completa de oportunidades não convertidas</p>
+          <h2 className="text-lg font-bold text-white">Leads Perdidos</h2>
+          <p className="text-gray-500 text-xs">Análise completa de oportunidades não convertidas</p>
         </div>
         <div className="ml-auto flex items-center gap-3">
           <span className="text-gray-500 text-sm">{filtered.length} leads</span>
