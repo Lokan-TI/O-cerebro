@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { RESUMO, RETIDO_POR_MES, DISTRIB_RECOMPRA, RECOMPRAS } from "@/components/google/googleData.jsx";
+import { useState, useMemo } from "react";
+import { RESUMO, RETIDO_POR_MES, DISTRIB_RECOMPRA, RECOMPRAS, CLIENTES_WON, getCategoriaFromProduto } from "@/components/google/googleData.jsx";
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell,
   LineChart, Line, CartesianGrid, Legend,
@@ -50,20 +50,78 @@ function DistribTooltip({ active, payload, label }) {
   );
 }
 
-export default function TabGoogleRetencao() {
+export default function TabGoogleRetencao({ categoria = "Todos" }) {
   const [selectedMes, setSelectedMes] = useState(null);
   const [activeDistrib, setActiveDistrib] = useState(null);
 
-  const distribData = DISTRIB_RECOMPRA.map(d => ({
-    name: d.fechados_pos === 0 ? "0 recompras" : `${d.fechados_pos} recompra${d.fechados_pos > 1 ? "s" : ""}`,
-    clientes: d.clientes,
-    pct: (d.pct * 100).toFixed(1),
-    fechados_pos: d.fechados_pos,
-  }));
+  // Clientes WON filtrados por categoria
+  const clientesFiltrados = useMemo(() =>
+    categoria === "Todos"
+      ? CLIENTES_WON
+      : CLIENTES_WON.filter(c => getCategoriaFromProduto(c.produto) === categoria),
+    [categoria]
+  );
 
-  const mesDado = RETIDO_POR_MES.find(d => d.mes === selectedMes);
+  // Recompras filtradas por categoria (produto do cliente WON)
+  const clientesWonNomes = useMemo(() => new Set(clientesFiltrados.map(c => c.cliente)), [clientesFiltrados]);
+  const recomprasFiltradas = useMemo(() =>
+    categoria === "Todos" ? RECOMPRAS : RECOMPRAS.filter(r => clientesWonNomes.has(r.cliente)),
+    [categoria, clientesWonNomes]
+  );
+
+  // Receita retida por mês filtrada
+  const retidoPorMesFiltrado = useMemo(() => {
+    if (categoria === "Todos") return RETIDO_POR_MES;
+    const byMes = {};
+    recomprasFiltradas.forEach(r => {
+      const mes = r.data.substring(0, 7);
+      if (!byMes[mes]) byMes[mes] = { mes, receita_retida: 0, clientes: new Set(), vendas: 0 };
+      byMes[mes].receita_retida += r.valor;
+      byMes[mes].clientes.add(r.cliente);
+      byMes[mes].vendas += 1;
+    });
+    let acumulado = 0;
+    return Object.values(byMes)
+      .sort((a, b) => a.mes.localeCompare(b.mes))
+      .map(d => {
+        acumulado += d.receita_retida;
+        return { ...d, clientes: d.clientes.size, acumulado };
+      });
+  }, [categoria, recomprasFiltradas]);
+
+  // Distribuição de recompras filtrada
+  const distribData = useMemo(() => {
+    if (categoria === "Todos") {
+      return DISTRIB_RECOMPRA.map(d => ({
+        name: d.fechados_pos === 0 ? "0 recompras" : `${d.fechados_pos} recompra${d.fechados_pos > 1 ? "s" : ""}`,
+        clientes: d.clientes, pct: (d.pct * 100).toFixed(1), fechados_pos: d.fechados_pos,
+      }));
+    }
+    const counts = {};
+    clientesFiltrados.forEach(c => {
+      counts[c.fechados_pos] = (counts[c.fechados_pos] || 0) + 1;
+    });
+    const total = clientesFiltrados.length || 1;
+    return Object.entries(counts)
+      .sort((a, b) => Number(a[0]) - Number(b[0]))
+      .map(([fp, cnt]) => ({
+        name: Number(fp) === 0 ? "0 recompras" : `${fp} recompra${Number(fp) > 1 ? "s" : ""}`,
+        clientes: cnt,
+        pct: ((cnt / total) * 100).toFixed(1),
+        fechados_pos: Number(fp),
+      }));
+  }, [categoria, clientesFiltrados]);
+
+  // KPIs derivados
+  const totalRetido = recomprasFiltradas.reduce((s, r) => s + r.valor, 0);
+  const totalReceita = clientesFiltrados.reduce((s, c) => s + c.receita_total, 0);
+  const shareRetido = totalReceita > 0 ? totalRetido / totalReceita : 0;
+  const comRecompra = clientesFiltrados.filter(c => c.fechados_pos > 0).length;
+  const totalNegocios = clientesFiltrados.reduce((s, c) => s + c.fechados_total, 0);
+
+  const mesDado = retidoPorMesFiltrado.find(d => d.mes === selectedMes);
   const recomprasMes = selectedMes
-    ? RECOMPRAS.filter(r => r.data.startsWith(selectedMes))
+    ? recomprasFiltradas.filter(r => r.data.startsWith(selectedMes))
     : [];
 
   return (
