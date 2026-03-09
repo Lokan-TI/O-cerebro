@@ -126,32 +126,9 @@ export default function TabGoogleOverview({ dateRange = DATE_RANGE_DEFAULT }) {
   const mediaRoas = receitaMes.filter(d => d.roas_mes).reduce((s, d) => s + d.roas_mes, 0) /
     (receitaMes.filter(d => d.roas_mes).length || 1);
 
-  return (
-    <div className="space-y-6">
-      {/* Banner ROAS/CAC/Retenção */}
-      <KPICardsDraggable cards={[
-        { label: "Investimento", value: "R$ 200k", sub: "período Jan–Nov/25", accent: "border-blue-800" },
-        { label: "ROAS", value: `${ROAS.toFixed(2)}x`, sub: `R$ ${ROAS.toFixed(2)} gerados por R$ 1`, accent: "border-green-500" },
-        { label: "CAC", value: fmtR(CAC), sub: "custo por cliente convertido", accent: "border-purple-500" },
-        { label: "Taxa de Retenção", value: fmtPct(TAXA_RETENCAO), sub: `${RESUMO.clientes_recompra} de ${RESUMO.clientes_won} WON`, accent: "border-yellow-500" },
-      ]} />
-
-      {/* Radar de Desempenho */}
-      <RadarDesempenho />
-
-      {/* KPIs principais */}
-      <KPICardsDraggable cards={[
-        { label: "Cohort Google (leads)", value: fmt(RESUMO.cohort_total), sub: "first-touch via Google", accent: "border-blue-500" },
-        { label: "Conversão para FECHADO", value: fmtPct(RESUMO.taxa_conversao), sub: `${RESUMO.clientes_won} clientes convertidos`, accent: "border-green-500" },
-        { label: "Receita Total FECHADO", value: fmtR(RESUMO.receita_fechado_total), sub: "todos os fechamentos do cohort", accent: "border-blue-400" },
-        { label: "$$ Retido (pós 1º FECHADO)", value: fmtR(RESUMO.retido_pos_primeiro), sub: `${fmtPct(RESUMO.share_retido)} da receita total`, accent: "border-yellow-500" },
-      ]} />
-
-      {/* Tendência mensal — leads + conversão */}
-      <TendenciaMensal />
-
-      {/* Gráfico mensal interativo */}
-      <div className="bg-gray-900 rounded-xl border border-gray-800 p-5">
+  const graficoMensal = (
+    <div className="bg-gray-900 rounded-xl border border-gray-800 p-5">
+...
         <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-4 gap-2">
           <div>
             <h2 className="text-white font-semibold text-sm uppercase tracking-wider">
