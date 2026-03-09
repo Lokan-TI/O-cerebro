@@ -50,6 +50,17 @@ export default function GoogleDashboard() {
             <p className="text-gray-500 text-sm">Cohort de leads com origem Google · Jan–Nov 2025</p>
           </div>
 
+          {/* Botão importar + filtro */}
+          <div className="flex items-center gap-3 flex-wrap">
+            <button
+              onClick={() => setShowImport(true)}
+              className="flex items-center gap-2 px-3 py-1.5 bg-gray-800 hover:bg-gray-700 border border-gray-700 hover:border-gray-500 text-gray-300 hover:text-white rounded-lg text-xs font-medium transition-colors"
+              title="Importar dados"
+            >
+              <Settings className="w-3.5 h-3.5" />
+              Importar Dados
+            </button>
+
           {/* Filtro global de categoria */}
           {FILTERED_TABS.includes(activeTab) && (
             <div className="flex items-center gap-2 flex-wrap">
