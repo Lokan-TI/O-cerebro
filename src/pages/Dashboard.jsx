@@ -98,6 +98,7 @@ export default function Dashboard() {
         {activeTab === "temporal" && <TabTemporal data={filtered} />}
         {activeTab === "prazo" && <TabPrazo data={filtered} />}
         {activeTab === "leads" && <TabLeads data={filtered} />}
+        {activeTab === "canais" && <TabCanais />}
       </div>
     </div>
   );
