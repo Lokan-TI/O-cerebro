@@ -1,5 +1,6 @@
 import { useState, useMemo } from "react";
 import { RESUMO, RETIDO_POR_MES, DISTRIB_RECOMPRA, RECOMPRAS, CLIENTES_WON, getCategoriaFromProduto } from "@/components/google/googleData.jsx";
+import { isInRange, DATE_RANGE_DEFAULT } from "@/components/google/DateRangeFilter.jsx";
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell,
   LineChart, Line, CartesianGrid, Legend,
