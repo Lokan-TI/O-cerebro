@@ -30,6 +30,7 @@ export default function GoogleDashboard() {
   const [activeTab, setActiveTab] = useState("overview");
   const [categoria, setCategoria] = useState("Todos");
   const [showImport, setShowImport] = useState(false);
+  const [dateRange, setDateRange] = useState(DATE_RANGE_DEFAULT);
 
   useEffect(() => {
     const handler = () => setShowImport(true);
