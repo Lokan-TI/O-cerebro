@@ -6,7 +6,17 @@ function buildItems(sections) {
 }
 
 export default function SectionsDraggable({ sections }) {
-  const [items, setItems] = useState(() => buildItems(sections));
+  const storageKey = "sections_layout_" + sections.map(s => s.label).join("_").substring(0, 50);
+  
+  const [items, setItems] = useState(() => {
+    try {
+      const saved = localStorage.getItem(storageKey);
+      return saved ? JSON.parse(saved) : buildItems(sections);
+    } catch {
+      return buildItems(sections);
+    }
+  });
+  
   const [menuOpen, setMenuOpen] = useState(false);
   const [dragging, setDragging] = useState(null);
   const [dragOver, setDragOver] = useState(null);
@@ -27,7 +37,9 @@ export default function SectionsDraggable({ sections }) {
     const from = dragFrom.current;
     const to = dragOver;
     if (from !== null && to !== null && from !== to) {
-      setItems(prev => reorder(prev, from, to));
+      const newItems = reorder(items, from, to);
+      setItems(newItems);
+      localStorage.setItem(storageKey, JSON.stringify(newItems));
     }
     dragFrom.current = null;
     setDragging(null);
@@ -40,17 +52,25 @@ export default function SectionsDraggable({ sections }) {
     const from = menuDragFrom.current;
     const to = menuDragOver;
     if (from !== null && to !== null && from !== to) {
-      setItems(prev => reorder(prev, from, to));
+      const newItems = reorder(items, from, to);
+      setItems(newItems);
+      localStorage.setItem(storageKey, JSON.stringify(newItems));
     }
     menuDragFrom.current = null;
     setMenuDragOver(null);
   };
 
   const toggleVisible = (idx) => {
-    setItems(prev => prev.map((item, i) => i === idx ? { ...item, visible: !item.visible } : item));
+    const newItems = items.map((item, i) => i === idx ? { ...item, visible: !item.visible } : item);
+    setItems(newItems);
+    localStorage.setItem(storageKey, JSON.stringify(newItems));
   };
 
-  const reset = () => setItems(buildItems(sections));
+  const reset = () => {
+    const defaultItems = buildItems(sections);
+    setItems(defaultItems);
+    localStorage.setItem(storageKey, JSON.stringify(defaultItems));
+  };
 
   return (
     <div className="space-y-6">
