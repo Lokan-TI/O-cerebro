@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import TabGoogleOverview from "@/components/google/TabGoogleOverview.jsx";
 import TabGoogleFunil from "@/components/google/TabGoogleFunil.jsx";
 import TabGoogleRetencao from "@/components/google/TabGoogleRetencao.jsx";
@@ -6,7 +6,6 @@ import TabGoogleClientes from "@/components/google/TabGoogleClientes.jsx";
 import TabProjecaoReceita from "@/components/google/TabProjecaoReceita.jsx";
 import ImportModal from "@/components/google/ImportModal.jsx";
 import { CATEGORIAS } from "@/components/google/googleData.jsx";
-import { useEffect } from "react";
 
 const TABS = [
   { id: "overview",  label: "Visão Geral" },
