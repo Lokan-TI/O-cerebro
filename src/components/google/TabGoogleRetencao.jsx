@@ -272,7 +272,7 @@ export default function TabGoogleRetencao({ categoria = "Todos" }) {
         <h2 className="text-white font-semibold mb-1 text-sm uppercase tracking-wider">Receita Retida Acumulada ao Longo do Tempo</h2>
         <p className="text-gray-600 text-xs mb-4">Passe o mouse sobre os pontos para ver valores</p>
         <ResponsiveContainer width="100%" height={220}>
-          <LineChart data={RETIDO_POR_MES}>
+          <LineChart data={retidoPorMesFiltrado}>
             <CartesianGrid strokeDasharray="3 3" stroke="#1f2937" />
             <XAxis dataKey="mes" tick={{ fill: "#6b7280", fontSize: 11 }} axisLine={false} tickLine={false} />
             <YAxis tick={{ fill: "#6b7280", fontSize: 11 }} axisLine={false} tickLine={false} tickFormatter={v => `R$${(v/1000).toFixed(0)}k`} />
