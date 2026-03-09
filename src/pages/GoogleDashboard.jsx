@@ -16,15 +16,12 @@ export default function GoogleDashboard() {
 
   return (
     <div className="min-h-screen bg-gray-950 text-white">
-      {/* Header */}
-      <div className="bg-black border-b border-blue-700 px-6 py-4 flex items-center gap-4">
-        <div className="w-1 h-10 bg-blue-500 rounded-full" />
+      {/* Sub-header */}
+      <div className="bg-black border-b border-gray-800 px-6 py-3 flex items-center gap-3">
+        <div className="w-1 h-8 bg-blue-500 rounded-full" />
         <div>
-          <div className="flex items-center gap-2">
-            <span className="bg-blue-500 text-white text-xs font-bold px-2 py-0.5 rounded">GOOGLE ADS</span>
-            <h1 className="text-2xl font-bold tracking-tight text-white">First-Touch · Retenção de Receita</h1>
-          </div>
-          <p className="text-gray-400 text-sm mt-0.5">Cohort de leads originados pelo Google — conversão, recompra e receita retida</p>
+          <h2 className="text-lg font-bold text-white">Google · First-Touch — Retenção de Receita</h2>
+          <p className="text-gray-500 text-xs">Cohort de leads originados pelo Google — conversão, recompra e receita retida</p>
         </div>
       </div>
 
