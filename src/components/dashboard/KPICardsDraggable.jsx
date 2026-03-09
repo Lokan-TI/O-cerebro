@@ -1,5 +1,6 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Settings, GripVertical, Eye, EyeOff, X } from "lucide-react";
+import { base44 } from "@/api/base44Client";
 
 function KPI({ label, value, sub, accent }) {
   return (
@@ -11,14 +12,40 @@ function KPI({ label, value, sub, accent }) {
   );
 }
 
-// Estado por card: { id, visible }
 function buildItems(cards) {
   return cards.map((_, i) => ({ id: i, visible: true }));
 }
 
-export default function KPICardsDraggable({ cards }) {
-  // items é o array de { id, visible } na ordem atual
+export default function KPICardsDraggable({ cards, storageId = "kpi_layout" }) {
   const [items, setItems] = useState(() => buildItems(cards));
+  const [isSynced, setIsSynced] = useState(false);
+
+  // Carregar layout salvo do usuário
+  useEffect(() => {
+    const loadLayout = async () => {
+      try {
+        const user = await base44.auth.me();
+        const key = `${storageId}_layout`;
+        if (user?.[key]) {
+          setItems(user[key]);
+        }
+        setIsSynced(true);
+      } catch {
+        setIsSynced(true);
+      }
+    };
+    loadLayout();
+  }, [storageId]);
+
+  // Salvar layout
+  const saveLayout = async (newItems) => {
+    try {
+      const key = `${storageId}_layout`;
+      await base44.auth.updateMe({ [key]: newItems });
+    } catch {
+      // Silencioso
+    }
+  };
   const [menuOpen, setMenuOpen] = useState(false);
 
   // Drag refs
@@ -40,7 +67,9 @@ export default function KPICardsDraggable({ cards }) {
     const from = dragFrom.current;
     const to = dragOver;
     if (from !== null && to !== null && from !== to) {
-      setItems(prev => reorder(prev, from, to));
+      const newItems = reorder(items, from, to);
+      setItems(newItems);
+      saveLayout(newItems);
     }
     dragFrom.current = null;
     setDragging(null);
@@ -57,17 +86,25 @@ export default function KPICardsDraggable({ cards }) {
     const from = menuDragFrom.current;
     const to = menuDragOver;
     if (from !== null && to !== null && from !== to) {
-      setItems(prev => reorder(prev, from, to));
+      const newItems = reorder(items, from, to);
+      setItems(newItems);
+      saveLayout(newItems);
     }
     menuDragFrom.current = null;
     setMenuDragOver(null);
   };
 
   const toggleVisible = (idx) => {
-    setItems(prev => prev.map((item, i) => i === idx ? { ...item, visible: !item.visible } : item));
+    const newItems = items.map((item, i) => i === idx ? { ...item, visible: !item.visible } : item);
+    setItems(newItems);
+    saveLayout(newItems);
   };
 
-  const reset = () => setItems(buildItems(cards));
+  const reset = () => {
+    const defaultItems = buildItems(cards);
+    setItems(defaultItems);
+    saveLayout(defaultItems);
+  };
 
   return (
     <div className="relative">

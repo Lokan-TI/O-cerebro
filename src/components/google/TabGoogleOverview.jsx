@@ -96,7 +96,7 @@ function CustomPieTooltip({ active, payload }) {
 
 function SecaoBanner() {
   return (
-    <KPICardsDraggable cards={[
+    <KPICardsDraggable storageId="kpi_banner" cards={[
       { label: "Investimento", value: "R$ 200k", sub: "período Jan–Nov/25", accent: "border-blue-800" },
       { label: "ROAS", value: ROAS.toFixed(2) + "x", sub: "R$ " + ROAS.toFixed(2) + " gerados por R$ 1", accent: "border-green-500" },
       { label: "CAC", value: fmtR(CAC), sub: "custo por cliente convertido", accent: "border-purple-500" },
@@ -107,7 +107,7 @@ function SecaoBanner() {
 
 function SecaoKPIsPrincipais() {
   return (
-    <KPICardsDraggable cards={[
+    <KPICardsDraggable storageId="kpi_principais" cards={[
       { label: "Cohort Google (leads)", value: fmt(RESUMO.cohort_total), sub: "first-touch via Google", accent: "border-blue-500" },
       { label: "Conversão para FECHADO", value: fmtPct(RESUMO.taxa_conversao), sub: RESUMO.clientes_won + " clientes convertidos", accent: "border-green-500" },
       { label: "Receita Total FECHADO", value: fmtR(RESUMO.receita_fechado_total), sub: "todos os fechamentos do cohort", accent: "border-blue-400" },
@@ -118,7 +118,7 @@ function SecaoKPIsPrincipais() {
 
 function SecaoKPIsSecundarios() {
   return (
-    <KPICardsDraggable cards={[
+    <KPICardsDraggable storageId="kpi_secundarios" cards={[
       { label: "Clientes com Recompra", value: RESUMO.clientes_recompra, sub: "fizeram ≥1 FECHADO futuro", accent: "border-purple-500" },
       { label: "Taxa de Recompra (WON)", value: fmtPct(RESUMO.taxa_recompra_entre_won), sub: "entre quem já converteu", accent: "border-purple-400" },
       { label: "Total de Negócios FECHADOS", value: RESUMO.total_negocios_fechado, sub: "contagem de vendas", accent: "border-gray-500" },
