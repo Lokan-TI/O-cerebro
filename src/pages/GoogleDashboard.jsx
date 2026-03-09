@@ -61,25 +61,25 @@ export default function GoogleDashboard() {
               Importar Dados
             </button>
 
-          {/* Filtro global de categoria */}
-          {FILTERED_TABS.includes(activeTab) && (
-            <div className="flex items-center gap-2 flex-wrap">
-              <span className="text-gray-500 text-xs uppercase tracking-wider">Categoria:</span>
-              {CATEGORIAS.map(cat => (
-                <button
-                  key={cat}
-                  onClick={() => setCategoria(cat)}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
-                    categoria === cat
-                      ? CATEGORIA_COLORS[cat]
-                      : "bg-gray-800 text-gray-400 hover:text-white hover:bg-gray-700"
-                  }`}
-                >
-                  {cat}
-                </button>
-              ))}
-            </div>
-          )}
+            {/* Filtro global de categoria */}
+            {FILTERED_TABS.includes(activeTab) && (
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-gray-500 text-xs uppercase tracking-wider">Categoria:</span>
+                {CATEGORIAS.map(cat => (
+                  <button
+                    key={cat}
+                    onClick={() => setCategoria(cat)}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
+                      categoria === cat
+                        ? CATEGORIA_COLORS[cat]
+                        : "bg-gray-800 text-gray-400 hover:text-white hover:bg-gray-700"
+                    }`}
+                  >
+                    {cat}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
         </div>
 
