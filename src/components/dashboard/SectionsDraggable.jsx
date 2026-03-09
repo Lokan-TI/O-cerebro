@@ -66,7 +66,6 @@ export default function SectionsDraggable({ sections }) {
     if (from !== null && to !== null && from !== to) {
       const newItems = reorder(items, from, to);
       setItems(newItems);
-      saveLayout(newItems);
     }
     dragFrom.current = null;
     setDragging(null);
@@ -81,7 +80,6 @@ export default function SectionsDraggable({ sections }) {
     if (from !== null && to !== null && from !== to) {
       const newItems = reorder(items, from, to);
       setItems(newItems);
-      saveLayout(newItems);
     }
     menuDragFrom.current = null;
     setMenuDragOver(null);
@@ -90,13 +88,10 @@ export default function SectionsDraggable({ sections }) {
   const toggleVisible = (idx) => {
     const newItems = items.map((item, i) => i === idx ? { ...item, visible: !item.visible } : item);
     setItems(newItems);
-    saveLayout(newItems);
   };
 
   const reset = () => {
-    const defaultItems = buildItems(sections);
-    setItems(defaultItems);
-    saveLayout(defaultItems);
+    setItems(buildItems(sections));
   };
 
   return (
