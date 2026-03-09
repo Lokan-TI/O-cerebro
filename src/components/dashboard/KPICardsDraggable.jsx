@@ -11,89 +11,63 @@ function KPI({ label, value, sub, accent }) {
   );
 }
 
+// Estado por card: { id, visible }
+function buildItems(cards) {
+  return cards.map((_, i) => ({ id: i, visible: true }));
+}
+
 export default function KPICardsDraggable({ cards }) {
-  const [order, setOrder] = useState(cards.map((_, i) => i));
-  const [visible, setVisible] = useState(cards.map(() => true));
+  // items é o array de { id, visible } na ordem atual
+  const [items, setItems] = useState(() => buildItems(cards));
   const [menuOpen, setMenuOpen] = useState(false);
+
+  // Drag refs
+  const dragFrom = useRef(null);
   const [dragging, setDragging] = useState(null);
   const [dragOver, setDragOver] = useState(null);
-  const dragItem = useRef(null);
-  const dragOverItem = useRef(null);
 
-  // Drag & drop handlers (grid)
-  const handleDragStart = (e, idx) => {
-    dragItem.current = idx;
-    setDragging(idx);
-  };
+  function reorder(arr, from, to) {
+    const next = [...arr];
+    const [removed] = next.splice(from, 1);
+    next.splice(to, 0, removed);
+    return next;
+  }
 
-  const handleDragEnter = (e, idx) => {
-    dragOverItem.current = idx;
-    setDragOver(idx);
-  };
-
-  const handleDragEnd = () => {
-    const from = dragItem.current;
-    const to = dragOverItem.current;
-    if (from === null || to === null || from === to) {
-      setDragging(null);
-      setDragOver(null);
-      return;
+  // Grid drag handlers
+  const onDragStart = (idx) => { dragFrom.current = idx; setDragging(idx); };
+  const onDragEnter = (idx) => setDragOver(idx);
+  const onDragEnd = () => {
+    const from = dragFrom.current;
+    const to = dragOver;
+    if (from !== null && to !== null && from !== to) {
+      setItems(prev => reorder(prev, from, to));
     }
-    const newOrder = [...order];
-    const [removed] = newOrder.splice(from, 1);
-    newOrder.splice(to, 0, removed);
-    setOrder(newOrder);
-    const newVisible = [...visible];
-    const [removedV] = newVisible.splice(from, 1);
-    newVisible.splice(to, 0, removedV);
-    setVisible(newVisible);
-    dragItem.current = null;
-    dragOverItem.current = null;
+    dragFrom.current = null;
     setDragging(null);
     setDragOver(null);
   };
 
-  // Menu drag & drop handlers
-  const menuDragItem = useRef(null);
-  const menuDragOver = useRef(null);
-  const [menuDragging, setMenuDragging] = useState(null);
+  // Menu drag handlers
+  const menuDragFrom = useRef(null);
+  const [menuDragOver, setMenuDragOver] = useState(null);
 
-  const handleMenuDragStart = (idx) => {
-    menuDragItem.current = idx;
-    setMenuDragging(idx);
-  };
-
-  const handleMenuDragEnter = (idx) => {
-    menuDragOver.current = idx;
-  };
-
-  const handleMenuDragEnd = () => {
-    const from = menuDragItem.current;
-    const to = menuDragOver.current;
-    if (from === null || to === null || from === to) {
-      setMenuDragging(null);
-      return;
+  const onMenuDragStart = (idx) => { menuDragFrom.current = idx; };
+  const onMenuDragEnter = (idx) => setMenuDragOver(idx);
+  const onMenuDragEnd = () => {
+    const from = menuDragFrom.current;
+    const to = menuDragOver;
+    if (from !== null && to !== null && from !== to) {
+      setItems(prev => reorder(prev, from, to));
     }
-    const newOrder = [...order];
-    const [removed] = newOrder.splice(from, 1);
-    newOrder.splice(to, 0, removed);
-    setOrder(newOrder);
-    const newVisible = [...visible];
-    const [removedV] = newVisible.splice(from, 1);
-    newVisible.splice(to, 0, removedV);
-    setVisible(newVisible);
-    menuDragItem.current = null;
-    menuDragOver.current = null;
-    setMenuDragging(null);
+    menuDragFrom.current = null;
+    setMenuDragOver(null);
   };
 
   const toggleVisible = (idx) => {
-    const newVisible = [...visible];
-    newVisible[idx] = !newVisible[idx];
-    setVisible(newVisible);
+    setItems(prev => prev.map((item, i) => i === idx ? { ...item, visible: !item.visible } : item));
   };
 
-  const visibleCards = order.filter((_, i) => visible[i]);
+  const reset = () => setItems(buildItems(cards));
 
   return (
     <div className="relative">
@@ -119,33 +93,35 @@ export default function KPICardsDraggable({ cards }) {
           </div>
           <p className="text-gray-500 text-xs mb-3">Arraste para reordenar · clique no olho para ocultar</p>
           <div className="space-y-1.5">
-            {order.map((cardIdx, listIdx) => (
+            {items.map((item, listIdx) => (
               <div
-                key={cardIdx}
+                key={item.id}
                 draggable
-                onDragStart={() => handleMenuDragStart(listIdx)}
-                onDragEnter={() => handleMenuDragEnter(listIdx)}
-                onDragEnd={handleMenuDragEnd}
+                onDragStart={() => onMenuDragStart(listIdx)}
+                onDragEnter={() => onMenuDragEnter(listIdx)}
+                onDragEnd={onMenuDragEnd}
                 onDragOver={(e) => e.preventDefault()}
                 className={`flex items-center gap-2 bg-gray-800 rounded-lg px-3 py-2 cursor-grab transition-opacity ${
-                  menuDragging === listIdx ? "opacity-40" : ""
+                  menuDragOver === listIdx && menuDragFrom.current !== listIdx ? "ring-2 ring-blue-500" : ""
                 }`}
               >
                 <GripVertical className="w-3.5 h-3.5 text-gray-600 shrink-0" />
-                <span className={`flex-1 text-xs ${visible[listIdx] ? "text-gray-200" : "text-gray-500 line-through"}`}>
-                  {cards[cardIdx].label}
+                <span className={`flex-1 text-xs ${item.visible ? "text-gray-200" : "text-gray-500 line-through"}`}>
+                  {cards[item.id].label}
                 </span>
                 <button
                   onClick={() => toggleVisible(listIdx)}
                   className="text-gray-500 hover:text-white transition-colors"
                 >
-                  {visible[listIdx] ? <Eye className="w-3.5 h-3.5 text-blue-400" /> : <EyeOff className="w-3.5 h-3.5" />}
+                  {item.visible
+                    ? <Eye className="w-3.5 h-3.5 text-blue-400" />
+                    : <EyeOff className="w-3.5 h-3.5" />}
                 </button>
               </div>
             ))}
           </div>
           <button
-            onClick={() => { setOrder(cards.map((_, i) => i)); setVisible(cards.map(() => true)); }}
+            onClick={reset}
             className="mt-3 w-full text-xs text-gray-500 hover:text-gray-300 underline text-center"
           >
             Resetar para padrão
@@ -155,16 +131,16 @@ export default function KPICardsDraggable({ cards }) {
 
       {/* Cards grid */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-        {order.map((cardIdx, idx) => {
-          if (!visible[idx]) return null;
-          const card = cards[cardIdx];
+        {items.map((item, idx) => {
+          if (!item.visible) return null;
+          const card = cards[item.id];
           return (
             <div
-              key={cardIdx}
+              key={item.id}
               draggable
-              onDragStart={(e) => handleDragStart(e, idx)}
-              onDragEnter={(e) => handleDragEnter(e, idx)}
-              onDragEnd={handleDragEnd}
+              onDragStart={() => onDragStart(idx)}
+              onDragEnter={() => onDragEnter(idx)}
+              onDragEnd={onDragEnd}
               onDragOver={(e) => e.preventDefault()}
               className={`cursor-grab transition-all duration-150 ${
                 dragging === idx ? "opacity-40 scale-95" : ""
