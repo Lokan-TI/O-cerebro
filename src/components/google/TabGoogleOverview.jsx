@@ -1,5 +1,8 @@
-import { RESUMO, FUNIL } from "@/components/google/googleData.jsx";
-import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, Legend } from "recharts";
+import { RESUMO, FUNIL, RETIDO_POR_MES, CLIENTES_WON } from "@/components/google/googleData.jsx";
+import {
+  PieChart, Pie, Cell, Tooltip, ResponsiveContainer, Legend,
+  ComposedChart, Bar, Line, XAxis, YAxis, CartesianGrid,
+} from "recharts";
 
 const fmt = (v) => v?.toLocaleString("pt-BR", { minimumFractionDigits: 0, maximumFractionDigits: 0 });
 const fmtR = (v) => "R$ " + (v || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
