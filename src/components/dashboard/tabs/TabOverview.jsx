@@ -1,17 +1,8 @@
 import { useMemo } from "react";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell, PieChart, Pie, Legend } from "recharts";
+import KPICardsDraggable from "@/components/dashboard/KPICardsDraggable.jsx";
 
 const RED = ["#dc2626","#b91c1c","#991b1b","#7f1d1d","#ef4444","#f87171","#fca5a5","#6b7280","#374151"];
-
-function KPI({ label, value, sub, accent }) {
-  return (
-    <div className={`bg-gray-900 border-l-4 ${accent || "border-red-600"} rounded-lg p-4`}>
-      <p className="text-gray-400 text-xs uppercase tracking-wider mb-1">{label}</p>
-      <p className="text-3xl font-bold text-white">{value}</p>
-      {sub && <p className="text-gray-500 text-xs mt-1">{sub}</p>}
-    </div>
-  );
-}
 
 export default function TabOverview({ data }) {
   const total = data.length;
