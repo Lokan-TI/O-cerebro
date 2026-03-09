@@ -72,7 +72,7 @@ export default function Layout({ children, currentPageName }) {
               to={createPageUrl(m.page)}
               className={`flex items-center gap-2 px-4 py-3 text-sm font-medium whitespace-nowrap border-b-2 transition-colors ${
                 active
-                  ? `border-${m.color === "red" ? "red-600" : "blue-500"} text-white`
+                  ? `border-${m.color === "green" ? "green-500" : "blue-500"} text-white`
                   : "border-transparent text-gray-500 hover:text-gray-300 hover:border-gray-600"
               }`}
             >
