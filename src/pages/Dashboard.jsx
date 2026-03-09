@@ -1,10 +1,10 @@
 import { useState, useMemo } from "react";
-import KPICards from "../components/dashboard/KPICards";
-import LeadsByVendedor from "../components/dashboard/LeadsByVendedor";
-import LeadsByProduto from "../components/dashboard/LeadsByProduto";
-import LeadsByMonth from "../components/dashboard/LeadsByMonth";
-import LeadsTable from "../components/dashboard/LeadsTable";
-import { RAW_LEADS } from "../components/dashboard/leadsData";
+import KPICards from "@/components/dashboard/KPICards";
+import LeadsByVendedor from "@/components/dashboard/LeadsByVendedor";
+import LeadsByProduto from "@/components/dashboard/LeadsByProduto";
+import LeadsByMonth from "@/components/dashboard/LeadsByMonth";
+import LeadsTable from "@/components/dashboard/LeadsTable";
+import { RAW_LEADS } from "@/components/dashboard/leadsData";
 
 export default function Dashboard() {
   const [selectedVendedor, setSelectedVendedor] = useState("Todos");
