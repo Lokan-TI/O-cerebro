@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { RESUMO, FUNIL, RETIDO_POR_MES, RECOMPRAS } from "@/components/google/googleData.jsx";
+import { isInRange, DATE_RANGE_DEFAULT } from "@/components/google/DateRangeFilter.jsx";
 import RadarDesempenho from "@/components/google/RadarDesempenho.jsx";
 import TendenciaMensal from "@/components/google/TendenciaMensal.jsx";
 import {
