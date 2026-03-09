@@ -101,6 +101,7 @@ export default function Dashboard() {
         {activeTab === "prazo" && <TabPrazo data={filtered} />}
         {activeTab === "leads" && <TabLeads data={filtered} />}
         {activeTab === "canais" && <TabCanais />}
+        {activeTab === "comparativo" && <TabComparativo data={filtered} />}
       </div>
     </div>
   );
