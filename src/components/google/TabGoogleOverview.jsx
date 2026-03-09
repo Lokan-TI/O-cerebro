@@ -217,12 +217,12 @@ export default function TabGoogleOverview({ dateRange = DATE_RANGE_DEFAULT }) {
             <Tooltip content={<CustomBarTooltip />} cursor={{ fill: "rgba(59,130,246,0.08)" }} />
             <ReferenceLine yAxisId="right" y={mediaRoas} stroke="#fbbf2480" strokeDasharray="4 3" strokeWidth={1.5} />
             <Bar yAxisId="left" dataKey="receita_novos" name="1º Fechamento" stackId="a" radius={[0,0,0,0]} cursor="pointer">
-              {RECEITA_MES_RAW.map((d) => (
+              {receitaMes.map((d) => (
                 <Cell key={d.mes} fill={d.mes === selectedMes ? "#60a5fa" : "#3b82f6"} opacity={selectedMes && d.mes !== selectedMes ? 0.4 : 1} />
               ))}
             </Bar>
             <Bar yAxisId="left" dataKey="recompra" name="Recompra" stackId="a" radius={[4,4,0,0]} cursor="pointer">
-              {RECEITA_MES_RAW.map((d) => (
+              {receitaMes.map((d) => (
                 <Cell key={d.mes} fill={d.mes === selectedMes ? "#c084fc" : "#a855f7"} opacity={selectedMes && d.mes !== selectedMes ? 0.4 : 1} />
               ))}
             </Bar>
