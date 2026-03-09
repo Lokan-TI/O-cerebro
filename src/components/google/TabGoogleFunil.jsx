@@ -1,4 +1,4 @@
-import { FUNIL, RESUMO } from "@/components/dashboard/googleData.js";
+import { FUNIL, RESUMO } from "@/components/google/googleData.js";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from "recharts";
 
 const fmtPct = (v) => (v * 100).toFixed(1) + "%";
