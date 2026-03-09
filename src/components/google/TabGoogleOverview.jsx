@@ -128,28 +128,12 @@ export default function TabGoogleOverview({ dateRange = DATE_RANGE_DEFAULT }) {
   return (
     <div className="space-y-6">
       {/* Banner ROAS/CAC/Retenção */}
-      <div className="bg-gradient-to-r from-blue-950/50 to-gray-900 border border-blue-800 rounded-xl p-4 grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="text-center">
-          <p className="text-gray-400 text-xs uppercase tracking-wider mb-1">Investimento</p>
-          <p className="text-white font-bold text-2xl">R$ 200k</p>
-          <p className="text-gray-600 text-xs">período Jan–Nov/25</p>
-        </div>
-        <div className="text-center border-l border-gray-700">
-          <p className="text-green-400 text-xs uppercase tracking-wider mb-1 font-semibold">ROAS</p>
-          <p className="text-green-400 font-bold text-3xl">{ROAS.toFixed(2)}x</p>
-          <p className="text-gray-600 text-xs">R$ {ROAS.toFixed(2)} gerados por R$ 1</p>
-        </div>
-        <div className="text-center border-l border-gray-700">
-          <p className="text-purple-400 text-xs uppercase tracking-wider mb-1 font-semibold">CAC</p>
-          <p className="text-purple-400 font-bold text-3xl">{fmtR(CAC)}</p>
-          <p className="text-gray-600 text-xs">custo por cliente convertido</p>
-        </div>
-        <div className="text-center border-l border-gray-700">
-          <p className="text-yellow-400 text-xs uppercase tracking-wider mb-1 font-semibold">Taxa de Retenção</p>
-          <p className="text-yellow-400 font-bold text-3xl">{fmtPct(TAXA_RETENCAO)}</p>
-          <p className="text-gray-600 text-xs">{RESUMO.clientes_recompra} de {RESUMO.clientes_won} WON</p>
-        </div>
-      </div>
+      <KPICardsDraggable cards={[
+        { label: "Investimento", value: "R$ 200k", sub: "período Jan–Nov/25", accent: "border-blue-800" },
+        { label: "ROAS", value: `${ROAS.toFixed(2)}x`, sub: `R$ ${ROAS.toFixed(2)} gerados por R$ 1`, accent: "border-green-500" },
+        { label: "CAC", value: fmtR(CAC), sub: "custo por cliente convertido", accent: "border-purple-500" },
+        { label: "Taxa de Retenção", value: fmtPct(TAXA_RETENCAO), sub: `${RESUMO.clientes_recompra} de ${RESUMO.clientes_won} WON`, accent: "border-yellow-500" },
+      ]} />
 
       {/* Radar de Desempenho */}
       <RadarDesempenho />
