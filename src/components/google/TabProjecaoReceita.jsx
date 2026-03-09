@@ -70,11 +70,30 @@ function CustomTooltip({ active, payload, label }) {
   );
 }
 
-export default function TabProjecaoReceita() {
+export default function TabProjecaoReceita({ categoria = "Todos" }) {
   const [leadsInput, setLeadsInput] = useState(50);
   const [horizonte, setHorizonte] = useState(12);
 
-  const projecao = useMemo(() => gerarProjecao(leadsInput, horizonte), [leadsInput, horizonte]);
+  const clientesFiltrados = useMemo(() =>
+    categoria === "Todos"
+      ? CLIENTES_WON
+      : CLIENTES_WON.filter(c => getCategoriaFromProduto(c.produto) === categoria),
+    [categoria]
+  );
+
+  const metricas = useMemo(() => calcMetricas(clientesFiltrados), [clientesFiltrados]);
+
+  // Taxa de conversão: usa a global se "Todos", senão proporção do filtro sobre o cohort total
+  const taxaConv = categoria === "Todos"
+    ? RESUMO.taxa_conversao
+    : clientesFiltrados.length / RESUMO.cohort_total;
+
+  const { ticketFt: TICKET_MEDIO_FT, taxaRecompra: TAXA_RECOMPRA, ticketRecompra: TICKET_RECOMPRA } = metricas;
+
+  const projecao = useMemo(
+    () => gerarProjecao(leadsInput, horizonte, taxaConv, TICKET_MEDIO_FT, TAXA_RECOMPRA, TICKET_RECOMPRA),
+    [leadsInput, horizonte, taxaConv, TICKET_MEDIO_FT, TAXA_RECOMPRA, TICKET_RECOMPRA]
+  );
 
   const totalConvertidos = projecao.reduce((s, r) => s + r.convertidos, 0);
   const totalFt = projecao.reduce((s, r) => s + r.receita_ft, 0);
