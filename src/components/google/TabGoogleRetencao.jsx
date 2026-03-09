@@ -90,6 +90,7 @@ export default function TabGoogleRetencao({ categoria = "Todos", dateRange = DAT
         .sort((a, b) => a.mes.localeCompare(b.mes))
         .map(d => { acumulado += d.receita_retida; return { ...d, clientes: d.clientes.size, acumulado }; });
     }
+    // categoria específica + data
     const byMes = {};
     recomprasFiltradas.forEach(r => {
       const mes = r.data.substring(0, 7);
