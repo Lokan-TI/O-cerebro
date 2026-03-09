@@ -94,14 +94,13 @@ function CustomPieTooltip({ active, payload }) {
   );
 }
 
-// Subcomponentes de seção
 function SecaoBanner() {
   return (
     <KPICardsDraggable cards={[
       { label: "Investimento", value: "R$ 200k", sub: "período Jan–Nov/25", accent: "border-blue-800" },
-      { label: "ROAS", value: `${ROAS.toFixed(2)}x`, sub: `R$ ${ROAS.toFixed(2)} gerados por R$ 1`, accent: "border-green-500" },
+      { label: "ROAS", value: ROAS.toFixed(2) + "x", sub: "R$ " + ROAS.toFixed(2) + " gerados por R$ 1", accent: "border-green-500" },
       { label: "CAC", value: fmtR(CAC), sub: "custo por cliente convertido", accent: "border-purple-500" },
-      { label: "Taxa de Retenção", value: fmtPct(TAXA_RETENCAO), sub: `${RESUMO.clientes_recompra} de ${RESUMO.clientes_won} WON`, accent: "border-yellow-500" },
+      { label: "Taxa de Retenção", value: fmtPct(TAXA_RETENCAO), sub: RESUMO.clientes_recompra + " de " + RESUMO.clientes_won + " WON", accent: "border-yellow-500" },
     ]} />
   );
 }
@@ -110,9 +109,9 @@ function SecaoKPIsPrincipais() {
   return (
     <KPICardsDraggable cards={[
       { label: "Cohort Google (leads)", value: fmt(RESUMO.cohort_total), sub: "first-touch via Google", accent: "border-blue-500" },
-      { label: "Conversão para FECHADO", value: fmtPct(RESUMO.taxa_conversao), sub: `${RESUMO.clientes_won} clientes convertidos`, accent: "border-green-500" },
+      { label: "Conversão para FECHADO", value: fmtPct(RESUMO.taxa_conversao), sub: RESUMO.clientes_won + " clientes convertidos", accent: "border-green-500" },
       { label: "Receita Total FECHADO", value: fmtR(RESUMO.receita_fechado_total), sub: "todos os fechamentos do cohort", accent: "border-blue-400" },
-      { label: "$$ Retido (pós 1º FECHADO)", value: fmtR(RESUMO.retido_pos_primeiro), sub: `${fmtPct(RESUMO.share_retido)} da receita total`, accent: "border-yellow-500" },
+      { label: "$$ Retido (pós 1º FECHADO)", value: fmtR(RESUMO.retido_pos_primeiro), sub: fmtPct(RESUMO.share_retido) + " da receita total", accent: "border-yellow-500" },
     ]} />
   );
 }
@@ -141,7 +140,10 @@ function SecaoGraficoMensal({ dateRange }) {
 
   const mesSelecionado = receitaMes.find(d => d.mes === selectedMes);
   const recomprasMes = selectedMes
-    ? RECOMPRAS.filter(r => { const ym = MES_TO_YM[selectedMes]; return ym && r.data.startsWith(ym); })
+    ? RECOMPRAS.filter(r => {
+        const ym = MES_TO_YM[selectedMes];
+        return ym && r.data.startsWith(ym);
+      })
     : [];
   const mediaRoas = receitaMes.filter(d => d.roas_mes).reduce((s, d) => s + d.roas_mes, 0) /
     (receitaMes.filter(d => d.roas_mes).length || 1);
@@ -282,16 +284,16 @@ function SecaoPieCohort() {
         <h2 className="text-white font-semibold text-sm uppercase tracking-wider">Resumo Analítico — Google Cohort</h2>
         {[
           { label: "Leads totais (Google)", value: fmt(RESUMO.cohort_total), color: "text-blue-400" },
-          { label: "Converteram para FECHADO", value: `${RESUMO.clientes_won} (${fmtPct(RESUMO.taxa_conversao)})`, color: "text-green-400" },
-          { label: "Perdidos (só ENCERRADO)", value: `93 (21.0%)`, color: "text-red-400" },
-          { label: "Em aberto (OPEN)", value: `286 (64.7%)`, color: "text-gray-400" },
+          { label: "Converteram para FECHADO", value: RESUMO.clientes_won + " (" + fmtPct(RESUMO.taxa_conversao) + ")", color: "text-green-400" },
+          { label: "Perdidos (só ENCERRADO)", value: "93 (21.0%)", color: "text-red-400" },
+          { label: "Em aberto (OPEN)", value: "286 (64.7%)", color: "text-gray-400" },
           { label: "Receita 1º FECHADO", value: fmtR(RESUMO.receita_fechado_total - RESUMO.retido_pos_primeiro), color: "text-blue-300" },
           { label: "$$ Retido após 1º FECHADO", value: fmtR(RESUMO.retido_pos_primeiro), color: "text-yellow-400" },
           { label: "Share de retenção", value: fmtPct(RESUMO.share_retido), color: "text-yellow-300" },
         ].map((item) => (
           <div key={item.label} className="flex justify-between items-center border-b border-gray-800 pb-2">
             <span className="text-gray-400 text-sm">{item.label}</span>
-            <span className={`font-semibold text-sm ${item.color}`}>{item.value}</span>
+            <span className={"font-semibold text-sm " + item.color}>{item.value}</span>
           </div>
         ))}
       </div>
