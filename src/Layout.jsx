@@ -65,6 +65,7 @@ export default function Layout({ children, currentPageName }) {
 
         {/* Menu items */}
         {MENUS.map((m) => {
+
           const active = currentPageName === m.page;
           const mc = COLOR_MAP[m.color];
           return (
