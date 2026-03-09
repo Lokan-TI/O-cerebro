@@ -1,21 +1,15 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Settings, GripVertical, Eye, EyeOff, X } from "lucide-react";
+import { base44 } from "@/api/base44Client";
 
 function buildItems(sections) {
   return sections.map((_, i) => ({ id: i, visible: true }));
 }
 
 export default function SectionsDraggable({ sections }) {
-  const storageKey = "sections_layout_" + sections.map(s => s.label).join("_").substring(0, 50);
-  
-  const [items, setItems] = useState(() => {
-    try {
-      const saved = localStorage.getItem(storageKey);
-      return saved ? JSON.parse(saved) : buildItems(sections);
-    } catch {
-      return buildItems(sections);
-    }
-  });
+  const storageKey = "sections_layout_google";
+  const [items, setItems] = useState(() => buildItems(sections));
+  const [isSynced, setIsSynced] = useState(false);
   
   const [menuOpen, setMenuOpen] = useState(false);
   const [dragging, setDragging] = useState(null);
@@ -23,6 +17,37 @@ export default function SectionsDraggable({ sections }) {
   const dragFrom = useRef(null);
   const menuDragFrom = useRef(null);
   const [menuDragOver, setMenuDragOver] = useState(null);
+
+  // Carregar layout salvo do usuário
+  useEffect(() => {
+    const loadLayout = async () => {
+      try {
+        const user = await base44.auth.me();
+        if (user?.sectionsLayout_google) {
+          setItems(user.sectionsLayout_google);
+        }
+        setIsSynced(true);
+      } catch {
+        // Se falhar, tenta localStorage
+        try {
+          const saved = localStorage.getItem(storageKey);
+          if (saved) setItems(JSON.parse(saved));
+        } catch {}
+        setIsSynced(true);
+      }
+    };
+    loadLayout();
+  }, []);
+
+  // Salvar layout sempre que mudar
+  const saveLayout = async (newItems) => {
+    try {
+      await base44.auth.updateMe({ sectionsLayout_google: newItems });
+    } catch {
+      // Fallback para localStorage
+      localStorage.setItem(storageKey, JSON.stringify(newItems));
+    }
+  };
 
   function reorder(arr, from, to) {
     const next = [...arr];
@@ -39,7 +64,7 @@ export default function SectionsDraggable({ sections }) {
     if (from !== null && to !== null && from !== to) {
       const newItems = reorder(items, from, to);
       setItems(newItems);
-      localStorage.setItem(storageKey, JSON.stringify(newItems));
+      saveLayout(newItems);
     }
     dragFrom.current = null;
     setDragging(null);
@@ -54,7 +79,7 @@ export default function SectionsDraggable({ sections }) {
     if (from !== null && to !== null && from !== to) {
       const newItems = reorder(items, from, to);
       setItems(newItems);
-      localStorage.setItem(storageKey, JSON.stringify(newItems));
+      saveLayout(newItems);
     }
     menuDragFrom.current = null;
     setMenuDragOver(null);
@@ -63,13 +88,13 @@ export default function SectionsDraggable({ sections }) {
   const toggleVisible = (idx) => {
     const newItems = items.map((item, i) => i === idx ? { ...item, visible: !item.visible } : item);
     setItems(newItems);
-    localStorage.setItem(storageKey, JSON.stringify(newItems));
+    saveLayout(newItems);
   };
 
   const reset = () => {
     const defaultItems = buildItems(sections);
     setItems(defaultItems);
-    localStorage.setItem(storageKey, JSON.stringify(defaultItems));
+    saveLayout(defaultItems);
   };
 
   return (
