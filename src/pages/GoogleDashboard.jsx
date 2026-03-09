@@ -102,11 +102,11 @@ export default function GoogleDashboard() {
         </div>
 
         {/* Content */}
-        {activeTab === "overview"  && <TabGoogleOverview />}
-        {activeTab === "funil"     && <TabGoogleFunil categoria={categoria} />}
-        {activeTab === "retencao"  && <TabGoogleRetencao categoria={categoria} />}
-        {activeTab === "clientes"  && <TabGoogleClientes />}
-        {activeTab === "projecao"  && <TabProjecaoReceita categoria={categoria} />}
+        {activeTab === "overview"  && <TabGoogleOverview dateRange={dateRange} />}
+        {activeTab === "funil"     && <TabGoogleFunil categoria={categoria} dateRange={dateRange} />}
+        {activeTab === "retencao"  && <TabGoogleRetencao categoria={categoria} dateRange={dateRange} />}
+        {activeTab === "clientes"  && <TabGoogleClientes dateRange={dateRange} />}
+        {activeTab === "projecao"  && <TabProjecaoReceita categoria={categoria} dateRange={dateRange} />}
       </div>
     </div>
   );
