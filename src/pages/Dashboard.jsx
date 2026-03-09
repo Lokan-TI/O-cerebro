@@ -17,6 +17,7 @@ const TABS = [
   { id: "prazo", label: "Prazos & Modalidades" },
   { id: "leads", label: "Lista de Leads" },
   { id: "canais", label: "Google vs. Outros" },
+  { id: "comparativo", label: "Comparativo Mensal" },
 ];
 
 export default function Dashboard() {
