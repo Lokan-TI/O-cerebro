@@ -3,6 +3,7 @@ import { RESUMO, FUNIL, RETIDO_POR_MES, RECOMPRAS } from "@/components/google/go
 import { isInRange, DATE_RANGE_DEFAULT } from "@/components/google/DateRangeFilter.jsx";
 import RadarDesempenho from "@/components/google/RadarDesempenho.jsx";
 import TendenciaMensal from "@/components/google/TendenciaMensal.jsx";
+import KPICardsDraggable from "@/components/dashboard/KPICardsDraggable.jsx";
 import {
   PieChart, Pie, Cell, Tooltip, ResponsiveContainer, Legend,
   ComposedChart, Bar, Line, XAxis, YAxis, CartesianGrid, ReferenceLine,
