@@ -4,10 +4,10 @@
 
 export const RESUMO = {
   cohort_total: 442,
-  clientes_won: 63,
-  taxa_conversao: 0.1425,
+  clientes_won: 66,
+  taxa_conversao: 0.1493,
   clientes_recompra: 13,
-  taxa_recompra_entre_won: 0.2063,
+  taxa_recompra_entre_won: 0.1970,
   taxa_recompra_cohort: 0.02941,
   total_negocios_fechado: 82,
   total_recompras: 19,
