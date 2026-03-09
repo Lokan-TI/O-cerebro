@@ -47,18 +47,14 @@
  *
  * The mainPage value must match a key in the PAGES object exactly.
  */
-import Dashboard from './pages/Dashboard';
 import GoogleDashboard from './pages/GoogleDashboard';
-import __Layout from './Layout.jsx';
 
 
 export const PAGES = {
-    "Dashboard": Dashboard,
     "GoogleDashboard": GoogleDashboard,
 }
 
 export const pagesConfig = {
-    mainPage: "Dashboard",
+    mainPage: "GoogleDashboard",
     Pages: PAGES,
-    Layout: __Layout,
 };
