@@ -33,15 +33,17 @@ export default function TabOverview({ data }) {
   const totalVendedores = new Set(data.map(l => l.vendedor).filter(Boolean)).size;
   const mesComMais = byMes.sort((a, b) => b.leads - a.leads)[0];
 
+  const kpiCards = [
+    { label: "Total Leads Perdidos", value: total, sub: "oportunidades não convertidas", accent: "border-red-600" },
+    { label: "Vendedores Ativos", value: totalVendedores, sub: "com leads registrados", accent: "border-gray-500" },
+    { label: "Top Vendedor", value: topVendedor?.name ?? "-", sub: `${topVendedor?.value ?? 0} leads perdidos`, accent: "border-red-800" },
+    { label: "Mês Mais Crítico", value: mesComMais?.mes ?? "-", sub: `${mesComMais?.leads ?? 0} leads perdidos`, accent: "border-red-800" },
+  ];
+
   return (
     <div className="space-y-6">
       {/* KPIs */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-        <KPI label="Total Leads Perdidos" value={total} sub="oportunidades não convertidas" />
-        <KPI label="Vendedores Ativos" value={totalVendedores} sub="com leads registrados" accent="border-gray-500" />
-        <KPI label="Top Vendedor" value={topVendedor?.name ?? "-"} sub={`${topVendedor?.value ?? 0} leads perdidos`} accent="border-red-800" />
-        <KPI label="Mês Mais Crítico" value={mesComMais?.mes ?? "-"} sub={`${mesComMais?.leads ?? 0} leads perdidos`} accent="border-red-800" />
-      </div>
+      <KPICardsDraggable cards={kpiCards} />
 
       {/* Charts row */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
