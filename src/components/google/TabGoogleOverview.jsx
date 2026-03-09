@@ -85,9 +85,26 @@ function CustomPieTooltip({ active, payload }) {
   );
 }
 
-export default function TabGoogleOverview() {
+// Mapeamento mes label → YYYY-MM
+const MES_TO_YM = {
+  "Jan/25": "2025-01", "Fev/25": "2025-02", "Mar/25": "2025-03",
+  "Abr/25": "2025-04", "Mai/25": "2025-05", "Jun/25": "2025-06",
+  "Jul/25": "2025-07", "Ago/25": "2025-08", "Set/25": "2025-09",
+  "Out/25": "2025-10", "Nov/25": "2025-11",
+};
+
+export default function TabGoogleOverview({ dateRange = DATE_RANGE_DEFAULT }) {
   const [selectedMes, setSelectedMes] = useState(null);
   const [activePie, setActivePie] = useState(null);
+
+  // Filtra os dados mensais pelo intervalo de datas selecionado
+  const receitaMes = useMemo(() =>
+    RECEITA_MES_RAW.filter(d => {
+      const ym = MES_TO_YM[d.mes];
+      return ym >= dateRange.from && ym <= dateRange.to;
+    }),
+    [dateRange]
+  );
 
   const pieData = FUNIL.map(f => ({
     name: f.bucket.replace(" (só ATIVO)", "").replace(" (só ENCERRADO)", "").replace(" (tem FECHADO)", ""),
@@ -95,19 +112,17 @@ export default function TabGoogleOverview() {
     pct: f.pct,
   }));
 
-  const mesSelecionado = RECEITA_MES_RAW.find(d => d.mes === selectedMes);
+  const mesSelecionado = receitaMes.find(d => d.mes === selectedMes);
 
   const recomprasMes = selectedMes
     ? RECOMPRAS.filter(r => {
-        const parts = selectedMes.split("/");
-        const mNum = { Jan:"01", Fev:"02", Mar:"03", Abr:"04", Mai:"05", Jun:"06", Jul:"07", Ago:"08", Set:"09", Out:"10", Nov:"11", Dez:"12" }[parts[0]];
-        const prefix = `20${parts[1]}-${mNum}`;
-        return r.data.startsWith(prefix);
+        const ym = MES_TO_YM[selectedMes];
+        return ym && r.data.startsWith(ym);
       })
     : [];
 
-  const mediaRoas = RECEITA_MES_RAW.filter(d => d.roas_mes).reduce((s, d) => s + d.roas_mes, 0) /
-    RECEITA_MES_RAW.filter(d => d.roas_mes).length;
+  const mediaRoas = receitaMes.filter(d => d.roas_mes).reduce((s, d) => s + d.roas_mes, 0) /
+    (receitaMes.filter(d => d.roas_mes).length || 1);
 
   return (
     <div className="space-y-6">
