@@ -3,14 +3,6 @@ import { createPageUrl } from "@/utils";
 
 const MENUS = [
   {
-    id: "leads-perdidos",
-    label: "Leads Perdidos",
-    desc: "Análise de oportunidades não convertidas",
-    page: "Dashboard",
-    color: "red",
-    badge: "PERDIDOS",
-  },
-  {
     id: "google-leads",
     label: "Google · First-Touch",
     desc: "Conversão, recompra e receita retida",
