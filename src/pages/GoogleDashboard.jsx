@@ -45,7 +45,6 @@ export default function GoogleDashboard() {
         {/* Content */}
         {activeTab === "overview"  && <TabGoogleOverview />}
         {activeTab === "funil"     && <TabGoogleFunil />}
-        {activeTab === "conversao" && <TabFunilConversao />}
         {activeTab === "retencao"  && <TabGoogleRetencao />}
         {activeTab === "clientes"  && <TabGoogleClientes />}
       </div>
