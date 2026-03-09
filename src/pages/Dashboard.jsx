@@ -1,92 +1,101 @@
 import { useState, useMemo } from "react";
-import KPICards from "@/components/dashboard/KPICards";
-import LeadsByVendedor from "@/components/dashboard/LeadsByVendedor";
-import LeadsByProduto from "@/components/dashboard/LeadsByProduto";
-import LeadsByMonth from "@/components/dashboard/LeadsByMonth";
-import LeadsTable from "@/components/dashboard/LeadsTable";
 import { RAW_LEADS } from "@/components/dashboard/leadsData";
+import TabOverview from "@/components/dashboard/tabs/TabOverview";
+import TabVendedores from "@/components/dashboard/tabs/TabVendedores";
+import TabProdutos from "@/components/dashboard/tabs/TabProdutos";
+import TabTemporal from "@/components/dashboard/tabs/TabTemporal";
+import TabPrazo from "@/components/dashboard/tabs/TabPrazo";
+import TabLeads from "@/components/dashboard/tabs/TabLeads";
+
+const TABS = [
+  { id: "overview", label: "Visão Geral" },
+  { id: "vendedores", label: "Vendedores" },
+  { id: "produtos", label: "Produtos / Canal" },
+  { id: "temporal", label: "Análise Temporal" },
+  { id: "prazo", label: "Prazos & Modalidades" },
+  { id: "leads", label: "Lista de Leads" },
+];
 
 export default function Dashboard() {
-  const [selectedVendedor, setSelectedVendedor] = useState("Todos");
-  const [selectedMes, setSelectedMes] = useState("Todos");
+  const [activeTab, setActiveTab] = useState("overview");
+  const [filterVendedor, setFilterVendedor] = useState("Todos");
+  const [filterMes, setFilterMes] = useState("Todos");
 
   const vendedores = useMemo(() => {
-    const set = new Set(RAW_LEADS.map((l) => l.vendedor).filter(Boolean));
-    return ["Todos", ...Array.from(set).sort()];
+    const s = new Set(RAW_LEADS.map((l) => l.vendedor).filter(Boolean));
+    return ["Todos", ...Array.from(s).sort()];
   }, []);
 
   const meses = useMemo(() => {
-    const set = new Set(RAW_LEADS.map((l) => l.mes).filter(Boolean));
-    return ["Todos", ...Array.from(set).sort()];
+    const s = new Set(RAW_LEADS.map((l) => l.mes).filter(Boolean));
+    return ["Todos", ...Array.from(s).sort()];
   }, []);
 
   const filtered = useMemo(() => {
     return RAW_LEADS.filter((l) => {
-      const v = selectedVendedor === "Todos" || l.vendedor === selectedVendedor;
-      const m = selectedMes === "Todos" || l.mes === selectedMes;
+      const v = filterVendedor === "Todos" || l.vendedor === filterVendedor;
+      const m = filterMes === "Todos" || l.mes === filterMes;
       return v && m;
     });
-  }, [selectedVendedor, selectedMes]);
+  }, [filterVendedor, filterMes]);
 
   return (
     <div className="min-h-screen bg-gray-950 text-white">
       {/* Header */}
       <div className="bg-black border-b border-red-700 px-6 py-4 flex items-center gap-4">
-        <div className="w-3 h-8 bg-red-600 rounded-sm" />
+        <div className="w-1 h-10 bg-red-600 rounded-full" />
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-white">Dashboard de Leads Perdidos</h1>
           <p className="text-gray-400 text-sm">Análise completa de oportunidades não convertidas</p>
         </div>
+        <div className="ml-auto flex items-center gap-3">
+          <span className="text-gray-500 text-sm">{filtered.length} leads</span>
+          <select
+            value={filterVendedor}
+            onChange={(e) => setFilterVendedor(e.target.value)}
+            className="bg-gray-800 border border-gray-700 text-white text-sm rounded px-2 py-1.5 focus:outline-none focus:border-red-500"
+          >
+            {vendedores.map((v) => <option key={v}>{v}</option>)}
+          </select>
+          <select
+            value={filterMes}
+            onChange={(e) => setFilterMes(e.target.value)}
+            className="bg-gray-800 border border-gray-700 text-white text-sm rounded px-2 py-1.5 focus:outline-none focus:border-red-500"
+          >
+            {meses.map((m) => <option key={m}>{m}</option>)}
+          </select>
+          {(filterVendedor !== "Todos" || filterMes !== "Todos") && (
+            <button onClick={() => { setFilterVendedor("Todos"); setFilterMes("Todos"); }}
+              className="text-red-400 text-xs hover:text-red-300 underline">Limpar</button>
+          )}
+        </div>
       </div>
 
-      <div className="p-6 space-y-6">
-        {/* Filters */}
-        <div className="flex flex-wrap gap-4 items-center">
-          <div className="flex items-center gap-2">
-            <label className="text-gray-400 text-sm font-medium">Vendedor:</label>
-            <select
-              value={selectedVendedor}
-              onChange={(e) => setSelectedVendedor(e.target.value)}
-              className="bg-gray-800 border border-gray-700 text-white text-sm rounded-md px-3 py-2 focus:outline-none focus:border-red-500"
-            >
-              {vendedores.map((v) => <option key={v}>{v}</option>)}
-            </select>
-          </div>
-          <div className="flex items-center gap-2">
-            <label className="text-gray-400 text-sm font-medium">Mês:</label>
-            <select
-              value={selectedMes}
-              onChange={(e) => setSelectedMes(e.target.value)}
-              className="bg-gray-800 border border-gray-700 text-white text-sm rounded-md px-3 py-2 focus:outline-none focus:border-red-500"
-            >
-              {meses.map((m) => <option key={m}>{m}</option>)}
-            </select>
-          </div>
-          {(selectedVendedor !== "Todos" || selectedMes !== "Todos") && (
-            <button
-              onClick={() => { setSelectedVendedor("Todos"); setSelectedMes("Todos"); }}
-              className="text-red-400 text-sm hover:text-red-300 underline"
-            >
-              Limpar filtros
-            </button>
-          )}
-          <span className="ml-auto text-gray-500 text-sm">{filtered.length} leads encontrados</span>
-        </div>
+      {/* Tabs */}
+      <div className="bg-black border-b border-gray-800 px-6 flex gap-0 overflow-x-auto">
+        {TABS.map((t) => (
+          <button
+            key={t.id}
+            onClick={() => setActiveTab(t.id)}
+            className={`px-5 py-3 text-sm font-medium whitespace-nowrap border-b-2 transition-colors ${
+              activeTab === t.id
+                ? "border-red-600 text-white"
+                : "border-transparent text-gray-500 hover:text-gray-300"
+            }`}
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
 
-        {/* KPIs */}
-        <KPICards data={filtered} />
-
-        {/* Charts Row 1 */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <LeadsByVendedor data={filtered} />
-          <LeadsByProduto data={filtered} />
-        </div>
-
-        {/* Chart Row 2 */}
-        <LeadsByMonth data={filtered} />
-
-        {/* Table */}
-        <LeadsTable data={filtered} />
+      {/* Content */}
+      <div className="p-6">
+        {activeTab === "overview" && <TabOverview data={filtered} />}
+        {activeTab === "vendedores" && <TabVendedores data={filtered} />}
+        {activeTab === "produtos" && <TabProdutos data={filtered} />}
+        {activeTab === "temporal" && <TabTemporal data={filtered} />}
+        {activeTab === "prazo" && <TabPrazo data={filtered} />}
+        {activeTab === "leads" && <TabLeads data={filtered} />}
       </div>
     </div>
   );

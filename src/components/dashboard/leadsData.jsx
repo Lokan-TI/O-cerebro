@@ -13,6 +13,86 @@ function getMes(str) {
   return `${String(d.getMonth() + 1).padStart(2, "0")}/${d.getFullYear()}`;
 }
 
+// Classifica o tipo de produto / canal
+function classifyProduto(p) {
+  if (!p) return "Outros";
+  const up = p.toUpperCase();
+  if (up.includes("TUBULAR") || up === "T 7" || up.startsWith("T 7") || up.startsWith("T 9") || up.startsWith("T 12") || up.startsWith("T 14")) return "Tubular";
+  if (up.includes("MULTIDIRECIONAL") || up.includes("MULTI")) return "Multidirecional";
+  if (up.includes("ESCORAMENTO")) return "Escoramento";
+  if (up.includes("FACHADEIRO")) return "Fachadeiro";
+  if (up.includes("CONTAINER")) return "Container";
+  if (up.includes("ROMPEDOR")) return "Rompedor";
+  if (up.includes("BETONEIRA")) return "Betoneira";
+  if (up.includes("GERADOR")) return "Gerador";
+  if (up.includes("AIRLESS")) return "Airless";
+  if (up.includes("VIBRADOR")) return "Vibrador";
+  if (up.includes("MASTRO")) return "Mastro";
+  if (/^\d+\s*(D|E)/.test(up) || up.includes(" D") || up.includes(" E")) return "Andaime Locação";
+  if (up.includes("BARRA") || up.includes("PARAFUSO") || up.includes("ABRA")) return "Acessórios";
+  return "Outros";
+}
+
+// Classifica o prazo de pagamento
+function classifyPrazo(p) {
+  if (!p) return "Sem Info";
+  const up = p.toUpperCase();
+  if (up.includes("135")) return "135 dias";
+  if (up.includes("80")) return "80 dias";
+  if (up.includes("60")) return "60 dias";
+  if (up.includes("45")) return "45 dias";
+  if (up.includes("34")) return "34 dias";
+  if (up.startsWith("T")) return "À Vista / Transferência";
+  return "Outro";
+}
+
+// Classifica modalidade D/E
+function classifyModalidade(p) {
+  if (!p) return "Não informado";
+  const up = p.toUpperCase();
+  if (up.includes(" D") && !up.includes(" E")) return "Direta (D)";
+  if (up.includes(" E") && !up.includes(" D")) return "Especial (E)";
+  if (up.includes(" D") && up.includes(" E")) return "Mista (D+E)";
+  if (up.startsWith("T")) return "Transferência (T)";
+  return "Produto/Equipamento";
+}
+
+// Normaliza vendedor (short name)
+function normVendedor(v) {
+  if (!v) return "Sem Vendedor";
+  const m = {
+    "Maria": "Maria",
+    "Luiz": "Luiz",
+    "Lucas": "Lucas",
+    "Victor": "Victor",
+    "Victor Joel": "Victor Joel",
+    "Iuri": "Iuri Lima",
+    "Iuri Lima": "Iuri Lima",
+    "Pedro Barros": "Pedro Barros",
+    "Lucas Freitas": "Lucas Freitas",
+    "Washington Pires": "Washington Pires",
+    "Andr Alvarenga": "André Alvarenga",
+    "Gustavo Felipe": "Gustavo Felipe",
+    "Bruno Oliveira": "Bruno Oliveira",
+    "Alexandre Ramos": "Alexandre Ramos",
+    "Pedro Custodio": "Pedro Custodio",
+    "Pedro Azuaga": "Pedro Azuaga",
+    "Pedro Angelico": "Pedro Angelico",
+    "Wellington Oliveira": "Wellington Oliveira",
+    "Jhonatan Silva": "Jhonatan Silva",
+    "Jhonatan": "Jhonatan",
+    "Sergio": "Sergio",
+    "Sergio Aquino": "Sergio Aquino",
+    "Gabriel": "Gabriel",
+    "Azuaga": "Azuaga",
+    "Gustavo": "Gustavo",
+    "Rafael Fortunato": "Rafael Fortunato",
+    "Gonzaga Brito": "Gonzaga Brito",
+    "Pedro Pereira": "Pedro Pereira",
+  };
+  return m[v] || v;
+}
+
 const raw = [
   ["Jeferson Henrique da Cruz","MMP4 COMUNICACAO VISUAL LTDA","T 12","10/11/2025","Maria"],
   ["Marcello Cross","TERRAVERDE MAQUINAS AGRICOLAS LTDA","T 9","15/09/2025","Maria"],
@@ -415,6 +495,9 @@ export const RAW_LEADS = raw.map(([nome_contato, empresa, produto, data_orcament
   empresa,
   produto,
   data_orcamento,
-  vendedor,
+  vendedor: normVendedor(vendedor),
   mes: getMes(data_orcamento),
+  categoria: classifyProduto(produto),
+  prazo: classifyPrazo(produto),
+  modalidade: classifyModalidade(produto),
 }));
