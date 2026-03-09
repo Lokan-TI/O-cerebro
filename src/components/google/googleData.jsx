@@ -2,6 +2,35 @@
 // DADOS: Cohort Google First-Touch — Retenção de Receita
 // ============================================================
 
+// Mapeamento de produto → categoria (baseado em First_touch_produto)
+export const PRODUTO_CATEGORIA = {
+  "T 1930": "Translift",
+  "T 2630": "Translift",
+  "T 3246": "Translift",
+  "T 4045": "Translift",
+  "T 8841": "Translift",
+  "34 E":   "Elétrico",
+  "45 E":   "Elétrico",
+  "60 E":   "Elétrico",
+  "80 E":   "Elétrico",
+  "135 E":  "Elétrico",
+  "34 D":   "Diesel",
+  "45 D":   "Diesel",
+  "60 D":   "Diesel",
+  "80 D":   "Diesel",
+  "135 D":  "Diesel",
+};
+
+export function getCategoriaFromProduto(produto) {
+  if (!produto) return "Outros";
+  const key = Object.keys(PRODUTO_CATEGORIA).find(k =>
+    produto.toUpperCase().includes(k.toUpperCase())
+  );
+  return key ? PRODUTO_CATEGORIA[key] : "Outros";
+}
+
+export const CATEGORIAS = ["Todos", "Translift", "Elétrico", "Diesel", "Outros"];
+
 export const RESUMO = {
   cohort_total: 457,
   clientes_won: 66,
