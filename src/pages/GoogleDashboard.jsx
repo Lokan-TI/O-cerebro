@@ -33,6 +33,12 @@ export default function GoogleDashboard() {
 
   return (
     <div className="min-h-screen bg-gray-950 p-6">
+      {showImport && (
+        <ImportModal
+          onClose={() => setShowImport(false)}
+          onImport={(rows) => console.log("Dados importados:", rows)}
+        />
+      )}
       <div className="max-w-7xl mx-auto">
         {/* Header */}
         <div className="mb-5 flex flex-wrap items-start justify-between gap-4">
