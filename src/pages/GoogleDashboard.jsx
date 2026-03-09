@@ -3,11 +3,14 @@ import TabGoogleOverview from "@/components/google/TabGoogleOverview.jsx";
 import TabGoogleFunil from "@/components/google/TabGoogleFunil.jsx";
 import TabGoogleRetencao from "@/components/google/TabGoogleRetencao.jsx";
 import TabGoogleClientes from "@/components/google/TabGoogleClientes.jsx";
+import TabProjecaoReceita from "@/components/google/TabProjecaoReceita.jsx";
+
 const TABS = [
   { id: "overview",  label: "Visão Geral" },
   { id: "funil",     label: "Funil Cohort" },
   { id: "retencao",  label: "Retenção" },
   { id: "clientes",  label: "Clientes WON" },
+  { id: "projecao",  label: "Projeção de Receita" },
 ];
 
 export default function GoogleDashboard() {
