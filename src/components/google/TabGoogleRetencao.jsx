@@ -70,9 +70,26 @@ export default function TabGoogleRetencao({ categoria = "Todos", dateRange = DAT
     return data.filter(r => isInRange(r.data, dateRange));
   }, [categoria, clientesWonNomes, dateRange]);
 
-  // Receita retida por mês filtrada
+  // Receita retida por mês filtrada (por data + categoria)
   const retidoPorMesFiltrado = useMemo(() => {
-    if (categoria === "Todos") return RETIDO_POR_MES;
+    if (categoria === "Todos" && dateRange.from === DATE_RANGE_DEFAULT.from && dateRange.to === DATE_RANGE_DEFAULT.to) {
+      return RETIDO_POR_MES;
+    }
+    if (categoria === "Todos") {
+      // só filtro de data sobre os dados base
+      const byMes = {};
+      RECOMPRAS.filter(r => isInRange(r.data, dateRange)).forEach(r => {
+        const mes = r.data.substring(0, 7);
+        if (!byMes[mes]) byMes[mes] = { mes, receita_retida: 0, clientes: new Set(), vendas: 0 };
+        byMes[mes].receita_retida += r.valor;
+        byMes[mes].clientes.add(r.cliente);
+        byMes[mes].vendas += 1;
+      });
+      let acumulado = 0;
+      return Object.values(byMes)
+        .sort((a, b) => a.mes.localeCompare(b.mes))
+        .map(d => { acumulado += d.receita_retida; return { ...d, clientes: d.clientes.size, acumulado }; });
+    }
     const byMes = {};
     recomprasFiltradas.forEach(r => {
       const mes = r.data.substring(0, 7);
