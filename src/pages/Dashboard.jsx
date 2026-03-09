@@ -8,6 +8,7 @@ import TabPrazo from "@/components/dashboard/tabs/TabPrazo.jsx";
 import TabLeads from "@/components/dashboard/tabs/TabLeads.jsx";
 import TabCanais from "@/components/dashboard/tabs/TabCanais.jsx";
 import TabComparativo from "@/components/dashboard/tabs/TabComparativo.jsx";
+import TabComparativoMeses from "@/components/dashboard/tabs/TabComparativoMeses.jsx";
 
 const TABS = [
   { id: "overview", label: "Visão Geral" },
@@ -18,6 +19,7 @@ const TABS = [
   { id: "leads", label: "Lista de Leads" },
   { id: "canais", label: "Google vs. Outros" },
   { id: "comparativo", label: "Comparativo Mensal" },
+  { id: "comparativoMeses", label: "Comparativo 2 Períodos" },
 ];
 
 export default function Dashboard() {
@@ -102,6 +104,7 @@ export default function Dashboard() {
         {activeTab === "leads" && <TabLeads data={filtered} />}
         {activeTab === "canais" && <TabCanais />}
         {activeTab === "comparativo" && <TabComparativo data={filtered} />}
+        {activeTab === "comparativoMeses" && <TabComparativoMeses />}
       </div>
     </div>
   );
