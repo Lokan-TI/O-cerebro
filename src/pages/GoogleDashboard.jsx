@@ -80,6 +80,7 @@ export default function GoogleDashboard() {
               ))}
             </div>
           )}
+          </div>
         </div>
 
         {/* Tab nav */}
