@@ -106,7 +106,7 @@ export default function TabGoogleRetencao({ categoria = "Todos", dateRange = DAT
         acumulado += d.receita_retida;
         return { ...d, clientes: d.clientes.size, acumulado };
       });
-  }, [categoria, recomprasFiltradas]);
+  }, [categoria, dateRange, recomprasFiltradas]);
 
   // Distribuição de recompras filtrada
   const distribData = useMemo(() => {
