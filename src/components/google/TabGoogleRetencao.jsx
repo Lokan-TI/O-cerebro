@@ -198,7 +198,7 @@ export default function TabGoogleRetencao({ categoria = "Todos" }) {
           <p className="text-gray-600 text-xs mb-4">Clique em um mês para ver as recompras</p>
           <ResponsiveContainer width="100%" height={220}>
             <BarChart
-              data={RETIDO_POR_MES}
+              data={retidoPorMesFiltrado}
               onClick={(e) => e?.activeLabel && setSelectedMes(prev => prev === e.activeLabel ? null : e.activeLabel)}
             >
               <XAxis
