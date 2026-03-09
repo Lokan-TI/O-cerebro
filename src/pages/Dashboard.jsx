@@ -6,6 +6,7 @@ import TabProdutos from "@/components/dashboard/tabs/TabProdutos.jsx";
 import TabTemporal from "@/components/dashboard/tabs/TabTemporal.jsx";
 import TabPrazo from "@/components/dashboard/tabs/TabPrazo.jsx";
 import TabLeads from "@/components/dashboard/tabs/TabLeads.jsx";
+import TabCanais from "@/components/dashboard/tabs/TabCanais.jsx";
 
 const TABS = [
   { id: "overview", label: "Visão Geral" },
@@ -14,6 +15,7 @@ const TABS = [
   { id: "temporal", label: "Análise Temporal" },
   { id: "prazo", label: "Prazos & Modalidades" },
   { id: "leads", label: "Lista de Leads" },
+  { id: "canais", label: "Google vs. Outros" },
 ];
 
 export default function Dashboard() {
