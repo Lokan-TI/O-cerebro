@@ -126,27 +126,34 @@ export default function TabGoogleRetencao({ categoria = "Todos" }) {
 
   return (
     <div className="space-y-6">
+      {/* Badge de filtro ativo */}
+      {categoria !== "Todos" && (
+        <div className="bg-blue-950/40 border border-blue-800 rounded-lg px-4 py-2 text-xs text-blue-300">
+          Exibindo apenas produtos da categoria <strong>{categoria}</strong> · {clientesFiltrados.length} clientes WON filtrados
+        </div>
+      )}
+
       {/* KPIs retenção */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="bg-gray-900 border-l-4 border-yellow-500 rounded-lg p-5">
           <p className="text-gray-400 text-xs uppercase tracking-wider mb-1">$$ Retido Total</p>
-          <p className="text-2xl font-bold text-white">{fmtR(RESUMO.retido_pos_primeiro)}</p>
+          <p className="text-2xl font-bold text-white">{fmtR(totalRetido)}</p>
           <p className="text-gray-500 text-xs mt-1">receita após 1º fechamento</p>
         </div>
         <div className="bg-gray-900 border-l-4 border-purple-500 rounded-lg p-5">
           <p className="text-gray-400 text-xs uppercase tracking-wider mb-1">Share de Retenção</p>
-          <p className="text-3xl font-bold text-white">{(RESUMO.share_retido * 100).toFixed(1)}%</p>
+          <p className="text-3xl font-bold text-white">{(shareRetido * 100).toFixed(1)}%</p>
           <p className="text-gray-500 text-xs mt-1">da receita fechado total</p>
         </div>
         <div className="bg-gray-900 border-l-4 border-blue-500 rounded-lg p-5">
           <p className="text-gray-400 text-xs uppercase tracking-wider mb-1">Negócios de Recompra</p>
-          <p className="text-3xl font-bold text-white">{RESUMO.total_recompras}</p>
-          <p className="text-gray-500 text-xs mt-1">de {RESUMO.total_negocios_fechado} negócios totais</p>
+          <p className="text-3xl font-bold text-white">{recomprasFiltradas.length}</p>
+          <p className="text-gray-500 text-xs mt-1">de {totalNegocios} negócios totais</p>
         </div>
         <div className="bg-gray-900 border-l-4 border-green-500 rounded-lg p-5">
           <p className="text-gray-400 text-xs uppercase tracking-wider mb-1">Clientes com Recompra</p>
-          <p className="text-3xl font-bold text-white">{RESUMO.clientes_recompra}</p>
-          <p className="text-gray-500 text-xs mt-1">{(RESUMO.taxa_recompra_entre_won * 100).toFixed(1)}% dos WON</p>
+          <p className="text-3xl font-bold text-white">{comRecompra}</p>
+          <p className="text-gray-500 text-xs mt-1">{clientesFiltrados.length > 0 ? ((comRecompra / clientesFiltrados.length) * 100).toFixed(1) : 0}% dos WON</p>
         </div>
       </div>
 
