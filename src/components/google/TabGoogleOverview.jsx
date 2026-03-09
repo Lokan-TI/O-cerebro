@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { RESUMO, FUNIL, RETIDO_POR_MES, RECOMPRAS } from "@/components/google/googleData.jsx";
+import RadarDesempenho from "@/components/google/RadarDesempenho.jsx";
 import {
   PieChart, Pie, Cell, Tooltip, ResponsiveContainer, Legend,
   ComposedChart, Bar, Line, XAxis, YAxis, CartesianGrid, ReferenceLine,
