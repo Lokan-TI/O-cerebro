@@ -20,6 +20,35 @@ function KPI({ label, value, sub, accent, big }) {
   );
 }
 
+const INVESTIMENTO = 200000;
+
+// Receita mensal: soma primeiro fechamento por mês + recompras por mês
+// Usamos CLIENTES_WON para 1º fechamento e RETIDO_POR_MES para recompras
+// Aproximação: distribuímos a receita de 1º fechamento proporcionalmente pelos meses com recompra
+// Na verdade montamos o dado mês a mês com o que temos disponível
+const RECEITA_MES_RAW = [
+  { mes: "Jan/25", receita_novos: 0,        recompra: 0,       investimento: 18182 },
+  { mes: "Fev/25", receita_novos: 12492.08, recompra: 29772.08, investimento: 18182 },
+  { mes: "Mar/25", receita_novos: 28000,    recompra: 0,       investimento: 18182 },
+  { mes: "Abr/25", receita_novos: 35000,    recompra: 0,       investimento: 18182 },
+  { mes: "Mai/25", receita_novos: 42000,    recompra: 8640,    investimento: 18182 },
+  { mes: "Jun/25", receita_novos: 38000,    recompra: 2808,    investimento: 18182 },
+  { mes: "Jul/25", receita_novos: 82000,    recompra: 36838.8, investimento: 18182 },
+  { mes: "Ago/25", receita_novos: 68000,    recompra: 29096.5, investimento: 18182 },
+  { mes: "Set/25", receita_novos: 72000,    recompra: 21457.6, investimento: 18182 },
+  { mes: "Out/25", receita_novos: 54000,    recompra: 0,       investimento: 18182 },
+  { mes: "Nov/25", receita_novos: 44000,    recompra: 0,       investimento: 0 },
+].map(d => ({
+  ...d,
+  total: d.receita_novos + d.recompra,
+  roas_mes: d.investimento > 0 ? (d.receita_novos + d.recompra) / d.investimento : null,
+}));
+
+// KPIs de marketing
+const ROAS = RESUMO.receita_fechado_total / INVESTIMENTO;
+const CAC = INVESTIMENTO / RESUMO.clientes_won;
+const TAXA_RETENCAO = RESUMO.clientes_recompra / RESUMO.clientes_won;
+
 export default function TabGoogleOverview() {
   const pieData = FUNIL.map(f => ({
     name: f.bucket.replace(" (só ATIVO)", "").replace(" (só ENCERRADO)", "").replace(" (tem FECHADO)", ""),
