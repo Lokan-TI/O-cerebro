@@ -1,4 +1,4 @@
-import { RESUMO, RETIDO_POR_MES, DISTRIB_RECOMPRA } from "@/components/google/googleData.js";
+import { RESUMO, RETIDO_POR_MES, DISTRIB_RECOMPRA } from "@/components/google/googleData.jsx";
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell,
   LineChart, Line, CartesianGrid, Legend,

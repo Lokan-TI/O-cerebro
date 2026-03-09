@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import { CLIENTES_WON } from "@/components/google/googleData.js";
+import { CLIENTES_WON } from "@/components/google/googleData.jsx";
 
 const fmtR = (v) => "R$ " + (v || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 

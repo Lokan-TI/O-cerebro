@@ -1,4 +1,4 @@
-import { RESUMO, FUNIL } from "@/components/google/googleData.js";
+import { RESUMO, FUNIL } from "@/components/google/googleData.jsx";
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, Legend } from "recharts";
 
 const fmt = (v) => v?.toLocaleString("pt-BR", { minimumFractionDigits: 0, maximumFractionDigits: 0 });
