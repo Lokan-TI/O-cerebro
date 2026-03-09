@@ -48,15 +48,15 @@
  * The mainPage value must match a key in the PAGES object exactly.
  */
 import Dashboard from './pages/Dashboard';
-import GoogleDashboard from './pages/GoogleDashboard';
 import FunilConversao from './pages/FunilConversao';
+import GoogleDashboard from './pages/GoogleDashboard';
 import __Layout from './Layout.jsx';
 
 
 export const PAGES = {
     "Dashboard": Dashboard,
-    "GoogleDashboard": GoogleDashboard,
     "FunilConversao": FunilConversao,
+    "GoogleDashboard": GoogleDashboard,
 }
 
 export const pagesConfig = {

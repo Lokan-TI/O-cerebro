@@ -19,6 +19,14 @@ const MENUS = [
     color: "green",
     badge: "FUNIL",
   },
+  {
+    id: "leads-perdidos",
+    label: "Leads Perdidos",
+    desc: "Análise completa de oportunidades não convertidas",
+    page: "Dashboard",
+    color: "red",
+    badge: "PERDIDOS",
+  },
 ];
 
 const COLOR_MAP = {
