@@ -139,20 +139,12 @@ export default function TabGoogleOverview({ dateRange = DATE_RANGE_DEFAULT }) {
       <RadarDesempenho />
 
       {/* KPIs principais */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        {[
-          { label: "Cohort Google (leads)", value: fmt(RESUMO.cohort_total), sub: "first-touch via Google", accent: "border-blue-500" },
-          { label: "Conversão para FECHADO", value: fmtPct(RESUMO.taxa_conversao), sub: `${RESUMO.clientes_won} clientes convertidos`, accent: "border-green-500" },
-          { label: "Receita Total FECHADO", value: fmtR(RESUMO.receita_fechado_total), sub: "todos os fechamentos do cohort", accent: "border-blue-400" },
-          { label: "$$ Retido (pós 1º FECHADO)", value: fmtR(RESUMO.retido_pos_primeiro), sub: `${fmtPct(RESUMO.share_retido)} da receita total`, accent: "border-yellow-500" },
-        ].map(kpi => (
-          <div key={kpi.label} className={`bg-gray-900 border-l-4 ${kpi.accent} rounded-lg p-5`}>
-            <p className="text-gray-400 text-xs uppercase tracking-wider mb-1">{kpi.label}</p>
-            <p className="font-bold text-white leading-tight text-2xl">{kpi.value}</p>
-            <p className="text-gray-500 text-xs mt-1">{kpi.sub}</p>
-          </div>
-        ))}
-      </div>
+      <KPICardsDraggable cards={[
+        { label: "Cohort Google (leads)", value: fmt(RESUMO.cohort_total), sub: "first-touch via Google", accent: "border-blue-500" },
+        { label: "Conversão para FECHADO", value: fmtPct(RESUMO.taxa_conversao), sub: `${RESUMO.clientes_won} clientes convertidos`, accent: "border-green-500" },
+        { label: "Receita Total FECHADO", value: fmtR(RESUMO.receita_fechado_total), sub: "todos os fechamentos do cohort", accent: "border-blue-400" },
+        { label: "$$ Retido (pós 1º FECHADO)", value: fmtR(RESUMO.retido_pos_primeiro), sub: `${fmtPct(RESUMO.share_retido)} da receita total`, accent: "border-yellow-500" },
+      ]} />
 
       {/* Tendência mensal — leads + conversão */}
       <TendenciaMensal />
