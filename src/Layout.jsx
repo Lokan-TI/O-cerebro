@@ -18,6 +18,14 @@ const MENUS = [
     color: "blue",
     badge: "GOOGLE ADS",
   },
+  {
+    id: "funil",
+    label: "Funil de Conversão",
+    desc: "Análise detalhada do funil por vendedor",
+    page: "FunilConversao",
+    color: "green",
+    badge: "FUNIL",
+  },
 ];
 
 const COLOR_MAP = {
