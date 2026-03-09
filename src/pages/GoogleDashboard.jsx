@@ -29,6 +29,7 @@ const FILTERED_TABS = ["funil", "retencao", "projecao"];
 export default function GoogleDashboard() {
   const [activeTab, setActiveTab] = useState("overview");
   const [categoria, setCategoria] = useState("Todos");
+  const [showImport, setShowImport] = useState(false);
 
   return (
     <div className="min-h-screen bg-gray-950 p-6">
