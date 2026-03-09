@@ -6,7 +6,7 @@ import TabGoogleClientes from "@/components/google/TabGoogleClientes.jsx";
 import TabProjecaoReceita from "@/components/google/TabProjecaoReceita.jsx";
 import ImportModal from "@/components/google/ImportModal.jsx";
 import { CATEGORIAS } from "@/components/google/googleData.jsx";
-import { Settings } from "lucide-react";
+import { useEffect } from "react";
 
 const TABS = [
   { id: "overview",  label: "Visão Geral" },
