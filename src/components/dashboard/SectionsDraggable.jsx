@@ -7,18 +7,17 @@ function buildItems(sections) {
 }
 
 export default function SectionsDraggable({ sections }) {
-  const storageKey = "sections_layout_google";
   const [items, setItems] = useState(() => buildItems(sections));
-  const [isSynced, setIsSynced] = useState(false);
-  
+  const [loaded, setLoaded] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [dragging, setDragging] = useState(null);
   const [dragOver, setDragOver] = useState(null);
   const dragFrom = useRef(null);
   const menuDragFrom = useRef(null);
   const [menuDragOver, setMenuDragOver] = useState(null);
+  const saveTimeoutRef = useRef(null);
 
-  // Carregar layout salvo do usuário
+  // Carregar layout salvo do usuário (apenas uma vez)
   useEffect(() => {
     const loadLayout = async () => {
       try {
@@ -26,30 +25,49 @@ export default function SectionsDraggable({ sections }) {
         if (user?.layoutPreferences?.sections) {
           setItems(user.layoutPreferences.sections);
         }
-        setIsSynced(true);
       } catch (err) {
         console.error("Erro ao carregar layout:", err);
-        setIsSynced(true);
+      } finally {
+        setLoaded(true);
       }
     };
+    
     loadLayout();
   }, []);
 
-  // Salvar layout sempre que mudar
-  const saveLayout = async (newItems) => {
-    try {
-      const user = await base44.auth.me();
-      const current = user?.layoutPreferences || {};
-      await base44.auth.updateMe({
-        layoutPreferences: {
-          ...current,
-          sections: newItems
-        }
-      });
-    } catch (err) {
-      console.error("Erro ao salvar layout:", err);
+  // Salvar layout com debounce quando items mudar
+  useEffect(() => {
+    if (!loaded) return;
+    
+    // Limpar timeout anterior
+    if (saveTimeoutRef.current) {
+      clearTimeout(saveTimeoutRef.current);
     }
-  };
+    
+    // Agendar novo salvamento
+    saveTimeoutRef.current = setTimeout(async () => {
+      try {
+        console.log("Salvando layout das seções:", items);
+        const user = await base44.auth.me();
+        const current = user?.layoutPreferences || {};
+        await base44.auth.updateMe({
+          layoutPreferences: {
+            ...current,
+            sections: items
+          }
+        });
+        console.log("Layout salvo com sucesso");
+      } catch (err) {
+        console.error("Erro ao salvar layout:", err);
+      }
+    }, 500);
+    
+    return () => {
+      if (saveTimeoutRef.current) {
+        clearTimeout(saveTimeoutRef.current);
+      }
+    };
+  }, [items, loaded]);
 
   function reorder(arr, from, to) {
     const next = [...arr];
