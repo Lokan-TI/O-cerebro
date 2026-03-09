@@ -102,18 +102,24 @@ export default function TabProjecaoReceita({ categoria = "Todos" }) {
 
   return (
     <div className="space-y-6">
+      {/* Badge de filtro ativo */}
+      {categoria !== "Todos" && (
+        <div className="bg-blue-950/40 border border-blue-800 rounded-lg px-4 py-2 text-xs text-blue-300">
+          Projeção baseada nos <strong>{clientesFiltrados.length}</strong> clientes WON da categoria <strong>{categoria}</strong>
+        </div>
+      )}
 
       {/* Premissas do modelo */}
       <div className="bg-gray-900 border border-gray-800 rounded-xl p-5">
         <h2 className="text-white font-semibold text-sm uppercase tracking-wider mb-4">
-          Premissas do Modelo <span className="text-gray-500 font-normal normal-case text-xs ml-2">(baseadas no cohort real)</span>
+          Premissas do Modelo <span className="text-gray-500 font-normal normal-case text-xs ml-2">(baseadas no cohort real{categoria !== "Todos" ? ` · ${categoria}` : ""})</span>
         </h2>
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           {[
-            { icon: Percent,    label: "Taxa de Conversão",   value: (TAXA_CONV * 100).toFixed(1) + "%",  sub: "leads → clientes",          color: "text-green-400",  border: "border-green-700" },
-            { icon: DollarSign, label: "Ticket Médio (1º FT)", value: fmtR(TICKET_MEDIO_FT),              sub: "primeiro fechamento",       color: "text-blue-400",   border: "border-blue-700" },
-            { icon: DollarSign, label: "Ticket Médio Recompra", value: fmtR(TICKET_RECOMPRA),             sub: "clientes que recompram",    color: "text-purple-400", border: "border-purple-700" },
-            { icon: Percent,    label: "Taxa de Recompra",    value: (TAXA_RECOMPRA * 100).toFixed(1) + "%", sub: "entre clientes WON",      color: "text-yellow-400", border: "border-yellow-700" },
+            { icon: Percent,    label: "Taxa de Conversão",    value: (taxaConv * 100).toFixed(1) + "%",        sub: "leads → clientes",       color: "text-green-400",  border: "border-green-700" },
+            { icon: DollarSign, label: "Ticket Médio (1º FT)", value: fmtR(TICKET_MEDIO_FT),                    sub: "primeiro fechamento",    color: "text-blue-400",   border: "border-blue-700" },
+            { icon: DollarSign, label: "Ticket Médio Recompra",value: fmtR(TICKET_RECOMPRA),                    sub: "clientes que recompram", color: "text-purple-400", border: "border-purple-700" },
+            { icon: Percent,    label: "Taxa de Recompra",     value: (TAXA_RECOMPRA * 100).toFixed(1) + "%",   sub: "entre clientes WON",     color: "text-yellow-400", border: "border-yellow-700" },
           ].map((item) => (
             <div key={item.label} className={`bg-gray-800 border ${item.border} rounded-lg p-4`}>
               <div className="flex items-center gap-2 mb-2">
