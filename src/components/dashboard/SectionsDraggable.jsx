@@ -23,16 +23,12 @@ export default function SectionsDraggable({ sections }) {
     const loadLayout = async () => {
       try {
         const user = await base44.auth.me();
-        if (user?.sectionsLayout_google) {
-          setItems(user.sectionsLayout_google);
+        if (user?.layoutPreferences?.sections) {
+          setItems(user.layoutPreferences.sections);
         }
         setIsSynced(true);
-      } catch {
-        // Se falhar, tenta localStorage
-        try {
-          const saved = localStorage.getItem(storageKey);
-          if (saved) setItems(JSON.parse(saved));
-        } catch {}
+      } catch (err) {
+        console.error("Erro ao carregar layout:", err);
         setIsSynced(true);
       }
     };
@@ -42,10 +38,16 @@ export default function SectionsDraggable({ sections }) {
   // Salvar layout sempre que mudar
   const saveLayout = async (newItems) => {
     try {
-      await base44.auth.updateMe({ sectionsLayout_google: newItems });
-    } catch {
-      // Fallback para localStorage
-      localStorage.setItem(storageKey, JSON.stringify(newItems));
+      const user = await base44.auth.me();
+      const current = user?.layoutPreferences || {};
+      await base44.auth.updateMe({
+        layoutPreferences: {
+          ...current,
+          sections: newItems
+        }
+      });
+    } catch (err) {
+      console.error("Erro ao salvar layout:", err);
     }
   };
 
