@@ -2,12 +2,25 @@ import { useState, useRef, useEffect } from "react";
 import { Settings, GripVertical, Eye, EyeOff, X } from "lucide-react";
 import { base44 } from "@/api/base44Client";
 
+const STORAGE_KEY = "layout_sections_v1";
+
 function buildItems(sections) {
   return sections.map((_, i) => ({ id: i, visible: true }));
 }
 
+function loadFromLocalStorage() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch { return null; }
+}
+
+function saveToLocalStorage(items) {
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(items)); } catch {}
+}
+
 export default function SectionsDraggable({ sections }) {
-  const [items, setItems] = useState(() => buildItems(sections));
+  const [items, setItems] = useState(() => loadFromLocalStorage() || buildItems(sections));
   const [loaded, setLoaded] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [dragging, setDragging] = useState(null);
@@ -17,13 +30,14 @@ export default function SectionsDraggable({ sections }) {
   const [menuDragOver, setMenuDragOver] = useState(null);
   const saveTimeoutRef = useRef(null);
 
-  // Carregar layout salvo do usuário (apenas uma vez)
+  // Carregar do servidor ao montar (fonte de verdade)
   useEffect(() => {
     const loadLayout = async () => {
       try {
         const user = await base44.auth.me();
         if (user?.layoutPreferences?.sections) {
           setItems(user.layoutPreferences.sections);
+          saveToLocalStorage(user.layoutPreferences.sections);
         }
       } catch (err) {
         console.error("Erro ao carregar layout:", err);
@@ -31,43 +45,27 @@ export default function SectionsDraggable({ sections }) {
         setLoaded(true);
       }
     };
-    
     loadLayout();
   }, []);
 
-  // Salvar layout com debounce quando items mudar
-  useEffect(() => {
-    if (!loaded) return;
-    
-    // Limpar timeout anterior
-    if (saveTimeoutRef.current) {
-      clearTimeout(saveTimeoutRef.current);
-    }
-    
-    // Agendar novo salvamento
+  // Salvar no localStorage imediatamente e no servidor com debounce
+  const handleSetItems = (newItems) => {
+    setItems(newItems);
+    saveToLocalStorage(newItems);
+
+    if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
     saveTimeoutRef.current = setTimeout(async () => {
       try {
-        console.log("Salvando layout das seções:", items);
         const user = await base44.auth.me();
         const current = user?.layoutPreferences || {};
         await base44.auth.updateMe({
-          layoutPreferences: {
-            ...current,
-            sections: items
-          }
+          layoutPreferences: { ...current, sections: newItems }
         });
-        console.log("Layout salvo com sucesso");
       } catch (err) {
         console.error("Erro ao salvar layout:", err);
       }
-    }, 500);
-    
-    return () => {
-      if (saveTimeoutRef.current) {
-        clearTimeout(saveTimeoutRef.current);
-      }
-    };
-  }, [items, loaded]);
+    }, 800);
+  };
 
   function reorder(arr, from, to) {
     const next = [...arr];
@@ -82,8 +80,7 @@ export default function SectionsDraggable({ sections }) {
     const from = dragFrom.current;
     const to = dragOver;
     if (from !== null && to !== null && from !== to) {
-      const newItems = reorder(items, from, to);
-      setItems(newItems);
+      handleSetItems(reorder(items, from, to));
     }
     dragFrom.current = null;
     setDragging(null);
@@ -96,8 +93,7 @@ export default function SectionsDraggable({ sections }) {
     const from = menuDragFrom.current;
     const to = menuDragOver;
     if (from !== null && to !== null && from !== to) {
-      const newItems = reorder(items, from, to);
-      setItems(newItems);
+      handleSetItems(reorder(items, from, to));
     }
     menuDragFrom.current = null;
     setMenuDragOver(null);
@@ -105,11 +101,11 @@ export default function SectionsDraggable({ sections }) {
 
   const toggleVisible = (idx) => {
     const newItems = items.map((item, i) => i === idx ? { ...item, visible: !item.visible } : item);
-    setItems(newItems);
+    handleSetItems(newItems);
   };
 
   const reset = () => {
-    setItems(buildItems(sections));
+    handleSetItems(buildItems(sections));
   };
 
   return (
@@ -188,7 +184,7 @@ export default function SectionsDraggable({ sections }) {
             } ${dragOver === idx && dragging !== idx ? "ring-2 ring-blue-500 rounded-xl" : ""}`}
           >
             {/* Drag handle bar */}
-            <div className="flex items-center gap-2 mb-1 cursor-grab select-none opacity-0 hover:opacity-100 transition-opacity group-hover:opacity-100">
+            <div className="flex items-center gap-2 mb-1 cursor-grab select-none opacity-0 hover:opacity-100 transition-opacity">
               <GripVertical className="w-4 h-4 text-gray-600" />
               <span className="text-gray-600 text-xs">{section.label}</span>
             </div>
