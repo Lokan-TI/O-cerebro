@@ -8,10 +8,91 @@ const STEPS = [
   { id: 'extraindo_clientes', label: 'Extraindo clientes' },
   { id: 'extraindo_vendedores', label: 'Extraindo vendedores' },
   { id: 'extraindo_mensal', label: 'Extraindo série mensal' },
-  { id: 'calculando_kpis', label: 'Calculando KPIs' },
+  { id: 'extraindo_coorte', label: 'Extraindo coorte de clientes' },
+  { id: 'extraindo_geografico', label: 'Extraindo distribuição geográfica' },
+  { id: 'calculando_kpis', label: 'Calculando KPIs e alertas' },
   { id: 'validando', label: 'Validando dados' },
   { id: 'publicando', label: 'Publicando nova versão' },
 ];
+
+function generateAlerts(kpis, topClients) {
+  const alerts = [];
+
+  // 1. Concentração excessiva de receita
+  if (kpis.concentracao_top10 > 25) {
+    alerts.push({
+      type: 'risk', severity: kpis.concentracao_top10 > 40 ? 'critical' : 'warning',
+      title: 'Concentração excessiva de receita',
+      message: `Top 10 clientes concentram ${kpis.concentracao_top10.toFixed(1)}% da receita anual. Perda de um grande cliente teria alto impacto.`,
+      impact: kpis.fat_ano * (kpis.concentracao_top10 / 100) * 0.3,
+    });
+  }
+
+  // 2. Queda na receita anual
+  if (kpis.crescimento_ano != null && kpis.crescimento_ano < 0) {
+    alerts.push({
+      type: 'attention', severity: kpis.crescimento_ano < -15 ? 'critical' : 'warning',
+      title: 'Queda na receita anual',
+      message: `A receita anual caiu ${Math.abs(kpis.crescimento_ano).toFixed(1)}% em relação ao ano anterior.`,
+      impact: kpis.fat_ano_ant - kpis.fat_ano,
+    });
+  }
+
+  // 3. Queda na receita mensal
+  if (kpis.crescimento_mes != null && kpis.crescimento_mes < -10) {
+    alerts.push({
+      type: 'attention', severity: 'warning',
+      title: 'Queda na receita mensal',
+      message: `A receita do mês atual caiu ${Math.abs(kpis.crescimento_mes).toFixed(1)}% vs. mês anterior.`,
+      impact: kpis.fat_mes_ant - kpis.fat_mes,
+    });
+  }
+
+  // 4. Churn de clientes elevado
+  if (kpis.churn_rate != null && kpis.churn_rate > 20) {
+    alerts.push({
+      type: 'risk', severity: kpis.churn_rate > 35 ? 'critical' : 'warning',
+      title: 'Churn de clientes elevado',
+      message: `${kpis.churned_clients} clientes do ano anterior não voltaram a comprar (churn de ${kpis.churn_rate.toFixed(1)}%).`,
+      impact: null,
+    });
+  }
+
+  // 5. Baixa retenção
+  if (kpis.retention_rate != null && kpis.retention_rate < 60) {
+    alerts.push({
+      type: 'risk', severity: 'warning',
+      title: 'Taxa de retenção baixa',
+      message: `Apenas ${kpis.retention_rate.toFixed(1)}% dos clientes do ano anterior continuaram comprando este ano.`,
+      impact: null,
+    });
+  }
+
+  // 6. Dependência de cliente principal
+  if (topClients && topClients.length > 0 && kpis.fat_ano > 0) {
+    const top1Share = (topClients[0].total / kpis.fat_ano) * 100;
+    if (top1Share > 10) {
+      alerts.push({
+        type: 'risk', severity: top1Share > 20 ? 'critical' : 'warning',
+        title: 'Dependência de cliente principal',
+        message: `O maior cliente (ID ${topClients[0].cd_pessoa}) representa ${top1Share.toFixed(1)}% da receita anual.`,
+        impact: topClients[0].total,
+      });
+    }
+  }
+
+  // 7. Oportunidade: crescimento positivo
+  if (kpis.crescimento_ano != null && kpis.crescimento_ano > 15) {
+    alerts.push({
+      type: 'opportunity', severity: 'info',
+      title: 'Crescimento anual expressivo',
+      message: `A receita anual cresceu ${kpis.crescimento_ano.toFixed(1)}% vs. ano anterior. Avaliar investimento em retenção da base.`,
+      impact: kpis.fat_ano - kpis.fat_ano_ant,
+    });
+  }
+
+  return alerts;
+}
 
 function getRows(result) {
   if (!result) return [];
@@ -244,9 +325,94 @@ async function processRefresh(base44, source, run, version, previousVersion) {
       nfs: Number(r.nfs) || 0,
       clientes: Number(r.clientes) || 0
     }));
-    await updateStep(7, 80);
+    await updateStep(6, 65);
 
-    // Etapa 7: Calcular KPIs derivados
+    // Etapa 7: Coorte de clientes (retenção, churn, novos vs existentes)
+    let cohortKpis = {};
+    try {
+      const cohortSql = `SELECT
+        COUNT(*) AS total_2yr,
+        COUNT(CASE WHEN last_yr = 1 AND this_yr = 1 THEN 1 END) AS retained,
+        COUNT(CASE WHEN this_yr = 1 AND last_yr = 0 THEN 1 END) AS new_this_year,
+        COUNT(CASE WHEN last_yr = 1 AND this_yr = 0 THEN 1 END) AS churned,
+        ISNULL(SUM(CASE WHEN this_yr = 1 AND last_yr = 0 THEN rev_this_yr ELSE 0 END), 0) AS new_revenue,
+        ISNULL(SUM(CASE WHEN this_yr = 1 AND last_yr = 1 THEN rev_this_yr ELSE 0 END), 0) AS retained_revenue,
+        COUNT(DISTINCT CASE WHEN last_yr = 1 THEN cd_pessoa END) AS clients_last_year
+      FROM (
+        SELECT cd_pessoa,
+          MAX(CASE WHEN dt_emi_nf >= ${lastYearStart} AND dt_emi_nf < ${yearStart} THEN 1 ELSE 0 END) AS last_yr,
+          MAX(CASE WHEN dt_emi_nf >= ${yearStart} AND dt_emi_nf < ${yearEnd} THEN 1 ELSE 0 END) AS this_yr,
+          ISNULL(SUM(CASE WHEN dt_emi_nf >= ${yearStart} AND dt_emi_nf < ${yearEnd} THEN vl_faturamento ELSE 0 END), 0) AS rev_this_yr
+        FROM nf WITH (NOLOCK)
+        WHERE dt_emi_nf >= ${lastYearStart} AND dt_emi_nf < ${yearEnd} ${cancelFilter}
+        GROUP BY cd_pessoa
+      ) x`;
+      const cohortRes = await runQuery(source, wrap(cohortSql));
+      queryCount++;
+      const cr = getRows(cohortRes)[0] || {};
+      const retained = Number(cr.retained) || 0;
+      const clientsLastYear = Number(cr.clients_last_year) || 0;
+      const churned = Number(cr.churned) || 0;
+      cohortKpis = {
+        retained_clients: retained,
+        new_clients: Number(cr.new_this_year) || 0,
+        churned_clients: churned,
+        clients_last_year: clientsLastYear,
+        retention_rate: clientsLastYear > 0 ? (retained / clientsLastYear * 100) : null,
+        churn_rate: clientsLastYear > 0 ? (churned / clientsLastYear * 100) : null,
+        new_client_revenue: Number(cr.new_revenue) || 0,
+        retained_revenue: Number(cr.retained_revenue) || 0,
+      };
+    } catch (e) {
+      warnings.push('Falha ao extrair coorte de clientes: ' + (e.message || String(e)).slice(0, 120));
+    }
+    await updateStep(7, 72);
+
+    // Etapa 8: Novos clientes por mês
+    let newClientsMonthly = [];
+    try {
+      const ncmSql = `SELECT YEAR(first_nf) AS ano, MONTH(first_nf) AS mes, COUNT(*) AS new_clients
+        FROM (
+          SELECT cd_pessoa, MIN(dt_emi_nf) AS first_nf
+          FROM nf WITH (NOLOCK)
+          WHERE dt_emi_nf >= ${lastYearStart} AND dt_emi_nf < ${yearEnd} ${cancelFilter}
+          GROUP BY cd_pessoa
+        ) x
+        WHERE first_nf >= ${yearStart} AND first_nf < ${yearEnd}
+        GROUP BY YEAR(first_nf), MONTH(first_nf)
+        ORDER BY 1, 2`;
+      const ncmRes = await runQuery(source, wrap(ncmSql));
+      queryCount++;
+      newClientsMonthly = getRows(ncmRes).map(r => ({
+        ano: Number(r.ano), mes: Number(r.mes), new_clients: Number(r.new_clients) || 0
+      }));
+    } catch (e) {
+      warnings.push('Falha ao extrair novos clientes mensais: ' + (e.message || String(e)).slice(0, 120));
+    }
+
+    // Etapa 9: Distribuição geográfica
+    let revenueByState = [];
+    try {
+      const geoSql = `SELECT TOP 15 uf_destinatario AS uf, ISNULL(SUM(vl_faturamento),0) AS revenue, COUNT(*) AS nfs, COUNT(DISTINCT cd_pessoa) AS clients
+        FROM nf WITH (NOLOCK)
+        WHERE dt_emi_nf >= ${yearStart} AND dt_emi_nf < ${yearEnd} ${cancelFilter}
+          AND uf_destinatario IS NOT NULL AND uf_destinatario <> ''
+        GROUP BY uf_destinatario
+        ORDER BY ISNULL(SUM(vl_faturamento),0) DESC`;
+      const geoRes = await runQuery(source, wrap(geoSql));
+      queryCount++;
+      revenueByState = getRows(geoRes).map(r => ({
+        uf: String(r.uf || ''),
+        revenue: Number(r.revenue) || 0,
+        nfs: Number(r.nfs) || 0,
+        clients: Number(r.clients) || 0,
+      }));
+    } catch (e) {
+      warnings.push('Falha ao extrair distribuição geográfica: ' + (e.message || String(e)).slice(0, 120));
+    }
+    await updateStep(8, 82);
+
+    // Etapa 10: Calcular KPIs derivados
     const kpis = {
       fat_ano: Number(kpiRow.fat_ano) || 0,
       fat_ano_ant: Number(kpiRow.fat_ano_ant) || 0,
@@ -263,13 +429,26 @@ async function processRefresh(base44, source, run, version, previousVersion) {
     };
     const top10Total = topClients.slice(0, 10).reduce((s, c) => s + c.total, 0);
     kpis.concentracao_top10 = kpis.fat_ano > 0 ? (top10Total / kpis.fat_ano * 100) : 0;
-    await updateStep(7, 85);
+    kpis.retained_clients = cohortKpis.retained_clients || 0;
+    kpis.new_clients = cohortKpis.new_clients || 0;
+    kpis.churned_clients = cohortKpis.churned_clients || 0;
+    kpis.clients_last_year = cohortKpis.clients_last_year || 0;
+    kpis.retention_rate = cohortKpis.retention_rate;
+    kpis.churn_rate = cohortKpis.churn_rate;
+    kpis.new_client_revenue = cohortKpis.new_client_revenue || 0;
+    kpis.retained_revenue = cohortKpis.retained_revenue || 0;
+    kpis.receita_por_cliente = kpis.clientes_ano > 0 ? (kpis.fat_ano / kpis.clientes_ano) : 0;
+    kpis.fat_ponderado = kpis.fat_mes * 0.6;
 
-    // Etapa 8: Validar
+    // Gerar alertas automáticos
+    const alerts = generateAlerts(kpis, topClients);
+    await updateStep(9, 88);
+
+    // Etapa: Validar
     const maxDate = kpiRow.max_date;
     const maxDateStr = maxDate ? new Date(maxDate).toISOString().slice(0, 10) : null;
     const totalRecords = kpis.clientes_ano + kpis.nfs_ano;
-    await updateStep(8, 90);
+    await updateStep(10, 92);
 
     // Criar snapshot (não publicado ainda)
     const snapshot = await base44.asServiceRole.entities.ErpSnapshot.create({
@@ -285,13 +464,16 @@ async function processRefresh(base44, source, run, version, previousVersion) {
       top_clients: topClients,
       top_vendors: topVendors,
       monthly_revenue: monthlyRevenue,
+      revenue_by_state: revenueByState,
+      new_clients_monthly: newClientsMonthly,
+      alerts,
       clients_total: kpis.clientes_ano,
       query_count: queryCount,
       duration_ms: Date.now() - startTime,
     });
 
-    // Etapa 9: Publicar — desmarcar anterior, marcar nova
-    await updateStep(9, 95);
+    // Etapa 11: Publicar — desmarcar anterior, marcar nova
+    await updateStep(10, 95);
     if (previousVersion) {
       await base44.asServiceRole.entities.ErpSnapshot.updateMany(
         { source_id: run.source_id, is_current: true },

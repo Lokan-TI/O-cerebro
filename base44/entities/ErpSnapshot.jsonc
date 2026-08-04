@@ -37,7 +37,7 @@
     },
     "kpis": {
       "type": "object",
-      "description": "Indicadores pr\u00e9-calculados"
+      "description": "Indicadores pr\u00e9-calculados (financeiros, coorte, reten\u00e7\u00e3o)"
     },
     "top_clients": {
       "type": "array",
@@ -59,6 +59,27 @@
         "type": "object"
       },
       "description": "S\u00e9rie mensal de faturamento"
+    },
+    "revenue_by_state": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      },
+      "description": "Distribui\u00e7\u00e3o geogr\u00e1fica de receita"
+    },
+    "new_clients_monthly": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      },
+      "description": "Novos clientes por m\u00eas"
+    },
+    "alerts": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      },
+      "description": "Alertas autom\u00e1ticos gerados pela an\u00e1lise"
     },
     "clients_total": {
       "type": "number",
