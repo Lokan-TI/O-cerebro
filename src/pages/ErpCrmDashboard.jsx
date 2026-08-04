@@ -12,13 +12,17 @@ const TABS = [
   { id: "tabelas", label: "Tabelas" },
 ];
 
+const CUR_MONTH_START = "DATEFROMPARTS(YEAR(GETDATE()),MONTH(GETDATE()),1)";
+const CUR_MONTH_END = `DATEADD(month,1,${CUR_MONTH_START})`;
+const PREV_MONTH_START = `DATEADD(month,-1,${CUR_MONTH_START})`;
+
 const DEFAULT_KPIS = [
-  { id: "cac", label: "CAC", sub: "Custo de Aquisição", accent: "border-purple-500", defaultSql: "SELECT 0 AS valor -- Edite: CAC = Investimento Marketing / Nº Novos Clientes" },
-  { id: "ltv", label: "LTV", sub: "Lifetime Value", accent: "border-blue-500", defaultSql: "SELECT 0 AS valor -- Edite: LTV = Receita Total / Nº Clientes" },
-  { id: "conversao", label: "Conversão", sub: "Taxa por canal", accent: "border-green-500", defaultSql: "SELECT 0 AS valor -- Edite: Taxa de conversão por canal" },
-  { id: "churn", label: "Churn", sub: "Taxa de cancelamento", accent: "border-red-500", defaultSql: "SELECT 0 AS valor -- Edite: Churn rate" },
-  { id: "ticket", label: "Ticket Médio", sub: "Valor médio por venda", accent: "border-yellow-500", defaultSql: "SELECT 0 AS valor -- Edite: Ticket médio" },
-  { id: "receita", label: "Receita Total", sub: "Período atual", accent: "border-blue-400", defaultSql: "SELECT 0 AS valor -- Edite: Receita total do período" },
+  { id: "fat_mes", label: "Faturamento Mês", sub: "Mês atual · vl_faturamento", accent: "border-purple-500", format: "currency", defaultSql: `SELECT ISNULL(SUM(vl_faturamento),0) AS valor FROM nf WHERE dt_emi_nf >= ${CUR_MONTH_START} AND dt_emi_nf < ${CUR_MONTH_END}` },
+  { id: "fat_ano", label: "Faturamento Ano", sub: `Acumulado ${new Date().getFullYear()}`, accent: "border-blue-500", format: "currency", defaultSql: `SELECT ISNULL(SUM(vl_faturamento),0) AS valor FROM nf WHERE dt_emi_nf >= DATEFROMPARTS(YEAR(GETDATE()),1,1) AND dt_emi_nf < DATEADD(year,1,DATEFROMPARTS(YEAR(GETDATE()),1,1))` },
+  { id: "ticket_mes", label: "Ticket Médio", sub: "Por NF no mês atual", accent: "border-green-500", format: "currency", defaultSql: `SELECT ISNULL(SUM(vl_faturamento)/NULLIF(COUNT(*),0),0) AS valor FROM nf WHERE dt_emi_nf >= ${CUR_MONTH_START} AND dt_emi_nf < ${CUR_MONTH_END}` },
+  { id: "nfs_mes", label: "NFs no Mês", sub: "Notas emitidas no mês", accent: "border-yellow-500", format: "number", defaultSql: `SELECT COUNT(*) AS valor FROM nf WHERE dt_emi_nf >= ${CUR_MONTH_START} AND dt_emi_nf < ${CUR_MONTH_END}` },
+  { id: "clientes_ativos", label: "Clientes Ativos", sub: "Clientes que faturaram no mês", accent: "border-cyan-500", format: "number", defaultSql: `SELECT COUNT(DISTINCT cd_pessoa) AS valor FROM nf WHERE dt_emi_nf >= ${CUR_MONTH_START} AND dt_emi_nf < ${CUR_MONTH_END}` },
+  { id: "fat_ant", label: "Fat. Mês Anterior", sub: "Mês anterior completo", accent: "border-indigo-500", format: "currency", defaultSql: `SELECT ISNULL(SUM(vl_faturamento),0) AS valor FROM nf WHERE dt_emi_nf >= ${PREV_MONTH_START} AND dt_emi_nf < ${CUR_MONTH_START}` },
 ];
 
 export default function ErpCrmDashboard() {

@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { RefreshCw, Pencil, Save, X } from "lucide-react";
 
-export default function KpiCard({ id, label, defaultSql, accent = "border-blue-500", sub }) {
+export default function KpiCard({ id, label, defaultSql, accent = "border-blue-500", sub, format = "number" }) {
   const [sql, setSql] = useState(() => localStorage.getItem(`kpi_sql_${id}`) || defaultSql);
   const [value, setValue] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -39,8 +39,12 @@ export default function KpiCard({ id, label, defaultSql, accent = "border-blue-5
 
   const fmtValue = (v) => {
     if (v == null) return "—";
-    if (typeof v === "number") return v.toLocaleString("pt-BR", { maximumFractionDigits: 2 });
-    return String(v);
+    const n = typeof v === "number" ? v : parseFloat(v);
+    if (isNaN(n)) return String(v);
+    if (format === "currency") {
+      return n.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+    }
+    return n.toLocaleString("pt-BR", { maximumFractionDigits: 0 });
   };
 
   return (
