@@ -7,6 +7,7 @@ import SnapshotTables from "@/components/erp/SnapshotTables";
 import QueryRunner from "@/components/erp/QueryRunner";
 import SchemaExplorer from "@/components/erp/SchemaExplorer";
 import TabChurn from "@/components/erp/TabChurn";
+import TabClientesCar from "@/components/erp/TabClientesCar";
 import { Link } from "react-router-dom";
 import { Settings2 } from "lucide-react";
 
@@ -15,6 +16,7 @@ const TABS = [
   { id: "kpis", label: "KPIs" },
   { id: "clientes", label: "Clientes" },
   { id: "churn", label: "Retenção & Churn" },
+  { id: "car", label: "Clientes CAR" },
   { id: "estrutura", label: "Estrutura" },
   { id: "query", label: "Query SQL" },
 ];
@@ -50,6 +52,7 @@ function ErpCrmDashboardContent() {
         {activeTab === "kpis" && <SnapshotKpiGrid />}
         {activeTab === "clientes" && <SnapshotTables />}
         {activeTab === "churn" && <TabChurn />}
+        {activeTab === "car" && <TabClientesCar />}
         {activeTab === "estrutura" && <SchemaExplorer />}
         {activeTab === "query" && <QueryRunner />}
       </div>
