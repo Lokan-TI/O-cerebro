@@ -27,6 +27,14 @@ const MENUS = [
     color: "red",
     badge: "PERDIDOS",
   },
+  {
+    id: "erp-crm",
+    label: "ERP / CRM",
+    desc: "KPIs em tempo real do ERP e CRM",
+    page: "ErpCrmDashboard",
+    color: "purple",
+    badge: "ERP/CRM",
+  },
 ];
 
 const COLOR_MAP = {
@@ -45,11 +53,17 @@ const COLOR_MAP = {
     badge: "bg-green-700 text-green-100",
     dot: "bg-green-500",
   },
+  purple: {
+    border: "border-purple-500",
+    badge: "bg-purple-700 text-purple-100",
+    dot: "bg-purple-500",
+  },
 };
 
 export default function Layout({ children, currentPageName }) {
   const isFunil = currentPageName === "FunilConversao";
-  const accentColor = isFunil ? "green" : "blue";
+  const isErpCrm = currentPageName === "ErpCrmDashboard";
+  const accentColor = isFunil ? "green" : isErpCrm ? "purple" : "blue";
   const c = COLOR_MAP[accentColor];
   const isGoogleDashboard = currentPageName === "GoogleDashboard";
 
@@ -73,7 +87,7 @@ export default function Layout({ children, currentPageName }) {
               to={createPageUrl(m.page)}
               className={`flex items-center gap-2 px-4 py-3 text-sm font-medium whitespace-nowrap border-b-2 transition-colors ${
                 active
-                  ? `border-${m.color === "green" ? "green-500" : "blue-500"} text-white`
+                  ? `border-${m.color === "green" ? "green-500" : m.color === "purple" ? "purple-500" : "blue-500"} text-white`
                   : "border-transparent text-gray-500 hover:text-gray-300 hover:border-gray-600"
               }`}
             >

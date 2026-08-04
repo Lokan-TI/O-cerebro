@@ -1,0 +1,35 @@
+{
+  "name": "Lead",
+  "type": "object",
+  "properties": {
+    "nome_contato": {
+      "type": "string",
+      "description": "Nome do contato"
+    },
+    "empresa": {
+      "type": "string",
+      "description": "Nome da empresa"
+    },
+    "email": {
+      "type": "string",
+      "description": "E-mail do contato"
+    },
+    "telefone": {
+      "type": "string",
+      "description": "Telefone do contato"
+    },
+    "produto": {
+      "type": "string",
+      "description": "Produto cotado"
+    },
+    "data_orcamento": {
+      "type": "string",
+      "description": "Data do or\u00e7amento"
+    },
+    "vendedor": {
+      "type": "string",
+      "description": "Vendedor respons\u00e1vel"
+    }
+  },
+  "required": []
+}
