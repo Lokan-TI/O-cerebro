@@ -2,10 +2,12 @@ import { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import KpiCard from "@/components/erp/KpiCard.jsx";
 import QueryRunner from "@/components/erp/QueryRunner.jsx";
+import SchemaExplorer from "@/components/erp/SchemaExplorer.jsx";
 import { Database, RefreshCw, Wifi, WifiOff } from "lucide-react";
 
 const TABS = [
   { id: "kpis", label: "KPIs" },
+  { id: "estrutura", label: "Estrutura" },
   { id: "query", label: "Query SQL" },
   { id: "tabelas", label: "Tabelas" },
 ];
@@ -113,6 +115,8 @@ export default function ErpCrmDashboard() {
             ))}
           </div>
         )}
+
+        {activeTab === "estrutura" && <SchemaExplorer />}
 
         {activeTab === "query" && <QueryRunner />}
 

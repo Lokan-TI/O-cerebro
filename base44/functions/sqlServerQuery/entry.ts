@@ -38,11 +38,17 @@ async function getPool(config) {
     try {
       const pool = await poolPromise;
       if (pool.connected) return pool;
+      // Pool exists but not connected — close it and recreate
+      try { await pool.close(); } catch {}
+      poolPromise = null;
     } catch {
       poolPromise = null;
     }
   }
-  poolPromise = sql.connect(config);
+  poolPromise = sql.connect({
+    ...config,
+    connectionTimeout: 10000,
+  });
   return await poolPromise;
 }
 
