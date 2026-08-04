@@ -3,7 +3,10 @@ import { base44 } from "@/api/base44Client";
 import KpiCard from "@/components/erp/KpiCard.jsx";
 import QueryRunner from "@/components/erp/QueryRunner.jsx";
 import SchemaExplorer from "@/components/erp/SchemaExplorer.jsx";
-import { Database, RefreshCw, Wifi, WifiOff } from "lucide-react";
+import DataSourceDropdown from "@/components/erp/DataSourceDropdown";
+import { useErpSource } from "@/lib/ErpSourceContext";
+import { Link } from "react-router-dom";
+import { Database, RefreshCw, Wifi, WifiOff, Settings2 } from "lucide-react";
 
 const TABS = [
   { id: "kpis", label: "KPIs" },
@@ -26,6 +29,7 @@ const DEFAULT_KPIS = [
 ];
 
 export default function ErpCrmDashboard() {
+  const { selectedSource } = useErpSource();
   const [activeTab, setActiveTab] = useState("kpis");
   const [connStatus, setConnStatus] = useState(null);
   const [tables, setTables] = useState(null);
@@ -34,20 +38,21 @@ export default function ErpCrmDashboard() {
   const testConnection = async () => {
     setConnStatus(null);
     try {
-      await base44.functions.invoke("sqlServerQuery", { query: "SELECT 1 AS test" });
+      await base44.functions.invoke("sqlServerQuery", { query: "SELECT 1 AS test", source_id: selectedSource?.id });
       setConnStatus(true);
     } catch {
       setConnStatus(false);
     }
   };
 
-  useEffect(() => { testConnection(); }, []);
+  useEffect(() => { testConnection(); }, [selectedSource?.id]);
 
   const loadTables = async () => {
     setTablesLoading(true);
     try {
       const res = await base44.functions.invoke("sqlServerQuery", {
-        query: "SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_TYPE = 'BASE TABLE' ORDER BY TABLE_NAME"
+        query: "SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_TYPE = 'BASE TABLE' ORDER BY NAME",
+        source_id: selectedSource?.id
       });
       setTables(res?.data?.rows || []);
     } catch {
@@ -58,20 +63,24 @@ export default function ErpCrmDashboard() {
   };
 
   useEffect(() => {
-    if (activeTab === "tabelas" && tables === null) loadTables();
-  }, [activeTab]);
+    setTables(null);
+    if (activeTab === "tabelas") loadTables();
+  }, [activeTab, selectedSource?.id]);
 
   return (
     <div className="min-h-screen bg-gray-950 p-6">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
         <div className="mb-5 flex flex-wrap items-start justify-between gap-4">
-          <div>
-            <div className="flex items-center gap-3 mb-1">
-              <span className="text-xs font-bold bg-purple-600 text-white px-2 py-0.5 rounded uppercase tracking-wider">ERP / CRM</span>
-              <h1 className="text-white font-bold text-xl">KPIs em Tempo Real</h1>
+          <div className="space-y-3">
+            <div>
+              <div className="flex items-center gap-3 mb-1">
+                <span className="text-xs font-bold bg-purple-600 text-white px-2 py-0.5 rounded uppercase tracking-wider">ERP</span>
+                <h1 className="text-white font-bold text-xl">KPIs em Tempo Real</h1>
+              </div>
+              <p className="text-gray-500 text-sm">Conexão direta com SQL Server · dados atualizados sob demanda</p>
             </div>
-            <p className="text-gray-500 text-sm">Conexão direta com SQL Server · dados atualizados sob demanda</p>
+            <DataSourceDropdown />
           </div>
           <div className="flex items-center gap-3">
             <div className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium border ${
@@ -86,6 +95,9 @@ export default function ErpCrmDashboard() {
             <button onClick={testConnection} className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-800 hover:bg-gray-700 border border-gray-700 rounded-lg text-gray-400 hover:text-white text-xs transition-colors">
               <RefreshCw className="w-3.5 h-3.5" /> Testar
             </button>
+            <Link to="/GerenciarFontes" className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-800 hover:bg-gray-700 border border-gray-700 rounded-lg text-gray-400 hover:text-white text-xs transition-colors">
+              <Settings2 className="w-3.5 h-3.5" /> Gerenciar fontes
+            </Link>
           </div>
         </div>
 
@@ -107,7 +119,7 @@ export default function ErpCrmDashboard() {
               <WifiOff className="w-5 h-5 text-red-400" />
               <h2 className="text-red-400 font-semibold">Falha na conexão com SQL Server</h2>
             </div>
-            <p className="text-red-300 text-sm">Verifique as credenciais configuradas (host, porta, banco, usuário e senha) nas variáveis de ambiente do app.</p>
+            <p className="text-red-300 text-sm">Verifique a configuração da fonte selecionada (host, porta, banco, usuário e senha) ou troque de fonte no seletor acima.</p>
           </div>
         )}
 

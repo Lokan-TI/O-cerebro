@@ -7,6 +7,8 @@ import PageNotFound from './lib/PageNotFound';
 import { AuthProvider, useAuth } from '@/lib/AuthContext';
 import UserNotRegisteredError from '@/components/UserNotRegisteredError';
 import ErpCrmDashboard from './pages/ErpCrmDashboard.jsx';
+import GerenciarFontes from './pages/GerenciarFontes.jsx';
+import { ErpSourceProvider } from '@/lib/ErpSourceContext';
 
 const { Pages, Layout, mainPage } = pagesConfig;
 const mainPageKey = mainPage ?? Object.keys(Pages)[0];
@@ -41,6 +43,7 @@ const AuthenticatedApp = () => {
 
   // Render the main app
   return (
+    <ErpSourceProvider>
     <Routes>
       <Route path="/" element={
         <LayoutWrapper currentPageName={mainPageKey}>
@@ -63,8 +66,14 @@ const AuthenticatedApp = () => {
           <ErpCrmDashboard />
         </LayoutWrapper>
       } />
+      <Route path="/GerenciarFontes" element={
+        <LayoutWrapper currentPageName="GerenciarFontes">
+          <GerenciarFontes />
+        </LayoutWrapper>
+      } />
       <Route path="*" element={<PageNotFound />} />
     </Routes>
+    </ErpSourceProvider>
   );
 };
 

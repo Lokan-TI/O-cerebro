@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { base44 } from "@/api/base44Client";
+import { useErpSource } from "@/lib/ErpSourceContext";
 import { Play, Loader2 } from "lucide-react";
 
 const PRESETS = [
@@ -9,6 +10,7 @@ const PRESETS = [
 ];
 
 export default function QueryRunner() {
+  const { selectedSource } = useErpSource();
   const [sql, setSql] = useState("");
   const [rows, setRows] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -22,7 +24,7 @@ export default function QueryRunner() {
     setRows(null);
     const start = Date.now();
     try {
-      const res = await base44.functions.invoke("sqlServerQuery", { query: sql });
+      const res = await base44.functions.invoke("sqlServerQuery", { query: sql, source_id: selectedSource?.id });
       setRows(res?.data?.rows || []);
       setExecTime(Date.now() - start);
     } catch (err) {

@@ -28,12 +28,12 @@ const MENUS = [
     badge: "PERDIDOS",
   },
   {
-    id: "erp-crm",
-    label: "ERP / CRM",
-    desc: "KPIs em tempo real do ERP e CRM",
+    id: "erp",
+    label: "ERP",
+    desc: "KPIs em tempo real do ERP",
     page: "ErpCrmDashboard",
     color: "purple",
-    badge: "ERP/CRM",
+    badge: "ERP",
   },
 ];
 

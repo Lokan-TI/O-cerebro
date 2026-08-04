@@ -1,0 +1,204 @@
+{
+  "name": "ErpDataSource",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string",
+      "description": "Nome da fonte de dados"
+    },
+    "branch_name": {
+      "type": "string",
+      "description": "Nome da unidade ou filial"
+    },
+    "branch_code": {
+      "type": "string",
+      "description": "C\u00f3digo interno da unidade"
+    },
+    "description": {
+      "type": "string",
+      "description": "Descri\u00e7\u00e3o da fonte"
+    },
+    "environment": {
+      "type": "string",
+      "enum": [
+        "producao",
+        "homologacao",
+        "teste"
+      ],
+      "default": "producao",
+      "description": "Ambiente da conex\u00e3o"
+    },
+    "is_active": {
+      "type": "boolean",
+      "default": true,
+      "description": "Status ativo ou inativo"
+    },
+    "database_type": {
+      "type": "string",
+      "default": "sqlserver",
+      "description": "Tipo do banco de dados"
+    },
+    "host": {
+      "type": "string",
+      "description": "Servidor ou host"
+    },
+    "port": {
+      "type": "string",
+      "default": "1433",
+      "description": "Porta de conex\u00e3o"
+    },
+    "database_name": {
+      "type": "string",
+      "description": "Nome do banco"
+    },
+    "instance_name": {
+      "type": "string",
+      "description": "Inst\u00e2ncia do SQL Server"
+    },
+    "default_schema": {
+      "type": "string",
+      "description": "Schema padr\u00e3o"
+    },
+    "username": {
+      "type": "string",
+      "description": "Usu\u00e1rio do banco"
+    },
+    "password": {
+      "type": "string",
+      "description": "Credencial \u2014 processada exclusivamente pelo back-end, nunca exibida na interface"
+    },
+    "credential_reference": {
+      "type": "string",
+      "default": "entity",
+      "description": "Origem da credencial: env (vari\u00e1veis de ambiente) ou entity (configura\u00e7\u00e3o pr\u00f3pria)"
+    },
+    "auth_type": {
+      "type": "string",
+      "enum": [
+        "sql",
+        "windows"
+      ],
+      "default": "sql",
+      "description": "Tipo de autentica\u00e7\u00e3o"
+    },
+    "use_ssl": {
+      "type": "boolean",
+      "default": false,
+      "description": "Utiliza\u00e7\u00e3o de SSL"
+    },
+    "extra_params": {
+      "type": "string",
+      "description": "Par\u00e2metros adicionais de conex\u00e3o"
+    },
+    "is_read_only": {
+      "type": "boolean",
+      "default": true,
+      "description": "Conex\u00e3o somente leitura"
+    },
+    "sync_periodicity": {
+      "type": "string",
+      "enum": [
+        "manual",
+        "hourly",
+        "daily",
+        "weekly"
+      ],
+      "default": "manual",
+      "description": "Periodicidade de sincroniza\u00e7\u00e3o"
+    },
+    "sync_mode": {
+      "type": "string",
+      "enum": [
+        "manual",
+        "automatic"
+      ],
+      "default": "manual",
+      "description": "Sincroniza\u00e7\u00e3o manual ou autom\u00e1tica"
+    },
+    "connection_timeout": {
+      "type": "number",
+      "default": 25,
+      "description": "Timeout da conex\u00e3o em segundos"
+    },
+    "row_limit": {
+      "type": "number",
+      "default": 10000,
+      "description": "Limite de registros por consulta"
+    },
+    "import_start_date": {
+      "type": "string",
+      "format": "date",
+      "description": "Data inicial para importa\u00e7\u00e3o"
+    },
+    "tech_contact": {
+      "type": "string",
+      "description": "Respons\u00e1vel t\u00e9cnico"
+    },
+    "notes": {
+      "type": "string",
+      "description": "Observa\u00e7\u00f5es"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "connected",
+        "disconnected",
+        "syncing",
+        "error",
+        "incomplete",
+        "mapping_pending",
+        "inactive"
+      ],
+      "default": "disconnected",
+      "description": "Status da conex\u00e3o"
+    },
+    "last_connection_test": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Data e hor\u00e1rio do \u00faltimo teste de conex\u00e3o"
+    },
+    "last_successful_sync": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Data e hor\u00e1rio da \u00faltima sincroniza\u00e7\u00e3o bem-sucedida"
+    },
+    "last_sync_status": {
+      "type": "string",
+      "description": "Status da \u00faltima sincroniza\u00e7\u00e3o"
+    },
+    "records_count": {
+      "type": "number",
+      "default": 0,
+      "description": "Quantidade de registros importados"
+    },
+    "dw_api_client_id": {
+      "type": "string",
+      "description": "Client ID do wrapper DW_API (SISLOC) da unidade"
+    }
+  },
+  "required": [
+    "name"
+  ],
+  "rls": {
+    "read": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

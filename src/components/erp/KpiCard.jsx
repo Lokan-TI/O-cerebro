@@ -1,8 +1,10 @@
 import { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
+import { useErpSource } from "@/lib/ErpSourceContext";
 import { RefreshCw, Pencil, Save, X } from "lucide-react";
 
 export default function KpiCard({ id, label, defaultSql, accent = "border-blue-500", sub, format = "number" }) {
+  const { selectedSource } = useErpSource();
   const [sql, setSql] = useState(() => localStorage.getItem(`kpi_sql_${id}`) || defaultSql);
   const [value, setValue] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -13,7 +15,7 @@ export default function KpiCard({ id, label, defaultSql, accent = "border-blue-5
     setLoading(true);
     setError(null);
     try {
-      const res = await base44.functions.invoke("sqlServerQuery", { query: sql });
+      const res = await base44.functions.invoke("sqlServerQuery", { query: sql, source_id: selectedSource?.id });
       const rows = res?.data?.rows || [];
       if (rows.length > 0) {
         const firstKey = Object.keys(rows[0])[0];
@@ -29,7 +31,7 @@ export default function KpiCard({ id, label, defaultSql, accent = "border-blue-5
     }
   };
 
-  useEffect(() => { execute(); }, []);
+  useEffect(() => { execute(); }, [selectedSource?.id]);
 
   const saveSql = () => {
     localStorage.setItem(`kpi_sql_${id}`, sql);
