@@ -1,0 +1,127 @@
+{
+  "name": "ErpSyncRun",
+  "type": "object",
+  "properties": {
+    "source_id": {
+      "type": "string",
+      "description": "ID da fonte de dados ERP"
+    },
+    "source_name": {
+      "type": "string",
+      "description": "Nome da fonte"
+    },
+    "version": {
+      "type": "string",
+      "description": "Identificador da vers\u00e3o gerada"
+    },
+    "previous_version": {
+      "type": "string",
+      "description": "Vers\u00e3o anterior"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "pending",
+        "running",
+        "success",
+        "failed",
+        "partial",
+        "cancelled"
+      ],
+      "default": "pending",
+      "description": "Status da atualiza\u00e7\u00e3o"
+    },
+    "started_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "completed_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "started_by_id": {
+      "type": "string"
+    },
+    "started_by_name": {
+      "type": "string"
+    },
+    "current_step": {
+      "type": "string",
+      "description": "Etapa atual (id)"
+    },
+    "step_label": {
+      "type": "string",
+      "description": "Etapa atual (texto)"
+    },
+    "step_index": {
+      "type": "number",
+      "default": 0
+    },
+    "total_steps": {
+      "type": "number",
+      "default": 9
+    },
+    "progress": {
+      "type": "number",
+      "default": 0,
+      "description": "Percentual 0-100"
+    },
+    "records_extracted": {
+      "type": "number",
+      "default": 0
+    },
+    "records_valid": {
+      "type": "number",
+      "default": 0
+    },
+    "records_rejected": {
+      "type": "number",
+      "default": 0
+    },
+    "duration_ms": {
+      "type": "number",
+      "default": 0
+    },
+    "max_date": {
+      "type": "string",
+      "description": "Data m\u00e1xima encontrada na base"
+    },
+    "error_message": {
+      "type": "string"
+    },
+    "warning_count": {
+      "type": "number",
+      "default": 0
+    },
+    "warnings": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Lista de avisos"
+    }
+  },
+  "required": [
+    "source_id",
+    "source_name",
+    "version"
+  ],
+  "rls": {
+    "read": {},
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

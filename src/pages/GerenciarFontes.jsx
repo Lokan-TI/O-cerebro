@@ -4,7 +4,8 @@ import { base44 } from "@/api/base44Client";
 import { useErpSource } from "@/lib/ErpSourceContext";
 import SourceStatusBadge from "@/components/erp/SourceStatusBadge";
 import AdicionarFonteModal from "@/components/erp/AdicionarFonteModal";
-import { Plus, Pencil, Wifi, Loader2, Eye, Power, ChevronLeft } from "lucide-react";
+import { Plus, Pencil, Wifi, Loader2, Eye, Power, ChevronLeft, RefreshCw, CheckCircle2, AlertTriangle, Clock } from "lucide-react";
+import { pollRun } from "@/lib/erpSync";
 
 function formatDate(dt) {
   if (!dt) return "—";
@@ -19,6 +20,8 @@ export default function GerenciarFontes() {
   const [editing, setEditing] = useState(null);
   const [testingId, setTestingId] = useState(null);
   const [testMsg, setTestMsg] = useState({});
+  const [refreshProgress, setRefreshProgress] = useState({});
+  const [refreshingAll, setRefreshingAll] = useState(false);
 
   const openAdd = () => { setEditing(null); setModalOpen(true); };
   const openEdit = (s) => { setEditing(s); setModalOpen(true); };
@@ -47,6 +50,48 @@ export default function GerenciarFontes() {
     await refreshSources();
   };
 
+  const handleRefresh = async (s) => {
+    setRefreshProgress(prev => ({ ...prev, [s.id]: "processing" }));
+    try {
+      const res = await base44.functions.invoke("refreshErpData", { source_id: s.id });
+      const data = res?.data || {};
+      if (data.success && data.run_id) {
+        await pollRun(data.run_id, (run) => {
+          setRefreshProgress(prev => ({ ...prev, [s.id]: run.status === "running" ? "processing" : run.status }));
+        });
+      } else {
+        setRefreshProgress(prev => ({ ...prev, [s.id]: "failed" }));
+      }
+    } catch {
+      setRefreshProgress(prev => ({ ...prev, [s.id]: "failed" }));
+    }
+    await refreshSources();
+  };
+
+  const refreshAll = async () => {
+    const activeSources = sources.filter(s => s.is_active !== false);
+    setRefreshingAll(true);
+    setRefreshProgress({});
+    for (const s of activeSources) {
+      setRefreshProgress(prev => ({ ...prev, [s.id]: "processing" }));
+      try {
+        const res = await base44.functions.invoke("refreshErpData", { source_id: s.id });
+        const data = res?.data || {};
+        if (data.success && data.run_id) {
+          await pollRun(data.run_id, (run) => {
+            setRefreshProgress(prev => ({ ...prev, [s.id]: run.status === "running" ? "processing" : run.status }));
+          });
+        } else {
+          setRefreshProgress(prev => ({ ...prev, [s.id]: "failed" }));
+        }
+      } catch {
+        setRefreshProgress(prev => ({ ...prev, [s.id]: "failed" }));
+      }
+    }
+    setRefreshingAll(false);
+    await refreshSources();
+  };
+
   return (
     <div className="min-h-screen bg-gray-950 p-6">
       <div className="max-w-6xl mx-auto">
@@ -64,10 +109,47 @@ export default function GerenciarFontes() {
               <p className="text-gray-500 text-sm">Cadastre e gerencie as conexões com os bancos do ERP (Matriz e filiais)</p>
             </div>
           </div>
-          <button onClick={openAdd} className="flex items-center gap-2 px-4 py-2 bg-purple-600 hover:bg-purple-500 text-white rounded-lg text-sm font-medium transition-colors">
-            <Plus className="w-4 h-4" /> Adicionar fonte
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={refreshAll}
+              disabled={refreshingAll || sources.length === 0}
+              className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-lg text-sm font-medium transition-colors"
+            >
+              {refreshingAll ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
+              {refreshingAll ? "Atualizando..." : "Atualizar todas as fontes"}
+            </button>
+            <button onClick={openAdd} className="flex items-center gap-2 px-4 py-2 bg-purple-600 hover:bg-purple-500 text-white rounded-lg text-sm font-medium transition-colors">
+              <Plus className="w-4 h-4" /> Adicionar fonte
+            </button>
+          </div>
         </div>
+
+        {/* Painel de progresso da atualização consolidada */}
+        {refreshingAll && (
+          <div className="bg-gray-900 border border-gray-800 rounded-xl p-4 mb-4">
+            <h3 className="text-white font-medium text-sm mb-3">Atualizando todas as fontes</h3>
+            <div className="space-y-2">
+              {sources.filter(s => s.is_active !== false).map(s => {
+                const st = refreshProgress[s.id] || "waiting";
+                return (
+                  <div key={s.id} className="flex items-center gap-3">
+                    {st === "processing" ? <Loader2 className="w-4 h-4 text-blue-400 animate-spin" /> :
+                     st === "success" ? <CheckCircle2 className="w-4 h-4 text-green-400" /> :
+                     st === "failed" || st === "partial" ? <AlertTriangle className="w-4 h-4 text-yellow-400" /> :
+                     <Clock className="w-4 h-4 text-gray-600" />}
+                    <span className="text-gray-300 text-sm flex-1">{s.name}</span>
+                    <span className="text-gray-500 text-xs">
+                      {st === "processing" ? "Em processamento" :
+                       st === "waiting" ? "Aguardando" :
+                       st === "success" ? "Concluída" :
+                       st === "failed" ? "Falha" : st === "partial" ? "Com ressalvas" : st}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
 
         {/* Tabela de fontes */}
         <div className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden">
@@ -114,6 +196,9 @@ export default function GerenciarFontes() {
                         </button>
                         <button onClick={() => handleTest(s)} disabled={testingId === s.id} title="Testar conexão" className="p-1.5 text-gray-500 hover:text-white hover:bg-gray-800 rounded disabled:opacity-50">
                           {testingId === s.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Wifi className="w-4 h-4" />}
+                        </button>
+                        <button onClick={() => handleRefresh(s)} disabled={refreshProgress[s.id] === "processing"} title="Atualizar dados" className="p-1.5 text-gray-500 hover:text-white hover:bg-gray-800 rounded disabled:opacity-50">
+                          {refreshProgress[s.id] === "processing" ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
                         </button>
                         <button onClick={() => toggleActive(s)} title={s.is_active === false ? "Ativar" : "Desativar"} className="p-1.5 text-gray-500 hover:text-white hover:bg-gray-800 rounded">
                           <Power className="w-4 h-4" />
