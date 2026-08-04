@@ -1,10 +1,39 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.40';
 import sql from 'npm:mssql@10.0.1';
 
+// Cached env config — read once, reused across requests to avoid cold-start env misses
+let cachedConfig = null;
+let cachedClientId = null;
+
+function getConfig() {
+  if (cachedConfig && cachedClientId) {
+    return { config: cachedConfig, clientId: cachedClientId, host: cachedConfig.server };
+  }
+  const clientId = Deno.env.get('DW_API_CLIENT_ID');
+  const host = Deno.env.get('SQL_SERVER_HOST');
+  if (clientId && host) {
+    cachedConfig = {
+      server: host,
+      port: parseInt(Deno.env.get('SQL_SERVER_PORT') || '1433'),
+      database: Deno.env.get('SQL_SERVER_DATABASE'),
+      user: Deno.env.get('SQL_SERVER_USER'),
+      password: Deno.env.get('SQL_SERVER_PASSWORD'),
+      options: { encrypt: false, trustServerCertificate: true },
+      requestTimeout: 30000,
+    };
+    cachedClientId = clientId;
+  }
+  return {
+    config: cachedConfig,
+    clientId: clientId || cachedClientId,
+    host: host,
+  };
+}
+
 // Persistent connection pool — reused across requests to avoid concurrent connect() crashes
 let poolPromise = null;
 
-async function getPool() {
+async function getPool(config) {
   if (poolPromise) {
     try {
       const pool = await poolPromise;
@@ -13,18 +42,6 @@ async function getPool() {
       poolPromise = null;
     }
   }
-  const config = {
-    server: Deno.env.get('SQL_SERVER_HOST'),
-    port: parseInt(Deno.env.get('SQL_SERVER_PORT') || '1433'),
-    database: Deno.env.get('SQL_SERVER_DATABASE'),
-    user: Deno.env.get('SQL_SERVER_USER'),
-    password: Deno.env.get('SQL_SERVER_PASSWORD'),
-    options: {
-      encrypt: false,
-      trustServerCertificate: true,
-    },
-    requestTimeout: 30000,
-  };
   poolPromise = sql.connect(config);
   return await poolPromise;
 }
@@ -54,8 +71,13 @@ Deno.serve(async (req) => {
       return Response.json({ error: 'Apenas queries SELECT ou WITH são permitidas (read-only)' }, { status: 403 });
     }
 
-    const clientId = Deno.env.get('DW_API_CLIENT_ID');
-    const host = Deno.env.get('SQL_SERVER_HOST');
+    // Retry env var read to handle cold-start propagation delays
+    let config, clientId, host;
+    for (let i = 0; i < 5; i++) {
+      ({ config, clientId, host } = getConfig());
+      if (config && clientId && host) break;
+      await new Promise(r => setTimeout(r, 300));
+    }
     if (!host) {
       return Response.json({ error: 'SQL Server não configurado. Defina as variáveis SQL_SERVER_* nas configurações.' }, { status: 500 });
     }
@@ -67,7 +89,7 @@ Deno.serve(async (req) => {
     const escapedSql = cleaned.replace(/'/g, "''");
     const execSql = `EXEC DW_API '${clientId}', '${escapedSql}'`;
 
-    const pool = await getPool();
+    const pool = await getPool(config);
     const result = await pool.request().query(execSql);
     const rows = result.recordset || [];
     return Response.json({
