@@ -2,6 +2,7 @@ import { useState } from "react";
 import { ErpSnapshotProvider } from "@/lib/ErpSnapshotContext";
 import RefreshHeader from "@/components/erp/RefreshHeader";
 import SnapshotKpiGrid from "@/components/erp/SnapshotKpiGrid";
+import TabComparativo from "@/components/erp/TabComparativo";
 import SnapshotTables from "@/components/erp/SnapshotTables";
 import QueryRunner from "@/components/erp/QueryRunner";
 import SchemaExplorer from "@/components/erp/SchemaExplorer";
@@ -9,6 +10,7 @@ import { Link } from "react-router-dom";
 import { Settings2 } from "lucide-react";
 
 const TABS = [
+  { id: "comparativo", label: "Comparativo" },
   { id: "kpis", label: "KPIs" },
   { id: "clientes", label: "Clientes" },
   { id: "estrutura", label: "Estrutura" },
@@ -42,6 +44,7 @@ function ErpCrmDashboardContent() {
           </Link>
         </div>
 
+        {activeTab === "comparativo" && <TabComparativo />}
         {activeTab === "kpis" && <SnapshotKpiGrid />}
         {activeTab === "clientes" && <SnapshotTables />}
         {activeTab === "estrutura" && <SchemaExplorer />}

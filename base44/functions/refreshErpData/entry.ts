@@ -10,6 +10,7 @@ const STEPS = [
   { id: 'extraindo_mensal', label: 'Extraindo série mensal' },
   { id: 'extraindo_coorte', label: 'Extraindo coorte de clientes' },
   { id: 'extraindo_geografico', label: 'Extraindo distribuição geográfica' },
+  { id: 'extraindo_empresas', label: 'Extraindo KPIs por empresa' },
   { id: 'calculando_kpis', label: 'Calculando KPIs e alertas' },
   { id: 'validando', label: 'Validando dados' },
   { id: 'publicando', label: 'Publicando nova versão' },
@@ -412,6 +413,68 @@ async function processRefresh(base44, source, run, version, previousVersion) {
     }
     await updateStep(8, 82);
 
+    // Etapa: KPIs por empresa (matriz e filiais)
+    let byEmpresa = [];
+    try {
+      const empKpiSql = `SELECT
+        nf.cd_empresa,
+        ISNULL(SUM(CASE WHEN nf.dt_emi_nf >= ${yearStart} AND nf.dt_emi_nf < ${yearEnd} THEN nf.vl_faturamento ELSE 0 END),0) AS fat_ano,
+        ISNULL(SUM(CASE WHEN nf.dt_emi_nf >= ${lastYearStart} AND nf.dt_emi_nf < ${yearStart} THEN nf.vl_faturamento ELSE 0 END),0) AS fat_ano_ant,
+        ISNULL(SUM(CASE WHEN nf.dt_emi_nf >= ${monthStart} AND nf.dt_emi_nf < ${monthEnd} THEN nf.vl_faturamento ELSE 0 END),0) AS fat_mes,
+        ISNULL(SUM(CASE WHEN nf.dt_emi_nf >= ${prevMonthStart} AND nf.dt_emi_nf < ${monthStart} THEN nf.vl_faturamento ELSE 0 END),0) AS fat_mes_ant,
+        COUNT(CASE WHEN nf.dt_emi_nf >= ${yearStart} AND nf.dt_emi_nf < ${yearEnd} THEN 1 END) AS nfs_ano,
+        COUNT(CASE WHEN nf.dt_emi_nf >= ${monthStart} AND nf.dt_emi_nf < ${monthEnd} THEN 1 END) AS nfs_mes,
+        COUNT(DISTINCT CASE WHEN nf.dt_emi_nf >= ${yearStart} AND nf.dt_emi_nf < ${yearEnd} THEN nf.cd_pessoa END) AS clientes_ano,
+        COUNT(DISTINCT CASE WHEN nf.dt_emi_nf >= ${monthStart} AND nf.dt_emi_nf < ${monthEnd} THEN nf.cd_pessoa END) AS clientes_mes
+      FROM nf WITH (NOLOCK)
+      WHERE nf.dt_emi_nf >= ${lastYearStart} AND nf.dt_emi_nf < ${yearEnd} ${cancelFilter}
+      GROUP BY nf.cd_empresa`;
+      const empKpiRes = await runQuery(source, wrap(empKpiSql));
+      queryCount++;
+      const empKpiRows = getRows(empKpiRes);
+
+      let empNames = {};
+      try {
+        const empNameRes = await runQuery(source, wrap('SELECT cd_empresa, nm_fan_empresa FROM empresa WHERE cd_empresa <= 50'));
+        queryCount++;
+        for (const r of getRows(empNameRes)) {
+          empNames[Number(r.cd_empresa)] = String(r.nm_fan_empresa || '');
+        }
+      } catch {
+        warnings.push('Falha ao extrair nomes de empresas.');
+      }
+
+      byEmpresa = empKpiRows.map(r => {
+        const fatAno = Number(r.fat_ano) || 0;
+        const fatAnoAnt = Number(r.fat_ano_ant) || 0;
+        const fatMes = Number(r.fat_mes) || 0;
+        const fatMesAnt = Number(r.fat_mes_ant) || 0;
+        const nfsAno = Number(r.nfs_ano) || 0;
+        const nfsMes = Number(r.nfs_mes) || 0;
+        const clientesAno = Number(r.clientes_ano) || 0;
+        return {
+          cd_empresa: Number(r.cd_empresa),
+          nm_empresa: empNames[Number(r.cd_empresa)] || `Empresa ${r.cd_empresa}`,
+          fat_ano: fatAno,
+          fat_ano_ant: fatAnoAnt,
+          fat_mes: fatMes,
+          fat_mes_ant: fatMesAnt,
+          nfs_ano: nfsAno,
+          nfs_mes: nfsMes,
+          clientes_ano: clientesAno,
+          clientes_mes: Number(r.clientes_mes) || 0,
+          ticket_ano: nfsAno > 0 ? fatAno / nfsAno : 0,
+          ticket_mes: nfsMes > 0 ? fatMes / nfsMes : 0,
+          crescimento_ano: fatAnoAnt > 0 ? ((fatAno - fatAnoAnt) / fatAnoAnt * 100) : null,
+          crescimento_mes: fatMesAnt > 0 ? ((fatMes - fatMesAnt) / fatMesAnt * 100) : null,
+          receita_por_cliente: clientesAno > 0 ? fatAno / clientesAno : 0,
+        };
+      }).sort((a, b) => b.fat_ano - a.fat_ano);
+    } catch (e) {
+      warnings.push('Falha ao extrair KPIs por empresa: ' + (e.message || String(e)).slice(0, 120));
+    }
+    await updateStep(8, 84);
+
     // Etapa 10: Calcular KPIs derivados
     const kpis = {
       fat_ano: Number(kpiRow.fat_ano) || 0,
@@ -467,13 +530,14 @@ async function processRefresh(base44, source, run, version, previousVersion) {
       revenue_by_state: revenueByState,
       new_clients_monthly: newClientsMonthly,
       alerts,
+      by_empresa: byEmpresa,
       clients_total: kpis.clientes_ano,
       query_count: queryCount,
       duration_ms: Date.now() - startTime,
     });
 
-    // Etapa 11: Publicar — desmarcar anterior, marcar nova
-    await updateStep(10, 95);
+    // Etapa 12: Publicar — desmarcar anterior, marcar nova
+    await updateStep(11, 95);
     if (previousVersion) {
       await base44.asServiceRole.entities.ErpSnapshot.updateMany(
         { source_id: run.source_id, is_current: true },
