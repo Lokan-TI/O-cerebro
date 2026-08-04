@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { useErpAnalytics } from "@/lib/ErpAnalyticsContext";
-import { fmtCur, fmtNum, fmtMonthLabel } from "@/lib/erpFormat";
-import { Users, UserPlus, Search } from "lucide-react";
+import { fmtCur, fmtNum } from "@/lib/erpFormat";
+import AnalyticsFilterBar from "@/components/erp/AnalyticsFilterBar";
+import { Users, UserPlus, Search, TrendingUp } from "lucide-react";
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip } from "recharts";
 
 export default function TabClientesPessoa() {
@@ -14,9 +15,10 @@ export default function TabClientesPessoa() {
 
   const topClients = data.top_clients_car || [];
   const newClientsMonthly = (data.new_clients_monthly || []).map(r => ({
-    label: fmtMonthLabel(r.mes, r.ano),
+    label: `${["", "Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"][r.mes] || r.mes}/${String(r.ano).slice(2)}`,
     qtd: r.qtd,
   }));
+  const k = data.kpis || {};
 
   const q = search.trim().toLowerCase();
   const filtered = q
@@ -25,14 +27,19 @@ export default function TabClientesPessoa() {
 
   return (
     <div className="space-y-6">
+      <div className="flex items-center justify-between flex-wrap gap-3">
+        <div className="text-sm text-gray-400">PESSOA × CAR × DATA</div>
+        <AnalyticsFilterBar />
+      </div>
+
       {/* KPIs */}
       <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
         <div className="rounded-xl border border-gray-700/40 bg-gray-900/40 p-4">
-          <div className="flex items-center gap-2 mb-2"><Users className="w-4 h-4 text-gray-400" /><span className="text-xs text-gray-400 uppercase">Top clientes CAR</span></div>
-          <div className="text-2xl font-bold text-white">{fmtNum(topClients.length)}</div>
+          <div className="flex items-center gap-2 mb-2"><Users className="w-4 h-4 text-gray-400" /><span className="text-xs text-gray-400 uppercase">Pessoas (base)</span></div>
+          <div className="text-2xl font-bold text-white">{fmtNum(k.pessoa_total || data.pessoa_total || 0)}</div>
         </div>
         <div className="rounded-xl border border-blue-700/40 bg-blue-950/30 p-4">
-          <div className="flex items-center gap-2 mb-2"><Search className="w-4 h-4 text-blue-400" /><span className="text-xs text-gray-400 uppercase">CAR total top50</span></div>
+          <div className="flex items-center gap-2 mb-2"><TrendingUp className="w-4 h-4 text-blue-400" /><span className="text-xs text-gray-400 uppercase">CAR total top50</span></div>
           <div className="text-2xl font-bold text-white">{fmtCur(topClients.reduce((s, r) => s + (r.vl_total || 0), 0))}</div>
         </div>
         <div className="rounded-xl border border-amber-700/40 bg-amber-950/30 p-4">
@@ -44,7 +51,7 @@ export default function TabClientesPessoa() {
       {/* New clients chart */}
       {newClientsMonthly.length > 0 && (
         <div className="bg-gray-900 border border-gray-800 rounded-xl p-5">
-          <h3 className="text-white font-semibold mb-4 text-sm">Novos cadastros de pessoa por mês</h3>
+          <h3 className="text-white font-semibold mb-4 text-sm">Novos cadastros de PESSOA por mês (DATA)</h3>
           <ResponsiveContainer width="100%" height={250}>
             <BarChart data={newClientsMonthly}>
               <CartesianGrid strokeDasharray="3 3" stroke="#222" />
@@ -57,10 +64,12 @@ export default function TabClientesPessoa() {
         </div>
       )}
 
-      {/* Top clients table */}
+      {/* Top clients table — PESSOA × CAR */}
       <div className="bg-gray-900 border border-gray-800 rounded-xl p-5">
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-white font-semibold text-sm">Top 50 clientes por CAR (Contas a Receber)</h3>
+          <h3 className="text-white font-semibold text-sm flex items-center gap-2">
+            <Search className="w-4 h-4 text-purple-400" /> Top 50 clientes por CAR (PESSOA × Contas a Receber)
+          </h3>
           <input
             type="text"
             placeholder="Buscar cliente…"
@@ -74,8 +83,8 @@ export default function TabClientesPessoa() {
             <thead>
               <tr className="text-gray-500 text-xs uppercase border-b border-gray-800">
                 <th className="text-left py-2 px-3">#</th>
-                <th className="text-left py-2 px-3">Cliente</th>
-                <th className="text-right py-2 px-3">Títulos</th>
+                <th className="text-left py-2 px-3">Cliente (PESSOA)</th>
+                <th className="text-right py-2 px-3">Títulos CAR</th>
                 <th className="text-right py-2 px-3">Total CAR</th>
                 <th className="text-right py-2 px-3">Em aberto</th>
               </tr>

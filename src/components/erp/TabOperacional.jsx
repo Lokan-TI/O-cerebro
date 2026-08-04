@@ -1,6 +1,7 @@
 import { useErpAnalytics } from "@/lib/ErpAnalyticsContext";
-import { fmtNum, fmtMonthLabel } from "@/lib/erpFormat";
-import { Package, ArrowRightLeft } from "lucide-react";
+import { fmtNum } from "@/lib/erpFormat";
+import AnalyticsFilterBar from "@/components/erp/AnalyticsFilterBar";
+import { Package, ArrowRightLeft, Calendar } from "lucide-react";
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip } from "recharts";
 
 export default function TabOperacional() {
@@ -12,13 +13,18 @@ export default function TabOperacional() {
 
   const byOp = data.est_mov_by_operacao || [];
   const monthly = (data.est_mov_monthly || []).map(r => ({
-    label: fmtMonthLabel(r.mes, r.ano),
+    label: `${["", "Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"][r.mes] || r.mes}/${String(r.ano).slice(2)}`,
     qtd: r.qtd,
   }));
   const total = byOp.reduce((s, r) => s + (r.qtd || 0), 0);
 
   return (
     <div className="space-y-6">
+      <div className="flex items-center justify-between flex-wrap gap-3">
+        <div className="text-sm text-gray-400">Movimentações de Estoque × DATA</div>
+        <AnalyticsFilterBar />
+      </div>
+
       {/* KPI */}
       <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
         <div className="rounded-xl border border-blue-700/40 bg-blue-950/30 p-4">
@@ -38,7 +44,9 @@ export default function TabOperacional() {
       {/* Monthly chart */}
       {monthly.length > 0 && (
         <div className="bg-gray-900 border border-gray-800 rounded-xl p-5">
-          <h3 className="text-white font-semibold mb-4 text-sm">Movimentações por mês</h3>
+          <h3 className="text-white font-semibold mb-4 text-sm flex items-center gap-2">
+            <Calendar className="w-4 h-4 text-blue-400" /> Movimentações por mês (DATA)
+          </h3>
           <ResponsiveContainer width="100%" height={300}>
             <BarChart data={monthly}>
               <CartesianGrid strokeDasharray="3 3" stroke="#222" />

@@ -1,8 +1,8 @@
 import { useErpAnalytics } from "@/lib/ErpAnalyticsContext";
-import { useErpSource } from "@/lib/ErpSourceContext";
 import { getEmpresaLabel } from "@/lib/empresaLabels";
-import { fmtCur, fmtNum, fmtMonthLabel } from "@/lib/erpFormat";
-import { FileText, CalendarClock, CheckCircle2, Package } from "lucide-react";
+import { fmtCur, fmtNum } from "@/lib/erpFormat";
+import AnalyticsFilterBar from "@/components/erp/AnalyticsFilterBar";
+import { FileText, CalendarClock, CheckCircle2, Package, Users } from "lucide-react";
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend } from "recharts";
 
 export default function TabLocacoes() {
@@ -14,16 +14,22 @@ export default function TabLocacoes() {
 
   const fichEmp = data.fichloc_by_empresa || [];
   const fichMon = data.fichloc_monthly || [];
+  const topClientesLoc = data.fichloc_top_clientes || [];
   const k = data.kpis || {};
 
   const monthlyChart = fichMon.map(r => ({
-    label: fmtMonthLabel(r.mes, r.ano),
+    label: `${["", "Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"][r.mes] || r.mes}/${String(r.ano).slice(2)}`,
     novas: r.qtd,
     encerradas: r.qtd_encerradas,
   }));
 
   return (
     <div className="space-y-6">
+      <div className="flex items-center justify-between flex-wrap gap-3">
+        <div className="text-sm text-gray-400">Ficha de Locação × PESSOA × DATA</div>
+        <AnalyticsFilterBar />
+      </div>
+
       {/* KPIs */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <div className="rounded-xl border border-purple-700/40 bg-purple-950/30 p-4">
@@ -47,7 +53,7 @@ export default function TabLocacoes() {
       {/* Monthly chart */}
       {monthlyChart.length > 0 && (
         <div className="bg-gray-900 border border-gray-800 rounded-xl p-5">
-          <h3 className="text-white font-semibold mb-4 text-sm">Novas locações × Encerradas por mês</h3>
+          <h3 className="text-white font-semibold mb-4 text-sm">Novas locações × Encerradas por mês (DATA)</h3>
           <ResponsiveContainer width="100%" height={300}>
             <BarChart data={monthlyChart}>
               <CartesianGrid strokeDasharray="3 3" stroke="#222" />
@@ -95,6 +101,39 @@ export default function TabLocacoes() {
           </table>
         </div>
       </div>
+
+      {/* Top clientes por locação (fich_loc × PESSOA) */}
+      {topClientesLoc.length > 0 && (
+        <div className="bg-gray-900 border border-gray-800 rounded-xl p-5">
+          <h3 className="text-white font-semibold mb-4 text-sm flex items-center gap-2">
+            <Users className="w-4 h-4 text-purple-400" /> Top 20 clientes por locações (Ficha × PESSOA)
+          </h3>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="text-gray-500 text-xs uppercase border-b border-gray-800">
+                  <th className="text-left py-2 px-3">#</th>
+                  <th className="text-left py-2 px-3">Cliente (PESSOA)</th>
+                  <th className="text-right py-2 px-3">Locações</th>
+                  <th className="text-right py-2 px-3">Ativas</th>
+                  <th className="text-right py-2 px-3">Vl. mínimo</th>
+                </tr>
+              </thead>
+              <tbody>
+                {topClientesLoc.map((r, i) => (
+                  <tr key={i} className="border-b border-gray-800/50 hover:bg-gray-800/30">
+                    <td className="py-2 px-3 text-gray-500">{i + 1}</td>
+                    <td className="py-2 px-3 text-white">{r.nm_pessoa}</td>
+                    <td className="py-2 px-3 text-right text-purple-400 font-medium">{fmtNum(r.qtd_loc)}</td>
+                    <td className="py-2 px-3 text-right text-green-400">{fmtNum(r.qtd_ativas)}</td>
+                    <td className="py-2 px-3 text-right text-blue-400">{fmtCur(r.vl_minimo)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
