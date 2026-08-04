@@ -1,4 +1,5 @@
 import { Building2 } from "lucide-react";
+import { getEmpresaLabel } from "@/lib/empresaLabels";
 
 export default function EmpresaFilter({ empresas, selected, onChange }) {
   return (
@@ -15,7 +16,7 @@ export default function EmpresaFilter({ empresas, selected, onChange }) {
         <option value="">Todas as empresas (comparativo)</option>
         {empresas.map(emp => (
           <option key={emp.cd_empresa} value={emp.cd_empresa}>
-            {emp.nm_empresa} — Cod. {emp.cd_empresa}
+            {getEmpresaLabel(emp.cd_empresa, emp.nm_empresa)} — Cod. {emp.cd_empresa}
           </option>
         ))}
       </select>

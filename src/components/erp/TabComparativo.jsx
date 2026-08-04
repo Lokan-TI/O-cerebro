@@ -4,6 +4,7 @@ import EmpresaFilter from "./EmpresaFilter";
 import EmpresaComparisonTable from "./EmpresaComparisonTable";
 import AnalyticsKpiCard from "./AnalyticsKpiCard";
 import { Trophy, BarChart3, TrendingUp } from "lucide-react";
+import { getEmpresaLabel } from "@/lib/empresaLabels";
 
 const SUB_TABS = [
   { id: "financeiro", label: "KPIs Financeiros", icon: BarChart3 },
@@ -80,14 +81,14 @@ export default function TabComparativo() {
       {!selected && (
         <div className="flex items-center gap-2 text-gray-400 text-sm bg-gray-900/50 border border-gray-800 rounded-lg px-4 py-2.5">
           <TrendingUp className="w-4 h-4 text-green-400" />
-          <span>Líder em receita: <strong className="text-white">{topEmpresa.nm_empresa}</strong> — {new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 }).format(topEmpresa.fat_ano)}</span>
+          <span>Líder em receita: <strong className="text-white">{getEmpresaLabel(topEmpresa.cd_empresa, topEmpresa.nm_empresa)}</strong> — {new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 }).format(topEmpresa.fat_ano)}</span>
         </div>
       )}
 
       {selected ? (
         <div>
           <div className="mb-4 pb-3 border-b border-gray-800">
-            <h3 className="text-white text-lg font-bold">{selected.nm_empresa}</h3>
+            <h3 className="text-white text-lg font-bold">{getEmpresaLabel(selected.cd_empresa, selected.nm_empresa)}</h3>
             <p className="text-gray-400 text-sm">Código {selected.cd_empresa}</p>
           </div>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">

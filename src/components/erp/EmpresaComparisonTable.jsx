@@ -1,4 +1,5 @@
 import { fmtCurrency, fmtNumber, fmtPercent } from "./AnalyticsKpiCard";
+import { getEmpresaLabel } from "@/lib/empresaLabels";
 
 const FINANCIAL_ROWS = [
   { key: "fat_ano", label: "Receita Anual", fmt: "currency", best: "max" },
@@ -50,7 +51,7 @@ export default function EmpresaComparisonTable({ empresas, mode }) {
             <th className="text-left text-gray-400 font-medium px-3 py-3 sticky left-0 bg-gray-900 z-10 min-w-[180px]">KPI</th>
             {empresas.map(emp => (
               <th key={emp.cd_empresa} className="text-right text-gray-200 font-medium px-3 py-3 min-w-[150px] align-top">
-                <div className="truncate max-w-[140px]" title={emp.nm_empresa}>{emp.nm_empresa}</div>
+                <div className="truncate max-w-[140px]" title={getEmpresaLabel(emp.cd_empresa, emp.nm_empresa)}>{getEmpresaLabel(emp.cd_empresa, emp.nm_empresa)}</div>
                 <div className="text-xs text-gray-500 font-normal mt-0.5">Cod. {emp.cd_empresa}</div>
               </th>
             ))}
