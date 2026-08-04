@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { ErpSnapshotProvider } from "@/lib/ErpSnapshotContext";
+import { ErpAnalyticsProvider } from "@/lib/ErpAnalyticsContext";
 import RefreshHeader from "@/components/erp/RefreshHeader";
 import SnapshotKpiGrid from "@/components/erp/SnapshotKpiGrid";
 import TabComparativo from "@/components/erp/TabComparativo";
@@ -8,21 +9,54 @@ import QueryRunner from "@/components/erp/QueryRunner";
 import SchemaExplorer from "@/components/erp/SchemaExplorer";
 import TabChurn from "@/components/erp/TabChurn";
 import TabClientesCar from "@/components/erp/TabClientesCar";
+import TabVisaoGeral from "@/components/erp/TabVisaoGeral";
+import TabFinanceiro from "@/components/erp/TabFinanceiro";
+import TabLocacoes from "@/components/erp/TabLocacoes";
+import TabOperacional from "@/components/erp/TabOperacional";
+import TabClientesPessoa from "@/components/erp/TabClientesPessoa";
 import { Link } from "react-router-dom";
 import { Settings2 } from "lucide-react";
 
 const TABS = [
+  { id: "visao_geral", label: "Visão Geral" },
+  { id: "financeiro", label: "Financeiro" },
+  { id: "locacoes", label: "Locações" },
+  { id: "operacional", label: "Operacional" },
+  { id: "clientes_pessoa", label: "Clientes" },
   { id: "comparativo", label: "Comparativo" },
-  { id: "kpis", label: "KPIs" },
-  { id: "clientes", label: "Clientes" },
+  { id: "kpis", label: "KPIs Snapshot" },
+  { id: "clientes_snapshot", label: "Clientes Snapshot" },
   { id: "churn", label: "Retenção & Churn" },
   { id: "car", label: "Clientes CAR" },
   { id: "estrutura", label: "Estrutura" },
   { id: "query", label: "Query SQL" },
 ];
 
+const ANALYTICS_TABS = ["visao_geral", "financeiro", "locacoes", "operacional", "clientes_pessoa"];
+
 function ErpCrmDashboardContent() {
-  const [activeTab, setActiveTab] = useState("kpis");
+  const [activeTab, setActiveTab] = useState("visao_geral");
+
+  const renderTab = () => {
+    switch (activeTab) {
+      case "visao_geral": return <TabVisaoGeral />;
+      case "financeiro": return <TabFinanceiro />;
+      case "locacoes": return <TabLocacoes />;
+      case "operacional": return <TabOperacional />;
+      case "clientes_pessoa": return <TabClientesPessoa />;
+      case "comparativo": return <TabComparativo />;
+      case "kpis": return <SnapshotKpiGrid />;
+      case "clientes_snapshot": return <SnapshotTables />;
+      case "churn": return <TabChurn />;
+      case "car": return <TabClientesCar />;
+      case "estrutura": return <SchemaExplorer />;
+      case "query": return <QueryRunner />;
+      default: return null;
+    }
+  };
+
+  const needsAnalytics = ANALYTICS_TABS.includes(activeTab);
+  const content = renderTab();
 
   return (
     <div className="min-h-screen bg-gray-950 p-6">
@@ -48,13 +82,11 @@ function ErpCrmDashboardContent() {
           </Link>
         </div>
 
-        {activeTab === "comparativo" && <TabComparativo />}
-        {activeTab === "kpis" && <SnapshotKpiGrid />}
-        {activeTab === "clientes" && <SnapshotTables />}
-        {activeTab === "churn" && <TabChurn />}
-        {activeTab === "car" && <TabClientesCar />}
-        {activeTab === "estrutura" && <SchemaExplorer />}
-        {activeTab === "query" && <QueryRunner />}
+        {needsAnalytics ? (
+          <ErpAnalyticsProvider>{content}</ErpAnalyticsProvider>
+        ) : (
+          content
+        )}
       </div>
     </div>
   );
