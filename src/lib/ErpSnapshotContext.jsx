@@ -74,21 +74,41 @@ export function ErpSnapshotProvider({ children }) {
   const refresh = useCallback(async () => {
     if (!selectedSource || refreshing) return;
     setRefreshing(true);
-    try {
-      const res = await base44.functions.invoke("refreshErpData", { source_id: selectedSource.id });
-      const data = res?.data || {};
-      if (data.success && data.run_id) {
-        setLatestRun(prev => ({ ...prev, status: "running", version: data.version, step_label: "Iniciando..." }));
-        startPolling(selectedSource.id, data.run_id);
-      } else {
+    const sourceId = selectedSource.id;
+    const prevRunId = latestRun?.id || null;
+
+    // Dispara sem aguardar — a função processa sincronamente (~30s) e atualiza o registro
+    base44.functions.invoke("refreshErpData", { source_id: sourceId }).catch(() => {});
+
+    // Consulta o registro mais recente cujo id seja diferente do anterior
+    let attempts = 0;
+    const maxAttempts = 80; // 80 × 2s = 160s
+    pollRef.current = setInterval(async () => {
+      attempts++;
+      try {
+        const runs = await base44.entities.ErpSyncRun.filter({ source_id: sourceId }, "-started_at", 5);
+        const newRun = (runs || []).find(r => r.id !== prevRunId);
+        if (!newRun) {
+          if (attempts >= maxAttempts) { stopPolling(); setRefreshing(false); }
+          return;
+        }
+        setLatestRun(newRun);
+        if (newRun.status === "running" || newRun.status === "pending") return;
+        // Concluído
+        stopPolling();
         setRefreshing(false);
-        throw new Error(data.error || "Falha ao iniciar atualização.");
+        if (newRun.status === "success" || newRun.status === "partial") {
+          const snaps = await base44.entities.ErpSnapshot.filter(
+            { source_id: sourceId, is_current: true }, "-created_date", 1
+          );
+          setSnapshot(snaps[0] || null);
+        }
+      } catch {
+        stopPolling();
+        setRefreshing(false);
       }
-    } catch (err) {
-      setRefreshing(false);
-      throw err;
-    }
-  }, [selectedSource, refreshing, startPolling]);
+    }, 2000);
+  }, [selectedSource, refreshing, latestRun?.id, stopPolling]);
 
   useEffect(() => {
     loadSnapshot(selectedSource?.id);

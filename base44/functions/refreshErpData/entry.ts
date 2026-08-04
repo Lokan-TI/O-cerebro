@@ -1,5 +1,4 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.40';
-import { waitUntil } from 'base44:runtime';
 import { buildConfig, runQuery } from '../../shared/erpConnection.ts';
 
 const STEPS = [
@@ -103,14 +102,19 @@ Deno.serve(async (req) => {
       progress: 5,
     });
 
-    // Iniciar processamento em segundo plano
-    waitUntil(processRefresh(base44, source, run, version, previousVersion));
+    // Processar sincronamente — o frontend dispara sem aguardar e consulta o status
+    const result = await processRefresh(base44, source, run, version, previousVersion);
 
     return Response.json({
-      success: true,
+      success: result.status === 'success' || result.status === 'partial',
       run_id: run.id,
       version,
-      message: 'Atualização iniciada em segundo plano.'
+      status: result.status,
+      message: result.status === 'success'
+        ? 'Atualização concluída com sucesso.'
+        : result.status === 'partial'
+          ? 'Atualização concluída com avisos.'
+          : (result.error || 'Falha na atualização.')
     });
   } catch (error) {
     return Response.json({ success: false, error: error.message || String(error) }, { status: 500 });
@@ -205,7 +209,7 @@ async function processRefresh(base44, source, run, version, previousVersion) {
       cd_pessoa: String(r.cd_pessoa || ''),
       total: Number(r.total) || 0,
       nfs: Number(r.nfs) || 0,
-      ultima_nf: r.ultima_nf ? String(r.ultima_nf).slice(0, 10) : null
+      ultima_nf: r.ultima_nf ? new Date(r.ultima_nf).toISOString().slice(0, 10) : null
     }));
     await updateStep(5, 50);
 
@@ -320,6 +324,7 @@ async function processRefresh(base44, source, run, version, previousVersion) {
       last_sync_status: warnings.length > 0 ? 'partial' : 'success',
       records_count: totalRecords,
     });
+    return { status: warnings.length > 0 ? 'partial' : 'success' };
   } catch (err) {
     // Marcar como falha — versão anterior permanece ativa
     const completedAt = new Date();
@@ -336,5 +341,6 @@ async function processRefresh(base44, source, run, version, previousVersion) {
         warnings: warnings.slice(0, 20),
       });
     } catch {}
+    return { status: 'failed', error: err.message || String(err) };
   }
 }
