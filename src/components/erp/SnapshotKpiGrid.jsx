@@ -9,7 +9,7 @@ const KPI_CONFIG = [
   { key: "clientes_ano", label: "Clientes no Ano", format: "number", accent: "border-cyan-500", sub: "Clientes únicos" },
   { key: "clientes_mes", label: "Clientes no Mês", format: "number", accent: "border-indigo-500", sub: "Ativos no mês" },
   { key: "concentracao_top10", label: "Concentração Top 10", format: "percent", accent: "border-red-500", sub: "Risco de concentração" },
-  { key: "crescimento_ano", label: "Crescimento Ano", format: "percent", accent: "border-emerald-500", sub: "vs. ano anterior" },
+  { key: "crescimento_ano", label: "Crescimento Ano (YTD)", format: "percent", accent: "border-emerald-500", sub: "vs. mesmo período ano anterior" },
 ];
 
 function fmtValue(v, format) {

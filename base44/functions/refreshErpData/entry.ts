@@ -259,14 +259,18 @@ async function processRefresh(base44, source, run, version, previousVersion) {
     const monthStart = 'DATEFROMPARTS(YEAR(GETDATE()),MONTH(GETDATE()),1)';
     const monthEnd = 'DATEADD(month,1,DATEFROMPARTS(YEAR(GETDATE()),MONTH(GETDATE()),1))';
     const prevMonthStart = 'DATEADD(month,-1,DATEFROMPARTS(YEAR(GETDATE()),MONTH(GETDATE()),1))';
+    // YTD: mesmo período do ano anterior (jan até hoje, ano passado)
+    const lastYearEnd = 'DATEADD(year,-1,GETDATE())';
+    const lastMonthStart = 'DATEFROMPARTS(YEAR(GETDATE())-1,MONTH(GETDATE()),1)';
+    const lastMonthEnd = 'DATEADD(month,1,DATEFROMPARTS(YEAR(GETDATE())-1,MONTH(GETDATE()),1))';
 
     // Etapa 3: KPIs combinados (único scan da tabela nf)
     await updateStep(3, 20);
     const kpiSql = `SELECT
       ISNULL(SUM(CASE WHEN dt_emi_nf >= ${yearStart} AND dt_emi_nf < ${yearEnd} THEN vl_faturamento ELSE 0 END),0) AS fat_ano,
-      ISNULL(SUM(CASE WHEN dt_emi_nf >= ${lastYearStart} AND dt_emi_nf < ${yearStart} THEN vl_faturamento ELSE 0 END),0) AS fat_ano_ant,
+      ISNULL(SUM(CASE WHEN dt_emi_nf >= ${lastYearStart} AND dt_emi_nf < ${lastYearEnd} THEN vl_faturamento ELSE 0 END),0) AS fat_ano_ant,
       ISNULL(SUM(CASE WHEN dt_emi_nf >= ${monthStart} AND dt_emi_nf < ${monthEnd} THEN vl_faturamento ELSE 0 END),0) AS fat_mes,
-      ISNULL(SUM(CASE WHEN dt_emi_nf >= ${prevMonthStart} AND dt_emi_nf < ${monthStart} THEN vl_faturamento ELSE 0 END),0) AS fat_mes_ant,
+      ISNULL(SUM(CASE WHEN dt_emi_nf >= ${lastMonthStart} AND dt_emi_nf < ${lastMonthEnd} THEN vl_faturamento ELSE 0 END),0) AS fat_mes_ant,
       COUNT(CASE WHEN dt_emi_nf >= ${monthStart} AND dt_emi_nf < ${monthEnd} THEN 1 END) AS nfs_mes,
       COUNT(CASE WHEN dt_emi_nf >= ${yearStart} AND dt_emi_nf < ${yearEnd} THEN 1 END) AS nfs_ano,
       COUNT(DISTINCT CASE WHEN dt_emi_nf >= ${monthStart} AND dt_emi_nf < ${monthEnd} THEN cd_pessoa END) AS clientes_mes,
@@ -419,9 +423,9 @@ async function processRefresh(base44, source, run, version, previousVersion) {
       const empKpiSql = `SELECT
         nf.cd_empresa,
         ISNULL(SUM(CASE WHEN nf.dt_emi_nf >= ${yearStart} AND nf.dt_emi_nf < ${yearEnd} THEN nf.vl_faturamento ELSE 0 END),0) AS fat_ano,
-        ISNULL(SUM(CASE WHEN nf.dt_emi_nf >= ${lastYearStart} AND nf.dt_emi_nf < ${yearStart} THEN nf.vl_faturamento ELSE 0 END),0) AS fat_ano_ant,
+        ISNULL(SUM(CASE WHEN nf.dt_emi_nf >= ${lastYearStart} AND nf.dt_emi_nf < ${lastYearEnd} THEN nf.vl_faturamento ELSE 0 END),0) AS fat_ano_ant,
         ISNULL(SUM(CASE WHEN nf.dt_emi_nf >= ${monthStart} AND nf.dt_emi_nf < ${monthEnd} THEN nf.vl_faturamento ELSE 0 END),0) AS fat_mes,
-        ISNULL(SUM(CASE WHEN nf.dt_emi_nf >= ${prevMonthStart} AND nf.dt_emi_nf < ${monthStart} THEN nf.vl_faturamento ELSE 0 END),0) AS fat_mes_ant,
+        ISNULL(SUM(CASE WHEN nf.dt_emi_nf >= ${lastMonthStart} AND nf.dt_emi_nf < ${lastMonthEnd} THEN nf.vl_faturamento ELSE 0 END),0) AS fat_mes_ant,
         COUNT(CASE WHEN nf.dt_emi_nf >= ${yearStart} AND nf.dt_emi_nf < ${yearEnd} THEN 1 END) AS nfs_ano,
         COUNT(CASE WHEN nf.dt_emi_nf >= ${monthStart} AND nf.dt_emi_nf < ${monthEnd} THEN 1 END) AS nfs_mes,
         COUNT(DISTINCT CASE WHEN nf.dt_emi_nf >= ${yearStart} AND nf.dt_emi_nf < ${yearEnd} THEN nf.cd_pessoa END) AS clientes_ano,

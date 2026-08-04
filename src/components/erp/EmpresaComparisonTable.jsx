@@ -2,11 +2,11 @@ import { fmtCurrency, fmtNumber, fmtPercent } from "./AnalyticsKpiCard";
 import { getEmpresaLabel } from "@/lib/empresaLabels";
 
 const FINANCIAL_ROWS = [
-  { key: "fat_ano", label: "Receita Anual", fmt: "currency", best: "max" },
-  { key: "fat_ano_ant", label: "Receita Ano Anterior", fmt: "currency", best: "max" },
-  { key: "crescimento_ano", label: "Crescimento Anual", fmt: "percent", best: "max" },
+  { key: "fat_ano", label: "Receita Anual (YTD)", fmt: "currency", best: "max" },
+  { key: "fat_ano_ant", label: "Receita Ano Ant. (YTD)", fmt: "currency", best: "max" },
+  { key: "crescimento_ano", label: "Crescimento Anual (YTD)", fmt: "percent", best: "max" },
   { key: "fat_mes", label: "Receita Mensal", fmt: "currency", best: "max" },
-  { key: "crescimento_mes", label: "Crescimento Mensal", fmt: "percent", best: "max" },
+  { key: "crescimento_mes", label: "Crescimento Mensal (YoY)", fmt: "percent", best: "max" },
   { key: "ticket_ano", label: "Ticket Médio Anual", fmt: "currency", best: "max" },
   { key: "nfs_ano", label: "NFs Emitidas (Ano)", fmt: "number", best: "max" },
   { key: "nfs_mes", label: "NFs Emitidas (Mês)", fmt: "number", best: "max" },

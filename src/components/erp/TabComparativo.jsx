@@ -12,10 +12,10 @@ const SUB_TABS = [
 ];
 
 const DETAIL_FINANCIAL = [
-  { key: "fat_ano", label: "Receita Anual", format: "currency", accent: "purple" },
+  { key: "fat_ano", label: "Receita Anual (YTD)", format: "currency", accent: "purple" },
   { key: "fat_mes", label: "Receita Mensal", format: "currency", accent: "blue" },
-  { key: "crescimento_ano", label: "Crescimento Anual", format: "percent", accent: "green" },
-  { key: "crescimento_mes", label: "Crescimento Mensal", format: "percent", accent: "cyan" },
+  { key: "crescimento_ano", label: "Crescimento Anual (YTD)", format: "percent", accent: "green" },
+  { key: "crescimento_mes", label: "Crescimento Mensal (YoY)", format: "percent", accent: "cyan" },
   { key: "ticket_ano", label: "Ticket Médio Anual", format: "currency", accent: "indigo" },
   { key: "ticket_mes", label: "Ticket Médio Mensal", format: "currency", accent: "orange" },
   { key: "nfs_ano", label: "NFs Emitidas (Ano)", format: "number", accent: "yellow" },
