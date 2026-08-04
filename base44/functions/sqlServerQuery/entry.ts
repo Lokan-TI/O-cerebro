@@ -19,7 +19,7 @@ function getConfig() {
       user: Deno.env.get('SQL_SERVER_USER'),
       password: Deno.env.get('SQL_SERVER_PASSWORD'),
       options: { encrypt: false, trustServerCertificate: true },
-      requestTimeout: 30000,
+      requestTimeout: 25000,
     };
     cachedClientId = clientId;
   }
@@ -30,16 +30,15 @@ function getConfig() {
   };
 }
 
-// Persistent connection pool — reused across requests to avoid concurrent connect() crashes
+// Persistent connection pool — reused across requests
 let poolPromise = null;
 
 async function getPool(config) {
   if (poolPromise) {
     try {
       const pool = await poolPromise;
-      if (pool.connected) return pool;
-      // Pool exists but not connected — close it and recreate
-      try { await pool.close(); } catch {}
+      if (pool && pool.connected) return pool;
+      try { if (pool) await pool.close(); } catch {}
       poolPromise = null;
     } catch {
       poolPromise = null;
@@ -48,8 +47,18 @@ async function getPool(config) {
   poolPromise = sql.connect({
     ...config,
     connectionTimeout: 10000,
+    pool: { max: 1, min: 0, idleTimeoutMillis: 30000 },
   });
   return await poolPromise;
+}
+
+// Mutex: DW_API serializes on the server side, so we must run one query at a time.
+// Concurrent pool access leaks EventEmitter listeners and crashes the Deno worker.
+let queryInFlight = Promise.resolve();
+function serialize(task) {
+  const next = queryInFlight.then(task, task); // run regardless of previous success/failure
+  queryInFlight = next.then(() => {}, () => {});
+  return next;
 }
 
 Deno.serve(async (req) => {
@@ -95,8 +104,12 @@ Deno.serve(async (req) => {
     const escapedSql = cleaned.replace(/'/g, "''");
     const execSql = `EXEC DW_API '${clientId}', '${escapedSql}'`;
 
-    const pool = await getPool(config);
-    const result = await pool.request().query(execSql);
+    // Serialize so only one query touches the pool at a time
+    const result = await serialize(async () => {
+      const pool = await getPool(config);
+      return await pool.request().query(execSql);
+    });
+
     const rows = result.recordset || [];
     return Response.json({
       rows,
@@ -104,8 +117,11 @@ Deno.serve(async (req) => {
       multipleSets: result.recordsets || [],
     });
   } catch (error) {
-    // Reset pool on error so next request creates a fresh connection
-    poolPromise = null;
+    // Properly close the pool on error so the next request gets a fresh, clean connection
+    if (poolPromise) {
+      try { const p = await poolPromise; if (p) await p.close(); } catch {}
+      poolPromise = null;
+    }
     return Response.json({ error: error.message || String(error) }, { status: 500 });
   }
 });
