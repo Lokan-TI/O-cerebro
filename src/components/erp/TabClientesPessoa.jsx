@@ -1,23 +1,22 @@
 import { useState } from "react";
-import { useErpAnalytics } from "@/lib/ErpAnalyticsContext";
+import { useAnalyticsView } from "@/lib/analyticsView";
 import { fmtCur, fmtNum } from "@/lib/erpFormat";
 import { Users, UserPlus, Search, TrendingUp } from "lucide-react";
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip } from "recharts";
 
 export default function TabClientesPessoa() {
-  const { data, loading, error } = useErpAnalytics();
+  const { analytics, view, loading, dateRange } = useAnalyticsView();
   const [search, setSearch] = useState("");
 
-  if (loading) return <div className="text-gray-500 p-8 text-center">Carregando clientes…</div>;
-  if (error) return <div className="text-red-400 p-8 text-center">Erro: {error}</div>;
-  if (!data) return <div className="text-gray-500 p-8 text-center">Sem dados.</div>;
+  if (loading && !analytics) return <div className="text-gray-500 p-8 text-center">Carregando clientes…</div>;
+  if (!analytics || !view) return <div className="text-gray-500 p-8 text-center">Sem dados. Clique em "Atualizar dados" para carregar.</div>;
 
-  const topLoc = data.fichloc_top_clientes || [];
-  const newClientsMonthly = (data.new_clients_monthly || []).map(r => ({
+  const topLoc = analytics.fichloc_top_clientes || [];
+  const newClientsMonthly = (analytics.new_clients_monthly || []).map(r => ({
     label: `${["", "Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"][r.mes] || r.mes}/${String(r.ano).slice(2)}`,
     qtd: r.qtd,
   }));
-  const k = data.kpis || {};
+  const k = view.kpis;
   const totalFichas = topLoc.reduce((s, r) => s + (r.qtd_loc || 0), 0);
 
   const q = search.trim().toLowerCase();
@@ -28,7 +27,7 @@ export default function TabClientesPessoa() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between flex-wrap gap-3">
-        <div className="text-sm text-gray-400">PESSOA × FICH_LOC (universo de locação)</div>
+        <div className="text-sm text-gray-400">PESSOA × FICH_LOC (universo de locação) · período {dateRange?.start} → {dateRange?.end}</div>
       </div>
 
       {/* KPIs */}

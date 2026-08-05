@@ -102,6 +102,14 @@
       },
       "description": "Alertas autom\u00e1ticos gerados pela an\u00e1lise"
     },
+    "analytics": {
+      "type": "object",
+      "description": "Bloco anal\u00edtico pr\u00e9-calculado (CAR, CAP, Loca\u00e7\u00f5es, Operacional, Balancete) para as abas operacionais \u2014 servido a partir do snapshot, sem consulta ao vivo"
+    },
+    "analytics_period": {
+      "type": "object",
+      "description": "Janela (start/end) usada no c\u00e1lculo do bloco analytics"
+    },
     "clients_total": {
       "type": "number",
       "default": 0

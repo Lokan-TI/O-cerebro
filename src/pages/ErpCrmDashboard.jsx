@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { ErpSnapshotProvider } from "@/lib/ErpSnapshotContext";
-import { ErpAnalyticsProvider } from "@/lib/ErpAnalyticsContext";
 import RefreshHeader from "@/components/erp/RefreshHeader";
 import SnapshotKpiGrid from "@/components/erp/SnapshotKpiGrid";
 import TabComparativo from "@/components/erp/TabComparativo";
@@ -36,8 +35,6 @@ const TABS = [
   { id: "query", label: "Query SQL" },
 ];
 
-const ANALYTICS_TABS = ["visao_geral", "financeiro", "locacoes", "operacional", "clientes_pessoa"];
-
 function ErpCrmDashboardContent() {
   const [activeTab, setActiveTab] = useState("executiva");
 
@@ -60,7 +57,6 @@ function ErpCrmDashboardContent() {
     }
   };
 
-  const needsAnalytics = ANALYTICS_TABS.includes(activeTab);
   const content = renderTab();
 
   return (
@@ -87,11 +83,7 @@ function ErpCrmDashboardContent() {
           </Link>
         </div>
 
-        {needsAnalytics ? (
-          <ErpAnalyticsProvider>{content}</ErpAnalyticsProvider>
-        ) : (
-          content
-        )}
+        {content}
       </div>
     </div>
   );

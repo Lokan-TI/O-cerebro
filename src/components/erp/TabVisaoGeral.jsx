@@ -1,5 +1,5 @@
-import { useErpAnalytics } from "@/lib/ErpAnalyticsContext";
-import { useErpSource } from "@/lib/ErpSourceContext";
+import { useAnalyticsView } from "@/lib/analyticsView";
+import { useErpSnapshot } from "@/lib/ErpSnapshotContext";
 import { getEmpresaLabel } from "@/lib/empresaLabels";
 import { fmtCur, fmtNum } from "@/lib/erpFormat";
 import { TrendingUp, TrendingDown, Wallet, FileText, Package, Users, AlertTriangle, Calendar } from "lucide-react";
@@ -27,23 +27,23 @@ function KpiCard({ icon: Icon, label, value, sub, color }) {
 }
 
 export default function TabVisaoGeral() {
-  const { data, loading, error } = useErpAnalytics();
-  const { selectedSource } = useErpSource();
+  const { analytics, view, loading, dateRange } = useAnalyticsView();
+  const { snapshot } = useErpSnapshot();
 
-  if (loading) return <div className="text-gray-500 p-8 text-center">Carregando visão geral…</div>;
-  if (error) return <div className="text-red-400 p-8 text-center">Erro: {error}</div>;
-  if (!data) return <div className="text-gray-500 p-8 text-center">Sem dados.</div>;
+  if (loading && !analytics) return <div className="text-gray-500 p-8 text-center">Carregando visão geral…</div>;
+  if (!analytics || !view) return <div className="text-gray-500 p-8 text-center">Sem dados. Clique em "Atualizar dados" para carregar o analytics.</div>;
 
-  const k = data.kpis || {};
-  const dr = data.date_range || {};
-  const monthly = data.car_vs_cap_monthly || [];
+  const k = view.kpis;
+  const monthly = analytics.car_vs_cap_monthly || [];
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div className="text-sm text-gray-400">
-          Fonte: <span className="text-white">{selectedSource?.name}</span> · Período: <span className="text-white">{dr.start} → {dr.end}</span>
+          Período: <span className="text-white">{dateRange?.start} → {dateRange?.end}</span>
+          {!view.isAll && <> · <span className="text-purple-300">empresa selecionada</span></>}
         </div>
+        <span className="text-xs text-gray-600">Dados do snapshot (pré-calculado)</span>
       </div>
 
       {/* KPI Grid — cross-table overview */}
@@ -95,36 +95,26 @@ export default function TabVisaoGeral() {
               </tr>
             </thead>
             <tbody>
-              {(data.empresas || []).map((emp, i) => {
-                const car = (data.car_by_empresa || []).find(r => r.cd_empresa === emp.cd_empresa);
-                const cap = (data.cap_by_empresa || []).find(r => r.cd_empresa === emp.cd_empresa);
-                const fich = (data.fichloc_by_empresa || []).find(r => r.cd_empresa === emp.cd_empresa);
+              {(analytics.empresas || []).map((emp, i) => {
+                const car = view.carByEmp.find(r => r.cd_empresa === emp.cd_empresa);
+                const fich = view.fichByEmp.find(r => r.cd_empresa === emp.cd_empresa);
                 return (
                   <tr key={i} className="border-b border-gray-800/50 hover:bg-gray-800/30">
-                    <td className="py-2 px-3 text-white">{getEmpresaLabel(emp.cd_empresa)}</td>
-                    <td className="py-2 px-3 text-right text-green-400">{fmtCur(car?.vl_total || 0)}</td>
-                    <td className="py-2 px-3 text-right text-red-400">{cap ? fmtCur(cap.vl_total) : "—"}</td>
+                    <td className="py-2 px-3 text-white">{getEmpresaLabel(emp.cd_empresa, emp.nm_fan_empresa)}</td>
+                    <td className="py-2 px-3 text-right text-green-400">{car ? fmtCur(car.vl_total) : "—"}</td>
+                    <td className="py-2 px-3 text-right text-gray-500">—</td>
                     <td className="py-2 px-3 text-right text-purple-400">{fmtNum(fich?.qtd || 0)}</td>
                     <td className="py-2 px-3 text-right text-blue-400">—</td>
                   </tr>
                 );
               })}
-              {(data.empresas || []).length === 0 && (
+              {(analytics.empresas || []).length === 0 && (
                 <tr><td colSpan={5} className="text-center text-gray-600 py-6">Sem dados</td></tr>
               )}
             </tbody>
           </table>
         </div>
       </div>
-
-      {data.errors?.length > 0 && (
-        <div className="bg-red-950/30 border border-red-800/40 rounded-xl p-4">
-          <div className="text-red-300 text-xs font-semibold mb-2">Avisos de consulta ({data.errors.length})</div>
-          <ul className="text-xs text-red-400/70 space-y-1">
-            {data.errors.slice(0, 5).map((e, i) => <li key={i}>• {e}</li>)}
-          </ul>
-        </div>
-      )}
     </div>
   );
 }

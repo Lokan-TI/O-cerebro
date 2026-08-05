@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useErpAnalytics } from "@/lib/ErpAnalyticsContext";
+import { useAnalyticsView } from "@/lib/analyticsView";
 import { useErpSnapshot } from "@/lib/ErpSnapshotContext";
 import { useEmpresaFilter } from "@/lib/EmpresaFilterContext";
 import { getEmpresaLabel } from "@/lib/empresaLabels";
@@ -12,20 +12,17 @@ import {
   CartesianGrid, Tooltip, Legend,
 } from "recharts";
 
-const MES = ["", "Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
-
 export default function TabFinanceiro() {
-  const { data, loading, error } = useErpAnalytics();
+  const { analytics, view: aView, loading, dateRange } = useAnalyticsView();
   const { snapshot } = useErpSnapshot();
   const { selectedEmpresa } = useEmpresaFilter();
-  const [view, setView] = useState("resumo"); // resumo | car_empresa | cap_conta | balancete
+  const [sub, setSub] = useState("resumo"); // resumo | car_empresa | cap_conta | balancete
 
-  if (loading) return <div className="text-gray-500 p-8 text-center">Carregando financeiro…</div>;
-  if (error) return <div className="text-red-400 p-8 text-center">Erro: {error}</div>;
-  if (!data) return <div className="text-gray-500 p-8 text-center">Sem dados.</div>;
+  if (loading && !analytics) return <div className="text-gray-500 p-8 text-center">Carregando financeiro…</div>;
+  if (!analytics || !aView) return <div className="text-gray-500 p-8 text-center">Sem dados. Clique em "Atualizar dados" para carregar.</div>;
 
-  const k = data.kpis || {};
-  const isAll = selectedEmpresa == null;
+  const k = aView.kpis;
+  const isAll = aView.isAll;
 
   // Receita vem do snapshot (por empresa quando filtrada)
   const byEmp = snapshot?.by_empresa || [];
@@ -33,20 +30,19 @@ export default function TabFinanceiro() {
   const receita = isAll ? snapshot?.kpis?.fat_ano : empRow?.fat_ano || 0;
   const receitaAnt = isAll ? snapshot?.kpis?.fat_ano_ant : empRow?.fat_ano_ant || 0;
   const crescimento = isAll ? snapshot?.kpis?.crescimento_ano : empRow?.crescimento_ano ?? null;
-  const gerada = data?.kpis?.receita_gerada;
+  const gerada = k.receita_gerada;
   const diff = gerada != null ? receita - gerada : null;
   const pct = gerada != null && gerada > 0 ? (diff / gerada * 100) : null;
 
-  const carEmp = data.car_by_empresa || [];
-  const capConta = data.cap_by_conta || [];
-  const balancete = data.plano_balancete || [];
+  const carEmp = aView.carByEmp;
+  const capConta = analytics.cap_by_conta || [];
+  const balancete = analytics.plano_balancete || [];
 
-  const carVsCapMonthly = (data.car_vs_cap_monthly || []).map((r) => ({
+  const carVsCapMonthly = (analytics.car_vs_cap_monthly || []).map((r) => ({
     label: r.label || fmtMonthLabel(r.mes, r.ano), car: r.car || 0, cap: r.cap || 0,
     car_baixado: r.car_baixado || 0, cap_baixado: r.cap_baixado || 0,
   }));
 
-  // Resultado operacional estimado = Receita - CAP total
   const resultado = receita - (k.cap_total || 0);
   const margemResult = receita > 0 ? (resultado / receita * 100) : null;
 
@@ -58,12 +54,12 @@ export default function TabFinanceiro() {
           <span className="text-white font-medium">
             {isAll ? "Todas as empresas (consolidado)" : getEmpresaLabel(selectedEmpresa, empRow?.nm_empresa)}
           </span>
+          <span className="text-gray-600"> · período {dateRange?.start} → {dateRange?.end}</span>
         </div>
       </div>
 
       {/* KPIs principais — 4 blocos */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* Receita */}
         <div className="rounded-xl border border-green-700/40 bg-green-950/30 p-4">
           <div className="flex items-center gap-2 mb-2"><TrendingUp className="w-4 h-4 text-green-400" /><span className="text-xs text-gray-400 uppercase">Receita realizada</span></div>
           <div className="text-2xl font-bold text-white">{fmtCur(receita)}</div>
@@ -72,19 +68,16 @@ export default function TabFinanceiro() {
             {crescimento != null && (<> · <span className={crescimento >= 0 ? "text-green-400" : "text-red-400"}>{crescimento >= 0 ? "+" : ""}{crescimento.toFixed(1)}%</span></>)}
           </div>
         </div>
-        {/* Contas a Receber */}
         <div className="rounded-xl border border-blue-700/40 bg-blue-950/30 p-4">
           <div className="flex items-center gap-2 mb-2"><FileText className="w-4 h-4 text-blue-400" /><span className="text-xs text-gray-400 uppercase">Contas a Receber</span></div>
           <div className="text-2xl font-bold text-white">{fmtCur(k.car_total)}</div>
           <div className="text-xs text-blue-400/60 mt-1">Em aberto: {fmtCur(k.car_aberto)} · Vencido: {fmtCur(k.car_vencido)}</div>
         </div>
-        {/* Contas a Pagar */}
         <div className="rounded-xl border border-red-700/40 bg-red-950/30 p-4">
           <div className="flex items-center gap-2 mb-2"><TrendingDown className="w-4 h-4 text-red-400" /><span className="text-xs text-gray-400 uppercase">Contas a Pagar</span></div>
           <div className="text-2xl font-bold text-white">{fmtCur(k.cap_total)}</div>
           <div className="text-xs text-red-400/60 mt-1">Em aberto: {fmtCur(k.cap_aberto)} · Vencido: {fmtCur(k.cap_vencido)}</div>
         </div>
-        {/* Resultado estimado */}
         <div className={`rounded-xl border p-4 ${resultado >= 0 ? "border-purple-700/40 bg-purple-950/30" : "border-red-700/40 bg-red-950/30"}`}>
           <div className="flex items-center gap-2 mb-2"><Calculator className="w-4 h-4 text-purple-400" /><span className="text-xs text-gray-400 uppercase">Resultado oper. estimado</span></div>
           <div className="text-2xl font-bold text-white">{fmtCur(resultado)}</div>
@@ -132,14 +125,14 @@ export default function TabFinanceiro() {
 
       {/* Sub-tabs */}
       <div className="flex gap-1 bg-gray-900 border border-gray-800 rounded-xl p-1 w-fit flex-wrap">
-        <button onClick={() => setView("resumo")} className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${view === "resumo" ? "bg-purple-600 text-white" : "text-gray-400 hover:text-gray-200"}`}>Resumo mensal</button>
-        <button onClick={() => setView("car_empresa")} className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${view === "car_empresa" ? "bg-purple-600 text-white" : "text-gray-400 hover:text-gray-200"}`}>CAR por empresa</button>
-        <button onClick={() => setView("cap_conta")} className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${view === "cap_conta" ? "bg-purple-600 text-white" : "text-gray-400 hover:text-gray-200"}`}>CAP por conta</button>
-        <button onClick={() => setView("balancete")} className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${view === "balancete" ? "bg-purple-600 text-white" : "text-gray-400 hover:text-gray-200"}`}>Balancete</button>
+        <button onClick={() => setSub("resumo")} className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${sub === "resumo" ? "bg-purple-600 text-white" : "text-gray-400 hover:text-gray-200"}`}>Resumo mensal</button>
+        <button onClick={() => setSub("car_empresa")} className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${sub === "car_empresa" ? "bg-purple-600 text-white" : "text-gray-400 hover:text-gray-200"}`}>CAR por empresa</button>
+        <button onClick={() => setSub("cap_conta")} className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${sub === "cap_conta" ? "bg-purple-600 text-white" : "text-gray-400 hover:text-gray-200"}`}>CAP por conta</button>
+        <button onClick={() => setSub("balancete")} className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${sub === "balancete" ? "bg-purple-600 text-white" : "text-gray-400 hover:text-gray-200"}`}>Balancete</button>
       </div>
 
       {/* Resumo mensal: CAR vs CAP */}
-      {view === "resumo" && (
+      {sub === "resumo" && (
         <div className="bg-gray-900 border border-gray-800 rounded-xl p-5">
           <h3 className="text-white font-semibold mb-4 text-sm flex items-center gap-2">
             <BarChart3 className="w-4 h-4 text-purple-400" /> CAR vs CAP — série mensal
@@ -159,7 +152,7 @@ export default function TabFinanceiro() {
       )}
 
       {/* CAR por empresa */}
-      {view === "car_empresa" && (
+      {sub === "car_empresa" && (
         <div className="bg-gray-900 border border-gray-800 rounded-xl p-5">
           <h3 className="text-white font-semibold mb-4 text-sm">Contas a Receber (CAR) por empresa</h3>
           <div className="overflow-x-auto">
@@ -193,7 +186,7 @@ export default function TabFinanceiro() {
       )}
 
       {/* CAP por conta */}
-      {view === "cap_conta" && (
+      {sub === "cap_conta" && (
         <div className="bg-gray-900 border border-gray-800 rounded-xl p-5">
           <h3 className="text-white font-semibold mb-4 text-sm">Contas a Pagar (CAP) por conta contábil</h3>
           <div className="overflow-x-auto">
@@ -230,7 +223,7 @@ export default function TabFinanceiro() {
       )}
 
       {/* Balancete */}
-      {view === "balancete" && (
+      {sub === "balancete" && (
         <div className="bg-gray-900 border border-gray-800 rounded-xl p-5">
           <h3 className="text-white font-semibold mb-4 text-sm">Balancete financeiro analítico (Plano × CAP)</h3>
           <div className="overflow-x-auto">

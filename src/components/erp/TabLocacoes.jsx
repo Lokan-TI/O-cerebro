@@ -1,20 +1,19 @@
-import { useErpAnalytics } from "@/lib/ErpAnalyticsContext";
+import { useAnalyticsView } from "@/lib/analyticsView";
 import { getEmpresaLabel } from "@/lib/empresaLabels";
 import { fmtCur, fmtNum } from "@/lib/erpFormat";
 import { FileText, CalendarClock, CheckCircle2, Package, Users } from "lucide-react";
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend } from "recharts";
 
 export default function TabLocacoes() {
-  const { data, loading, error } = useErpAnalytics();
+  const { analytics, view, loading, dateRange } = useAnalyticsView();
 
-  if (loading) return <div className="text-gray-500 p-8 text-center">Carregando locações…</div>;
-  if (error) return <div className="text-red-400 p-8 text-center">Erro: {error}</div>;
-  if (!data) return <div className="text-gray-500 p-8 text-center">Sem dados.</div>;
+  if (loading && !analytics) return <div className="text-gray-500 p-8 text-center">Carregando locações…</div>;
+  if (!analytics || !view) return <div className="text-gray-500 p-8 text-center">Sem dados. Clique em "Atualizar dados" para carregar.</div>;
 
-  const fichEmp = data.fichloc_by_empresa || [];
-  const fichMon = data.fichloc_monthly || [];
-  const topClientesLoc = data.fichloc_top_clientes || [];
-  const k = data.kpis || {};
+  const fichEmp = view.fichByEmp;
+  const fichMon = analytics.fichloc_monthly || [];
+  const topClientesLoc = analytics.fichloc_top_clientes || [];
+  const k = view.kpis;
 
   const monthlyChart = fichMon.map(r => ({
     label: `${["", "Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"][r.mes] || r.mes}/${String(r.ano).slice(2)}`,
@@ -25,7 +24,7 @@ export default function TabLocacoes() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between flex-wrap gap-3">
-        <div className="text-sm text-gray-400">Ficha de Locação × PESSOA × DATA</div>
+        <div className="text-sm text-gray-400">Ficha de Locação × PESSOA × DATA · período {dateRange?.start} → {dateRange?.end}</div>
       </div>
 
       {/* KPIs */}

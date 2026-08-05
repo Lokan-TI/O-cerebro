@@ -71,14 +71,16 @@ export function ErpSnapshotProvider({ children }) {
     }
   }, [startPolling, stopPolling]);
 
-  const refresh = useCallback(async () => {
+  const refresh = useCallback(async (opts) => {
     if (!selectedSource || refreshing) return;
     setRefreshing(true);
     const sourceId = selectedSource.id;
     const prevRunId = latestRun?.id || null;
+    const period = opts?.period;
 
-    // Dispara sem aguardar — a função processa sincronamente (~30s) e atualiza o registro
-    base44.functions.invoke("refreshErpData", { source_id: sourceId }).catch(() => {});
+    // Dispara sem aguardar — a função processa sincronamente (~30s) e atualiza o registro.
+    // O período aplicado (Fonte → Empresa → Período) define a janela do analytics.
+    base44.functions.invoke("refreshErpData", { source_id: sourceId, ...(period ? { start_date: period.start, end_date: period.end } : {}) }).catch(() => {});
 
     // Consulta o registro mais recente cujo id seja diferente do anterior
     let attempts = 0;

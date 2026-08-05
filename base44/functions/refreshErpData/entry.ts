@@ -1,6 +1,7 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.40';
 import { buildConfig, runQuery } from '../../shared/erpConnection.ts';
 import { approvedRemessaFrom, faturaFrom } from '../../shared/churnUniverse.ts';
+import { computeAnalytics } from '../../shared/analyticsBlock.ts';
 
 const STEPS = [
   { id: 'conectando', label: 'Conectando ao banco' },
@@ -186,7 +187,7 @@ Deno.serve(async (req) => {
     });
 
     // Processar sincronamente — o frontend dispara sem aguardar e consulta o status
-    const result = await processRefresh(base44, source, run, version, previousVersion);
+    const result = await processRefresh(base44, source, run, version, previousVersion, body?.start_date, body?.end_date);
 
     return Response.json({
       success: result.status === 'success' || result.status === 'partial',
@@ -204,7 +205,7 @@ Deno.serve(async (req) => {
   }
 });
 
-async function processRefresh(base44, source, run, version, previousVersion) {
+async function processRefresh(base44, source, run, version, previousVersion, startDateIn, endDateIn) {
   const startTime = Date.now();
   let queryCount = 0;
   const warnings = [];
@@ -671,6 +672,23 @@ async function processRefresh(base44, source, run, version, previousVersion) {
     }
     await updateStep(8, 84);
 
+    // Etapa: Analytics (CAR/CAP/Locações/Operacional) — bloco pré-calculado para as abas
+    await updateStep(8, 86, { step_label: 'Extraindo analytics (CAR/CAP/Locações)' });
+    let analytics = null;
+    let analyticsPeriod = null;
+    try {
+      const aStart = startDateIn || `${new Date().getFullYear()}-01-01`;
+      const aEnd = endDateIn || `${new Date().getFullYear() + 1}-01-01`;
+      const aLastYearStart = `${Number(String(aStart).slice(0, 4)) - 1}${String(aStart).slice(4)}`;
+      const aRes = await computeAnalytics({ source, wrap, startDate: aStart, endDate: aEnd, lastYearStart: aLastYearStart, runQuery, getRows });
+      analytics = aRes.analytics;
+      analyticsPeriod = { start: aStart, end: aEnd };
+      for (const w of aRes.warnings) warnings.push(w);
+      queryCount += aRes.queryCount || 0;
+    } catch (e) {
+      warnings.push('Falha ao extrair analytics: ' + (e.message || String(e)).slice(0, 120));
+    }
+
     // Etapa 10: Calcular KPIs derivados
     const kpis = {
       fat_ano: Number(kpiRow.fat_ano) || 0,
@@ -729,6 +747,8 @@ async function processRefresh(base44, source, run, version, previousVersion) {
       new_clients_monthly: newClientsMonthly,
       alerts,
       by_empresa: byEmpresa,
+      analytics,
+      analytics_period: analyticsPeriod,
       clients_total: kpis.clientes_ano,
       query_count: queryCount,
       duration_ms: Date.now() - startTime,

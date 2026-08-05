@@ -1,17 +1,16 @@
-import { useErpAnalytics } from "@/lib/ErpAnalyticsContext";
+import { useAnalyticsView } from "@/lib/analyticsView";
 import { fmtNum } from "@/lib/erpFormat";
 import { Package, ArrowRightLeft, Calendar } from "lucide-react";
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip } from "recharts";
 
 export default function TabOperacional() {
-  const { data, loading, error } = useErpAnalytics();
+  const { analytics, view, loading, dateRange } = useAnalyticsView();
 
-  if (loading) return <div className="text-gray-500 p-8 text-center">Carregando operacional…</div>;
-  if (error) return <div className="text-red-400 p-8 text-center">Erro: {error}</div>;
-  if (!data) return <div className="text-gray-500 p-8 text-center">Sem dados.</div>;
+  if (loading && !analytics) return <div className="text-gray-500 p-8 text-center">Carregando operacional…</div>;
+  if (!analytics || !view) return <div className="text-gray-500 p-8 text-center">Sem dados. Clique em "Atualizar dados" para carregar.</div>;
 
-  const byOp = data.est_mov_by_operacao || [];
-  const monthly = (data.est_mov_monthly || []).map(r => ({
+  const byOp = analytics.est_mov_by_operacao || [];
+  const monthly = (analytics.est_mov_monthly || []).map(r => ({
     label: `${["", "Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"][r.mes] || r.mes}/${String(r.ano).slice(2)}`,
     qtd: r.qtd,
   }));
@@ -20,7 +19,7 @@ export default function TabOperacional() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between flex-wrap gap-3">
-        <div className="text-sm text-gray-400">Movimentações de Estoque × DATA</div>
+        <div className="text-sm text-gray-400">Movimentações de Estoque × DATA · período {dateRange?.start} → {dateRange?.end}</div>
       </div>
 
       {/* KPI */}
