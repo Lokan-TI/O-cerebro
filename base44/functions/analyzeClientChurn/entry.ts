@@ -92,7 +92,7 @@ Deno.serve(async (req) => {
     LEFT JOIN analysis_clients a ON r.cd_pessoa = a.cd_pessoa
     ORDER BY r.ref_revenue DESC`;
 
-    const result = await runQuery(source, wrap(churnSql));
+    const result = await runQuery(source, wrap(churnSql), 25000);
     const rows = getRows(result);
 
     const totalRef = rows.length;
@@ -130,14 +130,13 @@ Deno.serve(async (req) => {
     const pessoaMap = {};
     const fichlocMap = {};
     const movitemMap = {};
-
     if (codesList) {
       // 1. Client master data (pessoa): name, CPF/CNPJ, phone, email, region
       try {
         const pessoaSql = `SELECT cd_pessoa, nm_pessoa, fl_tipo_pessoa, nr_cpf_pessoa, nr_cnpj_pessoa,
           en_mail_pessoa, tel_pessoa, tl_res_pessoa, tl_cel_pessoa, uf_pessoa, cidade_pessoa
           FROM pessoa WITH (NOLOCK) WHERE cd_pessoa IN (${codesList})`;
-        for (const p of getRows(await runQuery(source, wrap(pessoaSql)))) {
+        for (const p of getRows(await runQuery(source, wrap(pessoaSql), 15000))) {
           pessoaMap[String(p.cd_pessoa)] = p;
         }
       } catch {}
@@ -154,45 +153,66 @@ Deno.serve(async (req) => {
           FROM fich_loc WITH (NOLOCK)
           WHERE cd_pessoa IN (${codesList})
           GROUP BY cd_pessoa`;
-        for (const f of getRows(await runQuery(source, wrap(fichSql)))) {
+        for (const f of getRows(await runQuery(source, wrap(fichSql), 15000))) {
           fichlocMap[String(f.cd_pessoa)] = f;
         }
       } catch {}
 
-      // 3. Rented products (nfmerc): products + quantities + values from invoice items
-      //    nfmerc links to nf via cd_nf; nf has cd_pessoa. Filtered to the ref period
-      //    (when they were renting) to bound the result set.
+      // 3. Rented products (nfmerc): split JOIN into two simple queries to avoid timeout.
+      //    Step A: get cd_nf → cd_pessoa mapping for detail clients in ref period.
+      //    Step B: query nfmerc by cd_nf IN (...) — uses index on cd_nf (key field).
       try {
-        const prodSql = `SELECT n.cd_pessoa,
-          CAST(nm.ds_mer_nfmerc AS nvarchar(500)) AS ds_mer_nfmerc,
-          nm.cd_equipto,
-          SUM(nm.qt_nfmerc) AS qt,
-          SUM(nm.qt_nfmerc * nm.vl_uni_nfmerc) AS valor
-          FROM nf n WITH (NOLOCK)
-          INNER JOIN nfmerc nm WITH (NOLOCK) ON nm.cd_nf = n.cd_nf
-          WHERE n.cd_pessoa IN (${codesList})
-            AND n.dt_emi_nf >= '${refStart}' AND n.dt_emi_nf < '${refEnd}' ${cancelFilter}
-            AND CAST(nm.ds_mer_nfmerc AS nvarchar(500)) <> ''
-          GROUP BY n.cd_pessoa, CAST(nm.ds_mer_nfmerc AS nvarchar(500)), nm.cd_equipto`;
-        const prodRows = getRows(await runQuery(source, wrap(prodSql)));
-        const agg = {};
-        for (const r of prodRows) {
-          const key = String(r.cd_pessoa);
-          if (!agg[key]) agg[key] = { produtos: [], codigos: [], total_qt: 0, total_valor: 0 };
-          agg[key].produtos.push(r.ds_mer_nfmerc);
-          if (r.cd_equipto != null) agg[key].codigos.push(String(r.cd_equipto));
-          agg[key].total_qt += Number(r.qt) || 0;
-          agg[key].total_valor += Number(r.valor) || 0;
+        const nfMapSql = `SELECT cd_nf, cd_pessoa FROM nf WITH (NOLOCK)
+          WHERE cd_pessoa IN (${codesList})
+          AND dt_emi_nf >= '${refStart}' AND dt_emi_nf < '${refEnd}' ${cancelFilter}`;
+        const nfRows = getRows(await runQuery(source, wrap(nfMapSql), 15000));
+        _debugNfCount = nfRows.length;
+        const nfToPessoa = {};
+        for (const r of nfRows) {
+          nfToPessoa[String(r.cd_nf)] = String(r.cd_pessoa);
         }
-        for (const [k, v] of Object.entries(agg)) {
-          movitemMap[k] = {
-            produtos_locados: [...new Set(v.produtos)].join(', '),
-            codigos_equipto: [...new Set(v.codigos)].join(', '),
-            total_qt: v.total_qt,
-            total_valor: v.total_valor,
-          };
+        const nfCodes = Object.keys(nfToPessoa);
+        if (nfCodes.length > 0) {
+          // Batch nfmerc query — DW_API has 8000 char limit, so chunk cd_nf values
+          const BATCH = 500;
+          const agg = {};
+          for (let i = 0; i < nfCodes.length; i += BATCH) {
+            const batch = nfCodes.slice(i, i + BATCH);
+            const nfList = batch.map(c => {
+              const n = Number(c);
+              return isNaN(n) ? `'${c.replace(/'/g, "''")}'` : String(n);
+            }).join(',');
+            const prodSql = `SELECT cd_nf,
+              CAST(ds_mer_nfmerc AS nvarchar(500)) AS ds_mer_nfmerc,
+              cd_equipto,
+              SUM(qt_nfmerc) AS qt,
+              SUM(qt_nfmerc * vl_uni_nfmerc) AS valor
+              FROM nfmerc WITH (NOLOCK)
+              WHERE cd_nf IN (${nfList})
+                AND CAST(ds_mer_nfmerc AS nvarchar(500)) <> ''
+              GROUP BY cd_nf, CAST(ds_mer_nfmerc AS nvarchar(500)), cd_equipto`;
+            const prodRows = getRows(await runQuery(source, wrap(prodSql), 15000));
+            _debugProdRows += prodRows.length;
+            for (const r of prodRows) {
+              const key = nfToPessoa[String(r.cd_nf)];
+              if (!key) continue;
+              if (!agg[key]) agg[key] = { produtos: [], codigos: [], total_qt: 0, total_valor: 0 };
+              agg[key].produtos.push(r.ds_mer_nfmerc);
+              if (r.cd_equipto != null) agg[key].codigos.push(String(r.cd_equipto));
+              agg[key].total_qt += Number(r.qt) || 0;
+              agg[key].total_valor += Number(r.valor) || 0;
+            }
+          }
+          for (const [k, v] of Object.entries(agg)) {
+            movitemMap[k] = {
+              produtos_locados: [...new Set(v.produtos)].join(', '),
+              codigos_equipto: [...new Set(v.codigos)].join(', '),
+              total_qt: v.total_qt,
+              total_valor: v.total_valor,
+            };
+          }
         }
-      } catch {}
+      } catch (e) { _debugNfmercError = e.message || String(e); }
     }
 
     return Response.json({
