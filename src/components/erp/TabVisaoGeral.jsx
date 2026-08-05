@@ -105,9 +105,9 @@ export default function TabVisaoGeral() {
                   <tr key={i} className="border-b border-gray-800/50 hover:bg-gray-800/30">
                     <td className="py-2 px-3 text-white">{getEmpresaLabel(emp.cd_empresa)}</td>
                     <td className="py-2 px-3 text-right text-green-400">{fmtCur(car?.vl_total || 0)}</td>
-                    <td className="py-2 px-3 text-right text-red-400">{fmtCur(cap?.vl_total || 0)}</td>
+                    <td className="py-2 px-3 text-right text-red-400">{cap ? fmtCur(cap.vl_total) : "—"}</td>
                     <td className="py-2 px-3 text-right text-purple-400">{fmtNum(fich?.qtd || 0)}</td>
-                    <td className="py-2 px-3 text-right text-blue-400">{fmtNum(0)}</td>
+                    <td className="py-2 px-3 text-right text-blue-400">—</td>
                   </tr>
                 );
               })}

@@ -5,7 +5,7 @@ import { useEmpresaFilter } from "@/lib/EmpresaFilterContext";
 import { getEmpresaLabel } from "@/lib/empresaLabels";
 import { fmtCur, fmtNum, fmtMonthLabel } from "@/lib/erpFormat";
 import {
-  TrendingUp, TrendingDown, AlertTriangle, FileText, Wallet, Calculator, BarChart3,
+  TrendingUp, TrendingDown, AlertTriangle, FileText, Calculator, BarChart3,
 } from "lucide-react";
 import {
   ResponsiveContainer, ComposedChart, Bar, Line, XAxis, YAxis,
@@ -33,9 +33,11 @@ export default function TabFinanceiro() {
   const receita = isAll ? snapshot?.kpis?.fat_ano : empRow?.fat_ano || 0;
   const receitaAnt = isAll ? snapshot?.kpis?.fat_ano_ant : empRow?.fat_ano_ant || 0;
   const crescimento = isAll ? snapshot?.kpis?.crescimento_ano : empRow?.crescimento_ano ?? null;
+  const gerada = data?.kpis?.receita_gerada;
+  const diff = gerada != null ? receita - gerada : null;
+  const pct = gerada != null && gerada > 0 ? (diff / gerada * 100) : null;
 
   const carEmp = data.car_by_empresa || [];
-  const carConta = []; // CAR não tem detalhe por conta no analytics atual
   const capConta = data.cap_by_conta || [];
   const balancete = data.plano_balancete || [];
 
@@ -91,6 +93,34 @@ export default function TabFinanceiro() {
           </div>
         </div>
       </div>
+
+      {/* Receita gerada (pré-faturamento) vs realizada (NFs emitidas) */}
+      {gerada != null && (
+        <div className="bg-gray-900 border border-cyan-800/40 rounded-xl p-4">
+          <div className="flex items-center gap-2 mb-3">
+            <BarChart3 className="w-4 h-4 text-cyan-400" />
+            <span className="text-xs text-gray-400 uppercase tracking-wide">Receita gerada vs realizada</span>
+            <span className="text-xs text-gray-600">· pré-faturamento</span>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="rounded-lg bg-cyan-950/30 border border-cyan-800/30 p-3">
+              <div className="text-xs text-gray-500 mb-1">Receita gerada (fl_fatura)</div>
+              <div className="text-xl font-bold text-cyan-300">{fmtCur(gerada)}</div>
+              <div className="text-xs text-gray-600 mt-1">Valor operacional pré-faturamento</div>
+            </div>
+            <div className="rounded-lg bg-green-950/30 border border-green-800/30 p-3">
+              <div className="text-xs text-gray-500 mb-1">Receita realizada (NFs emitidas)</div>
+              <div className="text-xl font-bold text-green-400">{fmtCur(receita)}</div>
+              <div className="text-xs text-gray-600 mt-1">Notas fiscais emitidas no período</div>
+            </div>
+            <div className={`rounded-lg p-3 border ${diff >= 0 ? "bg-gray-800/40 border-gray-700" : "bg-red-950/30 border-red-800/30"}`}>
+              <div className="text-xs text-gray-500 mb-1">Diferença (realizada − gerada)</div>
+              <div className={`text-xl font-bold ${diff >= 0 ? "text-white" : "text-red-400"}`}>{fmtCur(diff)}</div>
+              <div className="text-xs text-gray-600 mt-1">{pct != null ? `${pct >= 0 ? "+" : ""}${pct.toFixed(1)}% vs gerada` : "—"}</div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Aviso: CAP sem dimensão empresa */}
       {!isAll && (

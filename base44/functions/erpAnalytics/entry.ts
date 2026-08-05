@@ -46,6 +46,7 @@ Deno.serve(async (req) => {
     const cdEmpresa = body?.cd_empresa != null ? Number(body.cd_empresa) : null;
     const empCar = cdEmpresa != null ? ` AND cd_empresa_gestora = ${cdEmpresa}` : '';
     const empFich = cdEmpresa != null ? ` AND cd_empresa = ${cdEmpresa}` : '';
+    const empFatGerada = cdEmpresa != null ? ` AND c.cd_empresa = ${cdEmpresa}` : '';
     const lastYearEnd = `${year}-01-01`;
 
     const out = {
@@ -60,6 +61,7 @@ Deno.serve(async (req) => {
       fichloc_monthly: [],
       fichloc_by_status: [],
       fichloc_top_clientes: [],
+      receita_gerada_by_empresa: [],
       est_mov_by_operacao: [],
       est_mov_monthly: [],
       top_clients_car: [],
@@ -362,6 +364,23 @@ Deno.serve(async (req) => {
       }));
     } catch (e) { out.errors.push('name_resolution: ' + (e.message || '').slice(0, 80)); }
 
+    // ── 12e. Receita gerada (fl_fatura) por empresa — valor pré-faturamento ──
+    try {
+      const rgSql = `SELECT c.cd_empresa,
+        COUNT(*) AS qtd,
+        ISNULL(SUM(f.vl_fatura),0) AS vl_gerado
+        FROM fl_fatura f WITH (NOLOCK)
+        INNER JOIN fich_loc c WITH (NOLOCK) ON c.cd_controle = f.cd_controle
+        WHERE f.dt_geracao >= '${startDate}' AND f.dt_geracao < '${endDate}'${empFatGerada}
+        GROUP BY c.cd_empresa
+        ORDER BY ISNULL(SUM(f.vl_fatura),0) DESC`;
+      out.receita_gerada_by_empresa = getRows(await runQuery(source, wrap(rgSql), 30000)).map(r => ({
+        cd_empresa: Number(r.cd_empresa) || null,
+        qtd: Number(r.qtd) || 0,
+        vl_gerado: Number(r.vl_gerado) || 0,
+      }));
+    } catch (e) { out.errors.push('receita_gerada_by_empresa: ' + (e.message || '').slice(0, 80)); }
+
     // ── 13. KPIs consolidados ──
     try {
       const carTotal = out.car_by_empresa.reduce((s, r) => s + r.vl_total, 0);
@@ -389,8 +408,12 @@ Deno.serve(async (req) => {
       out.cap_monthly.forEach(r => { const k = `${r.ano}-${r.mes}`; mm[k] = { ...mm[k], label: fmtMonth(r.mes, r.ano), cap: r.vl_total, cap_baixado: r.vl_baixado }; });
       out.car_vs_cap_monthly = Object.values(mm).sort((a, b) => String(a.label).localeCompare(String(b.label)));
 
+      const receitaGerada = cdEmpresa != null
+        ? (out.receita_gerada_by_empresa[0]?.vl_gerado || 0)
+        : out.receita_gerada_by_empresa.reduce((s, r) => s + (r.vl_gerado || 0), 0);
       out.kpis = {
         car_total: carTotal,
+        receita_gerada: receitaGerada,
         car_aberto: carAberto,
         car_baixado: carBaixado,
         car_vencido: carVencido,
