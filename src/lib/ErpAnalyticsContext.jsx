@@ -1,23 +1,24 @@
 import { createContext, useContext, useState, useEffect, useCallback } from "react";
 import { base44 } from "@/api/base44Client";
 import { useErpSource } from "@/lib/ErpSourceContext";
+import { useEmpresaFilter } from "@/lib/EmpresaFilterContext";
 
 const ErpAnalyticsContext = createContext(null);
 
 export function ErpAnalyticsProvider({ children }) {
   const { selectedSource } = useErpSource();
+  const { selectedEmpresa } = useEmpresaFilter();
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [year, setYear] = useState(new Date().getFullYear());
-  const [empresaFilter, setEmpresaFilter] = useState(null); // cd_empresa | null
 
   const fetchAnalytics = useCallback(async () => {
     if (!selectedSource?.id) return;
     setLoading(true);
     setError(null);
     const payload = { source_id: selectedSource.id, year };
-    if (empresaFilter != null) payload.cd_empresa = empresaFilter;
+    if (selectedEmpresa != null) payload.cd_empresa = selectedEmpresa;
     // Retry transient 504/timeouts (cold pool or momentary DB load) once with backoff
     const isTransient = (e) => {
       const m = String(e?.message || e || "");
@@ -53,14 +54,13 @@ export function ErpAnalyticsProvider({ children }) {
       setData(null);
     }
     setLoading(false);
-  }, [selectedSource?.id, year, empresaFilter]);
+  }, [selectedSource?.id, year, selectedEmpresa]);
 
   useEffect(() => { fetchAnalytics(); }, [fetchAnalytics]);
 
   return (
     <ErpAnalyticsContext.Provider value={{
       data, loading, error, year, setYear,
-      empresaFilter, setEmpresaFilter,
       refetch: fetchAnalytics,
     }}>
       {children}

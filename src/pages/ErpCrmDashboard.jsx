@@ -16,8 +16,11 @@ import TabOperacional from "@/components/erp/TabOperacional";
 import TabClientesPessoa from "@/components/erp/TabClientesPessoa";
 import { Link } from "react-router-dom";
 import { Settings2 } from "lucide-react";
+import { EmpresaFilterProvider } from "@/lib/EmpresaFilterContext";
+import TabExecutiva from "@/components/erp/TabExecutiva";
 
 const TABS = [
+  { id: "executiva", label: "Visão Executiva" },
   { id: "visao_geral", label: "Visão Geral" },
   { id: "financeiro", label: "Financeiro" },
   { id: "locacoes", label: "Locações" },
@@ -35,10 +38,11 @@ const TABS = [
 const ANALYTICS_TABS = ["visao_geral", "financeiro", "locacoes", "operacional", "clientes_pessoa"];
 
 function ErpCrmDashboardContent() {
-  const [activeTab, setActiveTab] = useState("visao_geral");
+  const [activeTab, setActiveTab] = useState("executiva");
 
   const renderTab = () => {
     switch (activeTab) {
+      case "executiva": return <TabExecutiva />;
       case "visao_geral": return <TabVisaoGeral />;
       case "financeiro": return <TabFinanceiro />;
       case "locacoes": return <TabLocacoes />;
@@ -95,7 +99,9 @@ function ErpCrmDashboardContent() {
 export default function ErpCrmDashboard() {
   return (
     <ErpSnapshotProvider>
-      <ErpCrmDashboardContent />
+      <EmpresaFilterProvider>
+        <ErpCrmDashboardContent />
+      </EmpresaFilterProvider>
     </ErpSnapshotProvider>
   );
 }

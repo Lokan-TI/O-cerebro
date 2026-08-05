@@ -1,92 +1,137 @@
 import { useState } from "react";
 import { useErpAnalytics } from "@/lib/ErpAnalyticsContext";
+import { useErpSnapshot } from "@/lib/ErpSnapshotContext";
+import { useEmpresaFilter } from "@/lib/EmpresaFilterContext";
 import { getEmpresaLabel } from "@/lib/empresaLabels";
-import { fmtCur, fmtNum } from "@/lib/erpFormat";
-import AnalyticsFilterBar from "@/components/erp/AnalyticsFilterBar";
-import { TrendingDown, BarChart3, FileText, AlertTriangle } from "lucide-react";
-import { ResponsiveContainer, ComposedChart, Bar, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend } from "recharts";
+import { fmtCur, fmtNum, fmtMonthLabel } from "@/lib/erpFormat";
+import {
+  TrendingUp, TrendingDown, AlertTriangle, FileText, Wallet, Calculator, BarChart3,
+} from "lucide-react";
+import {
+  ResponsiveContainer, ComposedChart, Bar, Line, XAxis, YAxis,
+  CartesianGrid, Tooltip, Legend,
+} from "recharts";
+
+const MES = ["", "Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
 
 export default function TabFinanceiro() {
   const { data, loading, error } = useErpAnalytics();
-  const [view, setView] = useState("cap_empresa"); // cap_empresa | cap_conta | balancete
+  const { snapshot } = useErpSnapshot();
+  const { selectedEmpresa } = useEmpresaFilter();
+  const [view, setView] = useState("resumo"); // resumo | car_empresa | cap_conta | balancete
 
   if (loading) return <div className="text-gray-500 p-8 text-center">Carregando financeiro…</div>;
   if (error) return <div className="text-red-400 p-8 text-center">Erro: {error}</div>;
   if (!data) return <div className="text-gray-500 p-8 text-center">Sem dados.</div>;
 
   const k = data.kpis || {};
-  const capEmp = data.cap_by_empresa || [];
+  const isAll = selectedEmpresa == null;
+
+  // Receita vem do snapshot (por empresa quando filtrada)
+  const byEmp = snapshot?.by_empresa || [];
+  const empRow = !isAll ? byEmp.find((e) => e.cd_empresa === selectedEmpresa) : null;
+  const receita = isAll ? snapshot?.kpis?.fat_ano : empRow?.fat_ano || 0;
+  const receitaAnt = isAll ? snapshot?.kpis?.fat_ano_ant : empRow?.fat_ano_ant || 0;
+  const crescimento = isAll ? snapshot?.kpis?.crescimento_ano : empRow?.crescimento_ano ?? null;
+
+  const carEmp = data.car_by_empresa || [];
+  const carConta = []; // CAR não tem detalhe por conta no analytics atual
   const capConta = data.cap_by_conta || [];
   const balancete = data.plano_balancete || [];
-  const monthly = (data.cap_monthly || []).map(r => ({
-    label: `${["", "Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"][r.mes] || r.mes}/${String(r.ano).slice(2)}`,
-    total: r.vl_total,
-    aberto: r.vl_aberto,
-    baixado: r.vl_baixado,
+
+  const carVsCapMonthly = (data.car_vs_cap_monthly || []).map((r) => ({
+    label: r.label || fmtMonthLabel(r.mes, r.ano), car: r.car || 0, cap: r.cap || 0,
+    car_baixado: r.car_baixado || 0, cap_baixado: r.cap_baixado || 0,
   }));
+
+  // Resultado operacional estimado = Receita - CAP total
+  const resultado = receita - (k.cap_total || 0);
+  const margemResult = receita > 0 ? (resultado / receita * 100) : null;
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between flex-wrap gap-3">
-        <div className="text-sm text-gray-400">CAP (Contas a Pagar) + Balancete Financeiro Analítico</div>
-        <AnalyticsFilterBar />
+        <div className="text-sm text-gray-400">
+          Financeiro —{" "}
+          <span className="text-white font-medium">
+            {isAll ? "Todas as empresas (consolidado)" : getEmpresaLabel(selectedEmpresa, empRow?.nm_empresa)}
+          </span>
+        </div>
       </div>
 
-      {/* KPIs — CAP */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      {/* KPIs principais — 4 blocos */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        {/* Receita */}
+        <div className="rounded-xl border border-green-700/40 bg-green-950/30 p-4">
+          <div className="flex items-center gap-2 mb-2"><TrendingUp className="w-4 h-4 text-green-400" /><span className="text-xs text-gray-400 uppercase">Receita realizada</span></div>
+          <div className="text-2xl font-bold text-white">{fmtCur(receita)}</div>
+          <div className="text-xs text-gray-500 mt-1">
+            Ano anterior: {fmtCur(receitaAnt)}
+            {crescimento != null && (<> · <span className={crescimento >= 0 ? "text-green-400" : "text-red-400"}>{crescimento >= 0 ? "+" : ""}{crescimento.toFixed(1)}%</span></>)}
+          </div>
+        </div>
+        {/* Contas a Receber */}
+        <div className="rounded-xl border border-blue-700/40 bg-blue-950/30 p-4">
+          <div className="flex items-center gap-2 mb-2"><FileText className="w-4 h-4 text-blue-400" /><span className="text-xs text-gray-400 uppercase">Contas a Receber</span></div>
+          <div className="text-2xl font-bold text-white">{fmtCur(k.car_total)}</div>
+          <div className="text-xs text-blue-400/60 mt-1">Em aberto: {fmtCur(k.car_aberto)} · Vencido: {fmtCur(k.car_vencido)}</div>
+        </div>
+        {/* Contas a Pagar */}
         <div className="rounded-xl border border-red-700/40 bg-red-950/30 p-4">
-          <div className="flex items-center gap-2 mb-2"><TrendingDown className="w-4 h-4 text-red-400" /><span className="text-xs text-gray-400 uppercase">CAP Total</span></div>
+          <div className="flex items-center gap-2 mb-2"><TrendingDown className="w-4 h-4 text-red-400" /><span className="text-xs text-gray-400 uppercase">Contas a Pagar</span></div>
           <div className="text-2xl font-bold text-white">{fmtCur(k.cap_total)}</div>
-          <div className="text-xs text-red-400/60 mt-1">Período selecionado</div>
+          <div className="text-xs text-red-400/60 mt-1">Em aberto: {fmtCur(k.cap_aberto)} · Vencido: {fmtCur(k.cap_vencido)}</div>
         </div>
-        <div className="rounded-xl border border-amber-700/40 bg-amber-950/30 p-4">
-          <div className="flex items-center gap-2 mb-2"><AlertTriangle className="w-4 h-4 text-amber-400" /><span className="text-xs text-gray-400 uppercase">CAP Em Aberto</span></div>
-          <div className="text-2xl font-bold text-white">{fmtCur(k.cap_aberto)}</div>
-          <div className="text-xs text-amber-400/60 mt-1">Não baixado</div>
-        </div>
-        <div className="rounded-xl border border-gray-700/40 bg-gray-900/40 p-4">
-          <div className="flex items-center gap-2 mb-2"><FileText className="w-4 h-4 text-gray-400" /><span className="text-xs text-gray-400 uppercase">CAP Baixado</span></div>
-          <div className="text-2xl font-bold text-white">{fmtCur(k.cap_baixado)}</div>
-          <div className="text-xs text-gray-400/60 mt-1">Pago no período</div>
-        </div>
-        <div className="rounded-xl border border-red-700/40 bg-red-950/30 p-4">
-          <div className="flex items-center gap-2 mb-2"><AlertTriangle className="w-4 h-4 text-red-400" /><span className="text-xs text-gray-400 uppercase">CAP Vencido</span></div>
-          <div className="text-2xl font-bold text-white">{fmtCur(k.cap_vencido)}</div>
-          <div className="text-xs text-red-400/60 mt-1">Vencido em aberto</div>
+        {/* Resultado estimado */}
+        <div className={`rounded-xl border p-4 ${resultado >= 0 ? "border-purple-700/40 bg-purple-950/30" : "border-red-700/40 bg-red-950/30"}`}>
+          <div className="flex items-center gap-2 mb-2"><Calculator className="w-4 h-4 text-purple-400" /><span className="text-xs text-gray-400 uppercase">Resultado oper. estimado</span></div>
+          <div className="text-2xl font-bold text-white">{fmtCur(resultado)}</div>
+          <div className="text-xs text-gray-500 mt-1">
+            {margemResult != null ? `${margemResult.toFixed(1)}% de margem · ` : ""}Receita − CAP
+          </div>
         </div>
       </div>
+
+      {/* Aviso: CAP sem dimensão empresa */}
+      {!isAll && (
+        <div className="bg-amber-950/30 border border-amber-800/40 rounded-lg px-4 py-2 flex items-center gap-2">
+          <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0" />
+          <span className="text-amber-300 text-xs">Contas a Pagar (CAP) não possuem dimensão de empresa no SISLOC — exibidas em consolidado.</span>
+        </div>
+      )}
 
       {/* Sub-tabs */}
       <div className="flex gap-1 bg-gray-900 border border-gray-800 rounded-xl p-1 w-fit flex-wrap">
-        <button onClick={() => setView("cap_empresa")} className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${view === "cap_empresa" ? "bg-purple-600 text-white" : "text-gray-400 hover:text-gray-200"}`}>CAP por Empresa</button>
-        <button onClick={() => setView("cap_conta")} className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${view === "cap_conta" ? "bg-purple-600 text-white" : "text-gray-400 hover:text-gray-200"}`}>CAP por Conta</button>
-        <button onClick={() => setView("balancete")} className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${view === "balancete" ? "bg-purple-600 text-white" : "text-gray-400 hover:text-gray-200"}`}>Balancete Analítico</button>
+        <button onClick={() => setView("resumo")} className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${view === "resumo" ? "bg-purple-600 text-white" : "text-gray-400 hover:text-gray-200"}`}>Resumo mensal</button>
+        <button onClick={() => setView("car_empresa")} className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${view === "car_empresa" ? "bg-purple-600 text-white" : "text-gray-400 hover:text-gray-200"}`}>CAR por empresa</button>
+        <button onClick={() => setView("cap_conta")} className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${view === "cap_conta" ? "bg-purple-600 text-white" : "text-gray-400 hover:text-gray-200"}`}>CAP por conta</button>
+        <button onClick={() => setView("balancete")} className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${view === "balancete" ? "bg-purple-600 text-white" : "text-gray-400 hover:text-gray-200"}`}>Balancete</button>
       </div>
 
-      {/* CAP mensal chart */}
-      {monthly.length > 0 && view !== "balancete" && (
+      {/* Resumo mensal: CAR vs CAP */}
+      {view === "resumo" && (
         <div className="bg-gray-900 border border-gray-800 rounded-xl p-5">
           <h3 className="text-white font-semibold mb-4 text-sm flex items-center gap-2">
-            <BarChart3 className="w-4 h-4 text-red-400" /> CAP — série mensal (DATA)
+            <BarChart3 className="w-4 h-4 text-purple-400" /> CAR vs CAP — série mensal
           </h3>
-          <ResponsiveContainer width="100%" height={300}>
-            <ComposedChart data={monthly}>
+          <ResponsiveContainer width="100%" height={320}>
+            <ComposedChart data={carVsCapMonthly}>
               <CartesianGrid strokeDasharray="3 3" stroke="#222" />
               <XAxis dataKey="label" stroke="#666" fontSize={11} />
               <YAxis stroke="#666" fontSize={11} tickFormatter={(v) => fmtCur(v).replace("R$", "")} />
               <Tooltip contentStyle={{ backgroundColor: "#111", border: "1px solid #333" }} formatter={(v) => fmtCur(v)} />
               <Legend wrapperStyle={{ fontSize: 12 }} />
-              <Bar dataKey="total" name="CAP Total" fill="#ef4444" radius={[4, 4, 0, 0]} />
-              <Bar dataKey="aberto" name="Em Aberto" fill="#f59e0b" radius={[4, 4, 0, 0]} />
-              <Line dataKey="baixado" name="Baixado" stroke="#fca5a5" strokeWidth={2} dot={false} />
+              <Bar dataKey="car" name="CAR (Receber)" fill="#22c55e" radius={[4, 4, 0, 0]} />
+              <Bar dataKey="cap" name="CAP (Pagar)" fill="#ef4444" radius={[4, 4, 0, 0]} />
             </ComposedChart>
           </ResponsiveContainer>
         </div>
       )}
 
-      {view === "cap_empresa" && (
+      {/* CAR por empresa */}
+      {view === "car_empresa" && (
         <div className="bg-gray-900 border border-gray-800 rounded-xl p-5">
-          <h3 className="text-white font-semibold mb-4 text-sm">CAP por empresa (Contas a Pagar)</h3>
+          <h3 className="text-white font-semibold mb-4 text-sm">Contas a Receber (CAR) por empresa</h3>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
@@ -100,28 +145,27 @@ export default function TabFinanceiro() {
                 </tr>
               </thead>
               <tbody>
-                {capEmp.map((r, i) => (
-                  <tr key={i} className="border-b border-gray-800/50 hover:bg-gray-800/30">
+                {carEmp.map((r, i) => (
+                  <tr key={i} className={`border-b border-gray-800/50 hover:bg-gray-800/30 ${r.cd_empresa === selectedEmpresa ? "bg-purple-950/40" : ""}`}>
                     <td className="py-2 px-3 text-white">{getEmpresaLabel(r.cd_empresa)}</td>
                     <td className="py-2 px-3 text-right text-gray-300">{fmtNum(r.qtd)}</td>
-                    <td className="py-2 px-3 text-right text-red-400 font-medium">{fmtCur(r.vl_total)}</td>
+                    <td className="py-2 px-3 text-right text-blue-400 font-medium">{fmtCur(r.vl_total)}</td>
                     <td className="py-2 px-3 text-right text-amber-400">{fmtCur(r.vl_aberto)}</td>
                     <td className="py-2 px-3 text-right text-gray-300">{fmtCur(r.vl_baixado)}</td>
                     <td className="py-2 px-3 text-right text-red-400">{fmtCur(r.vl_vencido)}</td>
                   </tr>
                 ))}
-                {capEmp.length === 0 && (
-                  <tr><td colSpan={6} className="text-center text-gray-600 py-6">Sem dados de CAP por empresa</td></tr>
-                )}
+                {carEmp.length === 0 && <tr><td colSpan={6} className="text-center text-gray-600 py-6">Sem dados de CAR por empresa</td></tr>}
               </tbody>
             </table>
           </div>
         </div>
       )}
 
+      {/* CAP por conta */}
       {view === "cap_conta" && (
         <div className="bg-gray-900 border border-gray-800 rounded-xl p-5">
-          <h3 className="text-white font-semibold mb-4 text-sm">CAP por conta contábil (Contas a Pagar)</h3>
+          <h3 className="text-white font-semibold mb-4 text-sm">Contas a Pagar (CAP) por conta contábil</h3>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
@@ -136,7 +180,7 @@ export default function TabFinanceiro() {
               </thead>
               <tbody>
                 {capConta.map((r, i) => {
-                  const planoMatch = balancete.find(p => p.cd_planfin === r.cd_conta);
+                  const planoMatch = balancete.find((p) => p.cd_planfin === r.cd_conta);
                   return (
                     <tr key={i} className="border-b border-gray-800/50 hover:bg-gray-800/30">
                       <td className="py-2 px-3 text-white">{planoMatch?.ds_planfin || `Conta ${r.cd_conta}`}</td>
@@ -148,18 +192,17 @@ export default function TabFinanceiro() {
                     </tr>
                   );
                 })}
-                {capConta.length === 0 && (
-                  <tr><td colSpan={6} className="text-center text-gray-600 py-6">Sem dados</td></tr>
-                )}
+                {capConta.length === 0 && <tr><td colSpan={6} className="text-center text-gray-600 py-6">Sem dados</td></tr>}
               </tbody>
             </table>
           </div>
         </div>
       )}
 
+      {/* Balancete */}
       {view === "balancete" && (
         <div className="bg-gray-900 border border-gray-800 rounded-xl p-5">
-          <h3 className="text-white font-semibold mb-4 text-sm">Balancete financeiro analítico (Plano de Contas × CAP)</h3>
+          <h3 className="text-white font-semibold mb-4 text-sm">Balancete financeiro analítico (Plano × CAP)</h3>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
@@ -185,9 +228,7 @@ export default function TabFinanceiro() {
                     <td className="py-2 px-3 text-right text-gray-300">{fmtCur(r.vl_baixado)}</td>
                   </tr>
                 ))}
-                {balancete.length === 0 && (
-                  <tr><td colSpan={7} className="text-center text-gray-600 py-6">Sem dados de balancete</td></tr>
-                )}
+                {balancete.length === 0 && <tr><td colSpan={7} className="text-center text-gray-600 py-6">Sem dados de balancete</td></tr>}
               </tbody>
             </table>
           </div>
