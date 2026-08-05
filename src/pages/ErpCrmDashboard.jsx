@@ -17,6 +17,7 @@ import TabClientesPessoa from "@/components/erp/TabClientesPessoa";
 import { Link } from "react-router-dom";
 import { Settings2 } from "lucide-react";
 import { EmpresaFilterProvider } from "@/lib/EmpresaFilterContext";
+import { GlobalFilterProvider } from "@/lib/GlobalFilterContext";
 import TabExecutiva from "@/components/erp/TabExecutiva";
 
 const TABS = [
@@ -100,7 +101,9 @@ export default function ErpCrmDashboard() {
   return (
     <ErpSnapshotProvider>
       <EmpresaFilterProvider>
-        <ErpCrmDashboardContent />
+        <GlobalFilterProvider>
+          <ErpCrmDashboardContent />
+        </GlobalFilterProvider>
       </EmpresaFilterProvider>
     </ErpSnapshotProvider>
   );

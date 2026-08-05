@@ -1,8 +1,7 @@
 import { useState } from "react";
 import { useErpSnapshot } from "@/lib/ErpSnapshotContext";
 import { useErpSource } from "@/lib/ErpSourceContext";
-import DataSourceDropdown from "./DataSourceDropdown";
-import EmpresaFilter from "./EmpresaFilter";
+import GlobalFilterBar from "./GlobalFilterBar";
 import SyncConfirmDialog from "./SyncConfirmDialog";
 import SyncHistoryPanel from "./SyncHistoryPanel";
 import { RefreshCw, History, AlertTriangle, CheckCircle2, Loader2, Clock, Database } from "lucide-react";
@@ -38,10 +37,7 @@ export default function RefreshHeader() {
             <span className="text-xs font-bold bg-purple-600 text-white px-2 py-0.5 rounded uppercase tracking-wider">ERP</span>
             <h1 className="text-white font-bold text-xl">Dashboard ERP</h1>
           </div>
-          <div className="flex items-end gap-4">
-            <DataSourceDropdown />
-            <EmpresaFilter />
-          </div>
+          <GlobalFilterBar />
         </div>
         <div className="flex items-center gap-2">
           <button
