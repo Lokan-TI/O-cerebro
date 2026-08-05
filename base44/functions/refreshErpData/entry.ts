@@ -1,5 +1,6 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.40';
 import { buildConfig, runQuery } from '../../shared/erpConnection.ts';
+import { approvedRemessaFrom, faturaFrom } from '../../shared/churnUniverse.ts';
 
 const STEPS = [
   { id: 'conectando', label: 'Conectando ao banco' },
@@ -470,23 +471,29 @@ async function processRefresh(base44, source, run, version, previousVersion) {
     let cohortKpis = {};
     let cohortByEmpresa = {};
     try {
-      // Classificação pelo universo de locação (fich_loc) — por empresa e consolidado
-      const classSql = `SELECT cd_empresa, cd_pessoa,
-          MAX(CASE WHEN dt_pedido >= ${lastYearStart} AND dt_pedido < ${yearStart} THEN 1 ELSE 0 END) AS last_yr,
-          MAX(CASE WHEN dt_pedido >= ${yearStart} AND dt_pedido < ${yearEnd} THEN 1 ELSE 0 END) AS this_yr
-        FROM fich_loc WITH (NOLOCK)
-        WHERE dt_pedido >= ${lastYearStart} AND dt_pedido < ${yearEnd}
-          AND cd_pessoa IS NOT NULL AND cd_pessoa <> ''
-        GROUP BY cd_empresa, cd_pessoa`;
-      const classRes = await runQuery(source, wrap(classSql), 30000);
+      // Classificação pelo universo de remessas aprovadas (fl_remessa) — por empresa e consolidado.
+      // Substitui a contagem bruta de fich_loc para excluir orçamentos não aprovados e remessas canceladas.
+      // Classificação em duas consultas separadas (ano passado / ano atual) — cada query
+      // sargable sobre um intervalo de 1 ano. A versão 2-anos em query única estourava o
+      // timeout do wrapper (JOIN fl_remessa × fich_loc é mais custoso que fich_loc isolada).
+      const lastYrSql = `SELECT DISTINCT f.cd_empresa, f.cd_pessoa ${approvedRemessaFrom}
+        AND r.dt_saida >= ${lastYearStart} AND r.dt_saida < ${yearStart}`;
+      const thisYrSql = `SELECT DISTINCT f.cd_empresa, f.cd_pessoa ${approvedRemessaFrom}
+        AND r.dt_saida >= ${yearStart} AND r.dt_saida < ${yearEnd}`;
+      const lastRows = getRows(await runQuery(source, wrap(lastYrSql), 30000));
       queryCount++;
-      const classRows = getRows(classRes);
-      // Consolidado (dedupe por cd_pessoa entre empresas)
+      const thisRows = getRows(await runQuery(source, wrap(thisYrSql), 30000));
+      queryCount++;
+      const lastSet = new Set(lastRows.map(r => `${Number(r.cd_empresa)}|${String(r.cd_pessoa)}`));
+      const thisSet = new Set(thisRows.map(r => `${Number(r.cd_empresa)}|${String(r.cd_pessoa)}`));
+      // Consolidado (dedupe por cd_pessoa entre empresas) + agregação por empresa
       const consolidated = {};
-      for (const r of classRows) {
-        const emp = Number(r.cd_empresa);
-        const ly = Number(r.last_yr) || 0, ty = Number(r.this_yr) || 0;
-        const code = String(r.cd_pessoa);
+      for (const key of new Set([...lastSet, ...thisSet])) {
+        const sep = key.indexOf('|');
+        const emp = Number(key.slice(0, sep));
+        const code = key.slice(sep + 1);
+        const ly = lastSet.has(key) ? 1 : 0;
+        const ty = thisSet.has(key) ? 1 : 0;
         if (!cohortByEmpresa[emp]) cohortByEmpresa[emp] = { retained: 0, newC: 0, churned: 0, clientsLastYear: 0, newSet: new Set(), retainedSet: new Set() };
         const ce = cohortByEmpresa[emp];
         if (ly === 1) ce.clientsLastYear++;
@@ -505,15 +512,14 @@ async function processRefresh(base44, source, run, version, previousVersion) {
         if (v.ty === 1 && v.ly === 0) { newC++; newSet.add(code); }
         if (v.ly === 1 && v.ty === 0) churned++;
       }
-      // Receita do ano (nf) por (empresa, cliente) — atribui ao coorte consolidado e por empresa
+      // Receita do ano (fl_fatura) por (empresa, cliente) — atribui ao coorte consolidado e por empresa
       let newRevenue = 0, retainedRevenue = 0;
       const perEmpRev = {};
       try {
-        const revSql = `SELECT cd_empresa, cd_pessoa, ISNULL(SUM(vl_faturamento),0) AS rev
-          FROM nf WITH (NOLOCK)
-          WHERE dt_emi_nf >= ${yearStart} AND dt_emi_nf < ${yearEnd} ${cancelFilter}
-            AND cd_pessoa IS NOT NULL AND cd_pessoa <> ''
-          GROUP BY cd_empresa, cd_pessoa`;
+        const revSql = `SELECT f.cd_empresa, f.cd_pessoa, ISNULL(SUM(fat.vl_fatura),0) AS rev
+          ${faturaFrom}
+            AND fat.dt_geracao >= ${yearStart} AND fat.dt_geracao < ${yearEnd}
+          GROUP BY f.cd_empresa, f.cd_pessoa`;
         for (const r of getRows(await runQuery(source, wrap(revSql), 30000))) {
           const emp = Number(r.cd_empresa);
           const code = String(r.cd_pessoa);

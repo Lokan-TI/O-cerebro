@@ -1,5 +1,6 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.40';
 import { buildConfig, runQuery } from '../../shared/erpConnection.ts';
+import { approvedRemessaFrom, faturaFrom } from '../../shared/churnUniverse.ts';
 
 const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -56,24 +57,28 @@ Deno.serve(async (req) => {
       }
     } catch {}
 
-    // Churn (rental-based universe): clients who rented (fich_loc) in the ref period
-    // but did NOT rent again in the analysis period. Revenue is sourced from nf as a
-    // proxy (fich_loc has no invoiced value), so ficha-only clients show revenue 0.
+    // Churn: universo de clientes com remessa APROVADA (fl_remessa.dt_saida preenchida
+    // e fl_rem_cancelada <> 'S') no período de referência que não tiveram nova remessa
+    // aprovada no período de análise. Substitui a contagem bruta de fich_loc (que inclui
+    // orçamentos não aprovados e remessas canceladas). Base consolidada em churnUniverse.ts.
     const churnSql = `WITH ref_clients AS (
       SELECT cd_pessoa,
-             COUNT(*) AS ref_fichas,
-             MIN(dt_pedido) AS ref_first_ficha,
-             MAX(dt_pedido) AS ref_last_ficha
-      FROM fich_loc WITH (NOLOCK)
-      WHERE dt_pedido >= '${refStart}' AND dt_pedido < '${refEnd}'
-        AND cd_pessoa IS NOT NULL AND cd_pessoa <> ''
+             COUNT(DISTINCT cd_flremessa) AS ref_fichas,
+             MIN(dt_saida) AS ref_first_ficha,
+             MAX(dt_saida) AS ref_last_ficha
+      FROM (
+        SELECT DISTINCT r.cd_flremessa, r.dt_saida, f.cd_pessoa
+        ${approvedRemessaFrom}
+          AND r.dt_saida >= '${refStart}' AND r.dt_saida < '${refEnd}'
+      ) x
       GROUP BY cd_pessoa
     ),
     analysis_clients AS (
-      SELECT cd_pessoa
-      FROM fich_loc WITH (NOLOCK)
-      WHERE dt_pedido >= '${analysisStart}' AND dt_pedido < '${analysisEnd}'
-        AND cd_pessoa IS NOT NULL AND cd_pessoa <> ''
+      SELECT cd_pessoa FROM (
+        SELECT DISTINCT f.cd_pessoa
+        ${approvedRemessaFrom}
+          AND r.dt_saida >= '${analysisStart}' AND r.dt_saida < '${analysisEnd}'
+      ) y
       GROUP BY cd_pessoa
     )
     SELECT
@@ -89,46 +94,46 @@ Deno.serve(async (req) => {
     const result = await runQuery(source, wrap(churnSql), 25000);
     const rows = getRows(result);
 
-    // Revenue proxy from nf (batched by cd_pessoa; rental universe includes clients
-    // without invoices, so ref_revenue may be 0 for ficha-only clients).
+    // Receita por cliente a partir de fl_fatura (vl_fatura das faturas da ficha) nos
+    // períodos de referência e análise — substitui o proxy da tabela nf.
     const allCodes = rows.map(r => r.cd_pessoa).filter(v => v != null && v !== '');
     const buildCodesList = (codes) => codes.map(c => {
       const n = Number(c);
       return isNaN(n) ? `'${String(c).replace(/'/g, "''")}'` : String(n);
     }).join(',');
     const BATCH = 500;
-    const nfRevMap = {};
+    const revMap = {};
     if (allCodes.length > 0) {
       try {
         for (let i = 0; i < allCodes.length; i += BATCH) {
           const codesList = buildCodesList(allCodes.slice(i, i + BATCH));
-          const nfSql = `SELECT cd_pessoa,
-            ISNULL(SUM(CASE WHEN dt_emi_nf >= '${refStart}' AND dt_emi_nf < '${refEnd}' THEN vl_faturamento ELSE 0 END),0) AS ref_revenue,
-            SUM(CASE WHEN dt_emi_nf >= '${refStart}' AND dt_emi_nf < '${refEnd}' THEN 1 ELSE 0 END) AS ref_nfs,
-            MIN(CASE WHEN dt_emi_nf >= '${refStart}' AND dt_emi_nf < '${refEnd}' THEN dt_emi_nf END) AS ref_first_nf,
-            MAX(CASE WHEN dt_emi_nf >= '${refStart}' AND dt_emi_nf < '${refEnd}' THEN dt_emi_nf END) AS ref_last_nf,
-            ISNULL(SUM(CASE WHEN dt_emi_nf >= '${analysisStart}' AND dt_emi_nf < '${analysisEnd}' THEN vl_faturamento ELSE 0 END),0) AS analysis_revenue,
-            SUM(CASE WHEN dt_emi_nf >= '${analysisStart}' AND dt_emi_nf < '${analysisEnd}' THEN 1 ELSE 0 END) AS analysis_nfs,
-            MAX(CASE WHEN dt_emi_nf >= '${analysisStart}' AND dt_emi_nf < '${analysisEnd}' THEN dt_emi_nf END) AS analysis_last_nf
-            FROM nf WITH (NOLOCK)
-            WHERE cd_pessoa IN (${codesList}) ${cancelFilter}
-              AND dt_emi_nf >= '${refStart}' AND dt_emi_nf < '${analysisEnd}'
-            GROUP BY cd_pessoa`;
-          for (const r of getRows(await runQuery(source, wrap(nfSql), 20000))) {
-            nfRevMap[String(r.cd_pessoa)] = r;
+          const revSql = `SELECT f.cd_pessoa,
+            ISNULL(SUM(CASE WHEN fat.dt_geracao >= '${refStart}' AND fat.dt_geracao < '${refEnd}' THEN fat.vl_fatura ELSE 0 END),0) AS ref_revenue,
+            SUM(CASE WHEN fat.dt_geracao >= '${refStart}' AND fat.dt_geracao < '${refEnd}' THEN 1 ELSE 0 END) AS ref_nfs,
+            MIN(CASE WHEN fat.dt_geracao >= '${refStart}' AND fat.dt_geracao < '${refEnd}' THEN fat.dt_geracao END) AS ref_first_nf,
+            MAX(CASE WHEN fat.dt_geracao >= '${refStart}' AND fat.dt_geracao < '${refEnd}' THEN fat.dt_geracao END) AS ref_last_nf,
+            ISNULL(SUM(CASE WHEN fat.dt_geracao >= '${analysisStart}' AND fat.dt_geracao < '${analysisEnd}' THEN fat.vl_fatura ELSE 0 END),0) AS analysis_revenue,
+            SUM(CASE WHEN fat.dt_geracao >= '${analysisStart}' AND fat.dt_geracao < '${analysisEnd}' THEN 1 ELSE 0 END) AS analysis_nfs,
+            MAX(CASE WHEN fat.dt_geracao >= '${analysisStart}' AND fat.dt_geracao < '${analysisEnd}' THEN fat.dt_geracao END) AS analysis_last_nf
+            ${faturaFrom}
+              AND fat.dt_geracao >= '${refStart}' AND fat.dt_geracao < '${analysisEnd}'
+              AND f.cd_pessoa IN (${codesList})
+            GROUP BY f.cd_pessoa`;
+          for (const r of getRows(await runQuery(source, wrap(revSql), 20000))) {
+            revMap[String(r.cd_pessoa)] = r;
           }
         }
       } catch {}
     }
     for (const r of rows) {
-      const nf = nfRevMap[String(r.cd_pessoa)] || {};
-      r.ref_revenue = Number(nf.ref_revenue) || 0;
-      r.ref_nfs = Number(nf.ref_nfs) || 0;
-      r.ref_first_nf = nf.ref_first_nf || null;
-      r.ref_last_nf = nf.ref_last_nf || null;
-      r.analysis_revenue = Number(nf.analysis_revenue) || 0;
-      r.analysis_nfs = Number(nf.analysis_nfs) || 0;
-      r.analysis_last_nf = nf.analysis_last_nf || null;
+      const rv = revMap[String(r.cd_pessoa)] || {};
+      r.ref_revenue = Number(rv.ref_revenue) || 0;
+      r.ref_nfs = Number(rv.ref_nfs) || 0;
+      r.ref_first_nf = rv.ref_first_nf || null;
+      r.ref_last_nf = rv.ref_last_nf || null;
+      r.analysis_revenue = Number(rv.analysis_revenue) || 0;
+      r.analysis_nfs = Number(rv.analysis_nfs) || 0;
+      r.analysis_last_nf = rv.analysis_last_nf || null;
     }
 
     const totalRef = rows.length;
