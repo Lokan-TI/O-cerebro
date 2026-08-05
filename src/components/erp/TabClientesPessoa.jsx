@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { useErpAnalytics } from "@/lib/ErpAnalyticsContext";
 import { fmtCur, fmtNum } from "@/lib/erpFormat";
-import AnalyticsFilterBar from "@/components/erp/AnalyticsFilterBar";
 import { Users, UserPlus, Search, TrendingUp } from "lucide-react";
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip } from "recharts";
 
@@ -30,7 +29,6 @@ export default function TabClientesPessoa() {
     <div className="space-y-6">
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div className="text-sm text-gray-400">PESSOA × FICH_LOC (universo de locação)</div>
-        <AnalyticsFilterBar />
       </div>
 
       {/* KPIs */}

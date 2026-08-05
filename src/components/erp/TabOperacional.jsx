@@ -1,6 +1,5 @@
 import { useErpAnalytics } from "@/lib/ErpAnalyticsContext";
 import { fmtNum } from "@/lib/erpFormat";
-import AnalyticsFilterBar from "@/components/erp/AnalyticsFilterBar";
 import { Package, ArrowRightLeft, Calendar } from "lucide-react";
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip } from "recharts";
 
@@ -22,7 +21,6 @@ export default function TabOperacional() {
     <div className="space-y-6">
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div className="text-sm text-gray-400">Movimentações de Estoque × DATA</div>
-        <AnalyticsFilterBar />
       </div>
 
       {/* KPI */}

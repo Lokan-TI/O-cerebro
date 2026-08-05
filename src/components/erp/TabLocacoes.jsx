@@ -1,7 +1,6 @@
 import { useErpAnalytics } from "@/lib/ErpAnalyticsContext";
 import { getEmpresaLabel } from "@/lib/empresaLabels";
 import { fmtCur, fmtNum } from "@/lib/erpFormat";
-import AnalyticsFilterBar from "@/components/erp/AnalyticsFilterBar";
 import { FileText, CalendarClock, CheckCircle2, Package, Users } from "lucide-react";
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend } from "recharts";
 
@@ -27,7 +26,6 @@ export default function TabLocacoes() {
     <div className="space-y-6">
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div className="text-sm text-gray-400">Ficha de Locação × PESSOA × DATA</div>
-        <AnalyticsFilterBar />
       </div>
 
       {/* KPIs */}

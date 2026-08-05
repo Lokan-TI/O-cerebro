@@ -2,7 +2,6 @@ import { useErpAnalytics } from "@/lib/ErpAnalyticsContext";
 import { useErpSource } from "@/lib/ErpSourceContext";
 import { getEmpresaLabel } from "@/lib/empresaLabels";
 import { fmtCur, fmtNum } from "@/lib/erpFormat";
-import AnalyticsFilterBar from "@/components/erp/AnalyticsFilterBar";
 import { TrendingUp, TrendingDown, Wallet, FileText, Package, Users, AlertTriangle, Calendar } from "lucide-react";
 import { ResponsiveContainer, ComposedChart, Bar, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend } from "recharts";
 
@@ -45,7 +44,6 @@ export default function TabVisaoGeral() {
         <div className="text-sm text-gray-400">
           Fonte: <span className="text-white">{selectedSource?.name}</span> · Período: <span className="text-white">{dr.start} → {dr.end}</span>
         </div>
-        <AnalyticsFilterBar />
       </div>
 
       {/* KPI Grid — cross-table overview */}

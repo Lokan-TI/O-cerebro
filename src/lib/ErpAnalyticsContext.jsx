@@ -1,25 +1,23 @@
 import { createContext, useContext, useState, useEffect, useCallback } from "react";
 import { base44 } from "@/api/base44Client";
-import { useErpSource } from "@/lib/ErpSourceContext";
-import { useEmpresaFilter } from "@/lib/EmpresaFilterContext";
+import { useGlobalFilter } from "@/lib/GlobalFilterContext";
 
+// Provider de analytics das abas operacionais/financeiras. Agora consome o filtro
+// global (Fonte + Empresa + Período aplicado) — não mantém mais seletor de ano próprio.
 const ErpAnalyticsContext = createContext(null);
 
 export function ErpAnalyticsProvider({ children }) {
-  const { selectedSource } = useErpSource();
-  const { selectedEmpresa } = useEmpresaFilter();
+  const { sourceId, empresaId, period } = useGlobalFilter();
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-  const [year, setYear] = useState(new Date().getFullYear());
 
   const fetchAnalytics = useCallback(async () => {
-    if (!selectedSource?.id) return;
+    if (!sourceId) return;
     setLoading(true);
     setError(null);
-    const payload = { source_id: selectedSource.id, year };
-    if (selectedEmpresa != null) payload.cd_empresa = selectedEmpresa;
-    // Retry transient 504/timeouts (cold pool or momentary DB load) once with backoff
+    const payload = { source_id: sourceId, start_date: period.start, end_date: period.end };
+    if (empresaId != null) payload.cd_empresa = empresaId;
     const isTransient = (e) => {
       const m = String(e?.message || e || "");
       return /504|timeout|timed out|network|failed to fetch/i.test(m);
@@ -54,14 +52,13 @@ export function ErpAnalyticsProvider({ children }) {
       setData(null);
     }
     setLoading(false);
-  }, [selectedSource?.id, year, selectedEmpresa]);
+  }, [sourceId, period.start, period.end, empresaId]);
 
   useEffect(() => { fetchAnalytics(); }, [fetchAnalytics]);
 
   return (
     <ErpAnalyticsContext.Provider value={{
-      data, loading, error, year, setYear,
-      refetch: fetchAnalytics,
+      data, loading, error, period, refetch: fetchAnalytics,
     }}>
       {children}
     </ErpAnalyticsContext.Provider>
