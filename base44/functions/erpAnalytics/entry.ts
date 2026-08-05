@@ -45,7 +45,6 @@ Deno.serve(async (req) => {
     const lastYearStart = `${year - 1}-01-01`;
     const cdEmpresa = body?.cd_empresa != null ? Number(body.cd_empresa) : null;
     const empCar = cdEmpresa != null ? ` AND cd_empresa_gestora = ${cdEmpresa}` : '';
-    const empCap = cdEmpresa != null ? ` AND cd_empresa = ${cdEmpresa}` : '';
     const empFich = cdEmpresa != null ? ` AND cd_empresa = ${cdEmpresa}` : '';
     const lastYearEnd = `${year}-01-01`;
 
@@ -106,12 +105,9 @@ Deno.serve(async (req) => {
     } catch (e) { out.errors.push('car_by_empresa: ' + (e.message || '').slice(0, 80)); }
 
     // ── 3. CAP por conta (Contas a Pagar → Balancete) ──
+    // tabela CAP não possui cd_empresa — query direta sem fallback
     try {
-      // Try with cd_empresa column first; fallback to cd_conta only
-      let capSql;
-      try {
-        capSql = `SELECT
-          cd_empresa,
+      const capSql = `SELECT
           cd_conta,
           COUNT(*) AS qtd,
           ISNULL(SUM(vl_pre_cap),0) AS vl_total,
@@ -119,65 +115,19 @@ Deno.serve(async (req) => {
           ISNULL(SUM(CASE WHEN dt_bai_cap IS NOT NULL THEN vl_pre_cap ELSE 0 END),0) AS vl_baixado,
           ISNULL(SUM(CASE WHEN dt_ven_cap < GETDATE() AND dt_bai_cap IS NULL THEN vl_pre_cap ELSE 0 END),0) AS vl_vencido
           FROM cap WITH (NOLOCK)
-          WHERE dt_emi_cap >= '${startDate}' AND dt_emi_cap < '${endDate}'${empCap}
-          GROUP BY cd_empresa, cd_conta
-          ORDER BY ISNULL(SUM(vl_pre_cap),0) DESC`;
-        out.cap_by_conta = getRows(await runQuery(source, wrap(capSql))).map(r => ({
-          cd_empresa: Number(r.cd_empresa) || null,
-          cd_conta: Number(r.cd_conta) || null,
-          qtd: Number(r.qtd) || 0,
-          vl_total: Number(r.vl_total) || 0,
-          vl_aberto: Number(r.vl_aberto) || 0,
-          vl_baixado: Number(r.vl_baixado) || 0,
-          vl_vencido: Number(r.vl_vencido) || 0,
-        }));
-      } catch {
-        // Fallback: no cd_empresa column
-        capSql = `SELECT
-          cd_conta,
-          COUNT(*) AS qtd,
-          ISNULL(SUM(vl_pre_cap),0) AS vl_total,
-          ISNULL(SUM(CASE WHEN dt_bai_cap IS NULL THEN vl_pre_cap ELSE 0 END),0) AS vl_aberto,
-          ISNULL(SUM(CASE WHEN dt_bai_cap IS NOT NULL THEN vl_pre_cap ELSE 0 END),0) AS vl_baixado,
-          ISNULL(SUM(CASE WHEN dt_ven_cap < GETDATE() AND dt_bai_cap IS NULL THEN vl_pre_cap ELSE 0 END),0) AS vl_vencido
-          FROM cap WITH (NOLOCK)
-          WHERE dt_emi_cap >= '${startDate}' AND dt_emi_cap < '${endDate}'${empCap}
+          WHERE dt_emi_cap >= '${startDate}' AND dt_emi_cap < '${endDate}'
           GROUP BY cd_conta
           ORDER BY ISNULL(SUM(vl_pre_cap),0) DESC`;
-        out.cap_by_conta = getRows(await runQuery(source, wrap(capSql))).map(r => ({
-          cd_empresa: null,
-          cd_conta: Number(r.cd_conta) || null,
-          qtd: Number(r.qtd) || 0,
-          vl_total: Number(r.vl_total) || 0,
-          vl_aberto: Number(r.vl_aberto) || 0,
-          vl_baixado: Number(r.vl_baixado) || 0,
-          vl_vencido: Number(r.vl_vencido) || 0,
-        }));
-      }
-    } catch (e) { out.errors.push('cap_by_conta: ' + (e.message || '').slice(0, 80)); }
-
-    // ── 3b. CAP por empresa (Contas a Pagar) ──
-    try {
-      const capEmpSql = `SELECT
-        cd_empresa,
-        COUNT(*) AS qtd,
-        ISNULL(SUM(vl_pre_cap),0) AS vl_total,
-        ISNULL(SUM(CASE WHEN dt_bai_cap IS NULL THEN vl_pre_cap ELSE 0 END),0) AS vl_aberto,
-        ISNULL(SUM(CASE WHEN dt_bai_cap IS NOT NULL THEN vl_pre_cap ELSE 0 END),0) AS vl_baixado,
-        ISNULL(SUM(CASE WHEN dt_ven_cap < GETDATE() AND dt_bai_cap IS NULL THEN vl_pre_cap ELSE 0 END),0) AS vl_vencido
-        FROM cap WITH (NOLOCK)
-        WHERE dt_emi_cap >= '${startDate}' AND dt_emi_cap < '${endDate}'${empCap}
-        GROUP BY cd_empresa
-        ORDER BY ISNULL(SUM(vl_pre_cap),0) DESC`;
-      out.cap_by_empresa = getRows(await runQuery(source, wrap(capEmpSql))).map(r => ({
-        cd_empresa: Number(r.cd_empresa) || null,
+      out.cap_by_conta = getRows(await runQuery(source, wrap(capSql))).map(r => ({
+        cd_empresa: null,
+        cd_conta: Number(r.cd_conta) || null,
         qtd: Number(r.qtd) || 0,
         vl_total: Number(r.vl_total) || 0,
         vl_aberto: Number(r.vl_aberto) || 0,
         vl_baixado: Number(r.vl_baixado) || 0,
         vl_vencido: Number(r.vl_vencido) || 0,
       }));
-    } catch (e) { out.errors.push('cap_by_empresa: ' + (e.message || '').slice(0, 80)); }
+    } catch (e) { out.errors.push('cap_by_conta: ' + (e.message || '').slice(0, 80)); }
 
     // ── 4. CAR mensal (12 meses) ──
     try {
@@ -207,7 +157,7 @@ Deno.serve(async (req) => {
         ISNULL(SUM(CASE WHEN dt_bai_cap IS NOT NULL THEN vl_pre_cap ELSE 0 END),0) AS vl_baixado,
         COUNT(*) AS qtd
         FROM cap WITH (NOLOCK)
-        WHERE dt_emi_cap >= '${lastYearStart}' AND dt_emi_cap < '${endDate}'${empCap}
+        WHERE dt_emi_cap >= '${lastYearStart}' AND dt_emi_cap < '${endDate}'
         GROUP BY YEAR(dt_emi_cap), MONTH(dt_emi_cap)
         ORDER BY 1, 2`;
       out.cap_monthly = getRows(await runQuery(source, wrap(capMonSql))).map(r => ({
@@ -290,7 +240,8 @@ Deno.serve(async (req) => {
       }));
     } catch (e) { out.errors.push('est_mov_monthly: ' + (e.message || '').slice(0, 80)); }
 
-    // ── 10. Top clientes por CAR ──
+    // ── 10. Top clientes por CAR (dados + nomes resolvidos depois) ──
+    let topCarRows = [];
     try {
       const topSql = `SELECT TOP 50 cd_pessoa_cli,
         COUNT(*) AS qtd_car,
@@ -300,26 +251,7 @@ Deno.serve(async (req) => {
         WHERE dt_emi_car >= '${startDate}' AND dt_emi_car < '${endDate}' AND dt_cancelamento IS NULL${empCar}
         GROUP BY cd_pessoa_cli
         ORDER BY ISNULL(SUM(vl_pre_car),0) DESC`;
-      const topRows = getRows(await runQuery(source, wrap(topSql)));
-      // Batch fetch names
-      const codes = [...new Set(topRows.map(r => Number(r.cd_pessoa_cli)))].filter(Boolean);
-      const nameMap = {};
-      for (let i = 0; i < codes.length; i += 200) {
-        const batch = codes.slice(i, i + 200);
-        try {
-          const namesSql = `SELECT cd_pessoa, nm_pessoa FROM pessoa WITH (NOLOCK) WHERE cd_pessoa IN (${batch.join(',')})`;
-          for (const r of getRows(await runQuery(source, wrap(namesSql)))) {
-            nameMap[Number(r.cd_pessoa)] = String(r.nm_pessoa || '');
-          }
-        } catch {}
-      }
-      out.top_clients_car = topRows.map(r => ({
-        cd_pessoa: Number(r.cd_pessoa_cli),
-        nm_pessoa: nameMap[Number(r.cd_pessoa_cli)] || `Cliente ${r.cd_pessoa_cli}`,
-        qtd_car: Number(r.qtd_car) || 0,
-        vl_total: Number(r.vl_total) || 0,
-        vl_aberto: Number(r.vl_aberto) || 0,
-      }));
+      topCarRows = getRows(await runQuery(source, wrap(topSql)));
     } catch (e) { out.errors.push('top_clients_car: ' + (e.message || '').slice(0, 80)); }
 
     // ── 11. Balancete analítico (plano + CAP join) ──
@@ -331,7 +263,7 @@ Deno.serve(async (req) => {
         COUNT(c.cd_lan) AS qtd
         FROM plano p WITH (NOLOCK)
         LEFT JOIN cap c WITH (NOLOCK) ON p.cd_planfin = c.cd_conta
-          AND c.dt_emi_cap >= '${startDate}' AND c.dt_emi_cap < '${endDate}'${empCap ? ` AND c.cd_empresa = ${cdEmpresa}` : ''}
+          AND c.dt_emi_cap >= '${startDate}' AND c.dt_emi_cap < '${endDate}'
         WHERE p.fl_planfin <> 'N' OR p.fl_planfin IS NULL
         GROUP BY p.cd_planfin, p.nr_planfin, p.ds_planfin, p.fl_cla_planfin, p.fl_resultpatr
         HAVING COUNT(c.cd_lan) > 0
@@ -368,7 +300,8 @@ Deno.serve(async (req) => {
       out.pessoa_total = Number(pRows[0]?.total) || 0;
     } catch (e) { out.errors.push('pessoa_total: ' + (e.message || '').slice(0, 80)); }
 
-    // ── 12c. Top clientes por locações (fich_loc × pessoa) ──
+    // ── 12c. Top clientes por locações (fich_loc × pessoa — dados + nomes depois) ──
+    let topLocRows = [];
     try {
       const topLocSql = `SELECT TOP 20 cd_pessoa,
         COUNT(*) AS qtd_loc,
@@ -378,26 +311,40 @@ Deno.serve(async (req) => {
         WHERE dt_pedido >= '${startDate}' AND dt_pedido < '${endDate}'${empFich}
         GROUP BY cd_pessoa
         ORDER BY COUNT(*) DESC`;
-      const topLocRows = getRows(await runQuery(source, wrap(topLocSql)));
-      const locCodes = [...new Set(topLocRows.map(r => Number(r.cd_pessoa)))].filter(Boolean);
-      const locNameMap = {};
-      for (let i = 0; i < locCodes.length; i += 200) {
-        const batch = locCodes.slice(i, i + 200);
+      topLocRows = getRows(await runQuery(source, wrap(topLocSql)));
+    } catch (e) { out.errors.push('fichloc_top_clientes: ' + (e.message || '').slice(0, 80)); }
+
+    // ── 12d. Resolução de nomes unificada (CAR + fich_loc em um único batch) ──
+    try {
+      const allCodes = [...new Set([
+        ...topCarRows.map(r => Number(r.cd_pessoa_cli)),
+        ...topLocRows.map(r => Number(r.cd_pessoa)),
+      ])].filter(Boolean);
+      const nameMap = {};
+      for (let i = 0; i < allCodes.length; i += 200) {
+        const batch = allCodes.slice(i, i + 200);
         try {
           const namesSql = `SELECT cd_pessoa, nm_pessoa FROM pessoa WITH (NOLOCK) WHERE cd_pessoa IN (${batch.join(',')})`;
           for (const r of getRows(await runQuery(source, wrap(namesSql)))) {
-            locNameMap[Number(r.cd_pessoa)] = String(r.nm_pessoa || '');
+            nameMap[Number(r.cd_pessoa)] = String(r.nm_pessoa || '');
           }
         } catch {}
       }
+      out.top_clients_car = topCarRows.map(r => ({
+        cd_pessoa: Number(r.cd_pessoa_cli),
+        nm_pessoa: nameMap[Number(r.cd_pessoa_cli)] || `Cliente ${r.cd_pessoa_cli}`,
+        qtd_car: Number(r.qtd_car) || 0,
+        vl_total: Number(r.vl_total) || 0,
+        vl_aberto: Number(r.vl_aberto) || 0,
+      }));
       out.fichloc_top_clientes = topLocRows.map(r => ({
         cd_pessoa: Number(r.cd_pessoa),
-        nm_pessoa: locNameMap[Number(r.cd_pessoa)] || `Cliente ${r.cd_pessoa}`,
+        nm_pessoa: nameMap[Number(r.cd_pessoa)] || `Cliente ${r.cd_pessoa}`,
         qtd_loc: Number(r.qtd_loc) || 0,
         qtd_ativas: Number(r.qtd_ativas) || 0,
         vl_minimo: Number(r.vl_minimo) || 0,
       }));
-    } catch (e) { out.errors.push('fichloc_top_clientes: ' + (e.message || '').slice(0, 80)); }
+    } catch (e) { out.errors.push('name_resolution: ' + (e.message || '').slice(0, 80)); }
 
     // ── 13. KPIs consolidados ──
     try {
@@ -408,7 +355,7 @@ Deno.serve(async (req) => {
       const capTotal = out.cap_by_empresa.reduce((s, r) => s + r.vl_total, 0) || out.cap_by_conta.reduce((s, r) => s + r.vl_total, 0);
       const capAberto = out.cap_by_empresa.reduce((s, r) => s + r.vl_aberto, 0) || out.cap_by_conta.reduce((s, r) => s + r.vl_aberto, 0);
       const capBaixado = out.cap_by_empresa.reduce((s, r) => s + r.vl_baixado, 0) || out.cap_by_conta.reduce((s, r) => s + r.vl_baixado, 0);
-      const capVencido = out.cap_by_empresa.reduce((s, r) => s + r.vl_vencido, 0);
+      const capVencido = out.cap_by_conta.reduce((s, r) => s + r.vl_vencido, 0);
       const fichTotal = out.fichloc_by_empresa.reduce((s, r) => s + r.qtd, 0);
       const fichAtivas = out.fichloc_by_empresa.reduce((s, r) => s + r.qtd_ativas, 0);
       const fichEncerradas = out.fichloc_by_empresa.reduce((s, r) => s + r.qtd_encerradas, 0);
