@@ -339,17 +339,28 @@ async function processRefresh(base44, source, run, version, previousVersion) {
     }
     await updateStep(5, 50);
 
-    // Etapa 5: Top 10 vendedores (cd_pessoa_fun = funcionário/vendedor)
+    // Etapa 5: Top 15 vendedores — via relação de comissão (financas_car_comissao.cd_nf = nf.cd_nf).
+    // nf.cd_pessoa_fun é apenas o funcionário que emitiu a NF (back-office); o vendedor real
+    // (quem fechou a venda) está vinculado à NF pela tabela de comissão. Uma NF pode ter 1-3
+    // vendedores, então somamos vl_base_comissao por vendedor (atribuição já rateada).
     let topVendors = [];
     try {
-      const topVendorsSql = `SELECT TOP 10 cd_pessoa_fun, ISNULL(SUM(vl_faturamento),0) AS total, COUNT(*) AS nfs
-        FROM nf WHERE dt_emi_nf >= ${yearStart} AND dt_emi_nf < ${yearEnd} ${cancelFilter}
-          AND cd_pessoa_fun IS NOT NULL
-        GROUP BY cd_pessoa_fun ORDER BY ISNULL(SUM(vl_faturamento),0) DESC`;
+      const topVendorsSql = `SELECT TOP 15 c.cd_pessoa,
+          COALESCE(NULLIF(p.nm_fan_pessoa,''), p.nm_pessoa) AS nm_pessoa,
+          ISNULL(SUM(c.vl_base_comissao),0) AS total,
+          COUNT(DISTINCT c.cd_nf) AS nfs
+        FROM financas_car_comissao c WITH (NOLOCK)
+        JOIN nf n WITH (NOLOCK) ON n.cd_nf = c.cd_nf
+        JOIN pessoa p WITH (NOLOCK) ON p.cd_pessoa = c.cd_pessoa
+        WHERE n.dt_emi_nf >= ${yearStart} AND n.dt_emi_nf < ${yearEnd} ${cancelFilter}
+          AND c.cd_pessoa IS NOT NULL
+        GROUP BY c.cd_pessoa, p.nm_fan_pessoa, p.nm_pessoa
+        ORDER BY ISNULL(SUM(c.vl_base_comissao),0) DESC`;
       const tvRes = await runQuery(source, wrap(topVendorsSql), 30000);
       queryCount++;
       topVendors = getRows(tvRes).map(r => ({
-        cd_pessoa_fun: Number(r.cd_pessoa_fun) || 0,
+        cd_pessoa_fun: Number(r.cd_pessoa) || 0,
+        nm_pessoa: String(r.nm_pessoa || ''),
         total: Number(r.total) || 0,
         nfs: Number(r.nfs) || 0
       }));
@@ -357,19 +368,16 @@ async function processRefresh(base44, source, run, version, previousVersion) {
       warnings.push('Falha ao extrair top vendedores: ' + (e.message || String(e)).slice(0, 120));
     }
 
-    // Etapa 5b: Resolução de nomes (clientes + vendedores) via pessoa
+    // Etapa 5b: Resolução de nomes dos clientes (vendedores já vêm com nome da tabela de comissão)
     try {
-      const codes = [...new Set([
-        ...topClients.map(c => Number(c.cd_pessoa)),
-        ...topVendors.map(v => v.cd_pessoa_fun),
-      ])].filter(Boolean);
+      const codes = [...new Set(topClients.map(c => Number(c.cd_pessoa)))].filter(Boolean);
       const nameMap = {};
       for (let i = 0; i < codes.length; i += 200) {
         const batch = codes.slice(i, i + 200);
         try {
-          const namesSql = `SELECT cd_pessoa, nm_pessoa, nm_fan_pessoa FROM pessoa WITH (NOLOCK) WHERE cd_pessoa IN (${batch.join(',')})`;
+          const namesSql = `SELECT cd_pessoa, COALESCE(NULLIF(nm_fan_pessoa,''), nm_pessoa) AS nome FROM pessoa WITH (NOLOCK) WHERE cd_pessoa IN (${batch.join(',')})`;
           for (const r of getRows(await runQuery(source, wrap(namesSql)))) {
-            nameMap[Number(r.cd_pessoa)] = String(r.nm_fan_pessoa || r.nm_pessoa || '');
+            nameMap[Number(r.cd_pessoa)] = String(r.nome || '');
           }
           queryCount++;
         } catch {}
@@ -377,10 +385,6 @@ async function processRefresh(base44, source, run, version, previousVersion) {
       topClients = topClients.map(c => ({
         ...c,
         nm_pessoa: nameMap[Number(c.cd_pessoa)] || `Cliente ${c.cd_pessoa}`,
-      }));
-      topVendors = topVendors.map(v => ({
-        ...v,
-        nm_pessoa: nameMap[v.cd_pessoa_fun] || `Vendedor ${v.cd_pessoa_fun}`,
       }));
     } catch (e) {
       warnings.push('Falha ao resolver nomes: ' + (e.message || String(e)).slice(0, 120));

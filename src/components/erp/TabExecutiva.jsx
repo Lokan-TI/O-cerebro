@@ -4,7 +4,7 @@ import { getEmpresaLabel } from "@/lib/empresaLabels";
 import { fmtCur, fmtNum } from "@/lib/erpFormat";
 import {
   TrendingUp, TrendingDown, Users, UserPlus, UserMinus, Repeat, Wallet,
-  FileText, AlertTriangle, Calendar, Crown, Percent,
+  FileText, AlertTriangle, Calendar, Crown, Percent, Award,
 } from "lucide-react";
 import {
   ResponsiveContainer, ComposedChart, Bar, Line, XAxis, YAxis,
@@ -71,6 +71,7 @@ export default function TabExecutiva() {
     nfs: r.nfs,
   }));
   const topClients = (snapshot.top_clients || []).slice(0, 15);
+  const topVendors = (snapshot.top_vendors || []).slice(0, 15);
   const alerts = snapshot.alerts || [];
 
   const fmtPct = (v) => (v == null ? "—" : `${v.toFixed(1)}%`);
@@ -162,9 +163,9 @@ export default function TabExecutiva() {
         </div>
       </div>
 
-      {/* Série mensal + Top clientes — apenas consolidado */}
+      {/* Série mensal + Top clientes/vendedores — apenas consolidado */}
       {isAll && (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="space-y-6">
           {monthly.length > 0 && (
             <div className="bg-gray-900 border border-gray-800 rounded-xl p-5">
               <h3 className="text-white font-semibold mb-4 text-sm flex items-center gap-2">
@@ -182,33 +183,66 @@ export default function TabExecutiva() {
               </ResponsiveContainer>
             </div>
           )}
-          {topClients.length > 0 && (
-            <div className="bg-gray-900 border border-gray-800 rounded-xl p-5">
-              <h3 className="text-white font-semibold mb-4 text-sm">Top 15 clientes (receita)</h3>
-              <div className="overflow-x-auto max-h-[280px] overflow-y-auto">
-                <table className="w-full text-sm">
-                  <thead className="sticky top-0 bg-gray-900">
-                    <tr className="text-gray-500 text-xs uppercase border-b border-gray-800">
-                      <th className="text-left py-2 px-2">#</th>
-                      <th className="text-left py-2 px-2">Cliente</th>
-                      <th className="text-right py-2 px-2">Receita</th>
-                      <th className="text-right py-2 px-2">Notas</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {topClients.map((c, i) => (
-                      <tr key={i} className="border-b border-gray-800/50">
-                        <td className="py-1.5 px-2 text-gray-500">{i + 1}</td>
-                        <td className="py-1.5 px-2 text-gray-300 truncate max-w-[180px]">{c.nm_pessoa || `Cliente ${c.cd_pessoa}`}</td>
-                        <td className="py-1.5 px-2 text-right text-green-400">{fmtCur(c.total)}</td>
-                        <td className="py-1.5 px-2 text-right text-gray-400">{fmtNum(c.nfs)}</td>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {topClients.length > 0 && (
+              <div className="bg-gray-900 border border-gray-800 rounded-xl p-5">
+                <h3 className="text-white font-semibold mb-4 text-sm flex items-center gap-2">
+                  <Crown className="w-4 h-4 text-purple-400" /> Top 15 clientes (receita)
+                </h3>
+                <div className="overflow-x-auto max-h-[320px] overflow-y-auto">
+                  <table className="w-full text-sm">
+                    <thead className="sticky top-0 bg-gray-900">
+                      <tr className="text-gray-500 text-xs uppercase border-b border-gray-800">
+                        <th className="text-left py-2 px-2">#</th>
+                        <th className="text-left py-2 px-2">Cliente</th>
+                        <th className="text-right py-2 px-2">Receita</th>
+                        <th className="text-right py-2 px-2">Notas</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
+                    </thead>
+                    <tbody>
+                      {topClients.map((c, i) => (
+                        <tr key={i} className="border-b border-gray-800/50">
+                          <td className="py-1.5 px-2 text-gray-500">{i + 1}</td>
+                          <td className="py-1.5 px-2 text-gray-300 truncate max-w-[180px]">{c.nm_pessoa || `Cliente ${c.cd_pessoa}`}</td>
+                          <td className="py-1.5 px-2 text-right text-green-400">{fmtCur(c.total)}</td>
+                          <td className="py-1.5 px-2 text-right text-gray-400">{fmtNum(c.nfs)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               </div>
-            </div>
-          )}
+            )}
+            {topVendors.length > 0 && (
+              <div className="bg-gray-900 border border-gray-800 rounded-xl p-5">
+                <h3 className="text-white font-semibold mb-4 text-sm flex items-center gap-2">
+                  <Award className="w-4 h-4 text-amber-400" /> Top 15 vendedores (base de comissão)
+                </h3>
+                <div className="overflow-x-auto max-h-[320px] overflow-y-auto">
+                  <table className="w-full text-sm">
+                    <thead className="sticky top-0 bg-gray-900">
+                      <tr className="text-gray-500 text-xs uppercase border-b border-gray-800">
+                        <th className="text-left py-2 px-2">#</th>
+                        <th className="text-left py-2 px-2">Vendedor</th>
+                        <th className="text-right py-2 px-2">Base comissão</th>
+                        <th className="text-right py-2 px-2">Notas</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {topVendors.map((v, i) => (
+                        <tr key={i} className="border-b border-gray-800/50">
+                          <td className="py-1.5 px-2 text-gray-500">{i + 1}</td>
+                          <td className="py-1.5 px-2 text-gray-300 truncate max-w-[180px]">{v.nm_pessoa || `Vendedor ${v.cd_pessoa_fun}`}</td>
+                          <td className="py-1.5 px-2 text-right text-amber-400">{fmtCur(v.total)}</td>
+                          <td className="py-1.5 px-2 text-right text-gray-400">{fmtNum(v.nfs)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       )}
 
