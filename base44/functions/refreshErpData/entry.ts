@@ -339,21 +339,51 @@ async function processRefresh(base44, source, run, version, previousVersion) {
     }
     await updateStep(5, 50);
 
-    // Etapa 5: Top 10 vendedores
+    // Etapa 5: Top 10 vendedores (cd_pessoa_fun = funcionário/vendedor)
     let topVendors = [];
     try {
-      const topVendorsSql = `SELECT TOP 10 cd_vendedor, ISNULL(SUM(vl_faturamento),0) AS total, COUNT(*) AS nfs
+      const topVendorsSql = `SELECT TOP 10 cd_pessoa_fun, ISNULL(SUM(vl_faturamento),0) AS total, COUNT(*) AS nfs
         FROM nf WHERE dt_emi_nf >= ${yearStart} AND dt_emi_nf < ${yearEnd} ${cancelFilter}
-        GROUP BY cd_vendedor ORDER BY ISNULL(SUM(vl_faturamento),0) DESC`;
+          AND cd_pessoa_fun IS NOT NULL
+        GROUP BY cd_pessoa_fun ORDER BY ISNULL(SUM(vl_faturamento),0) DESC`;
       const tvRes = await runQuery(source, wrap(topVendorsSql), 30000);
       queryCount++;
       topVendors = getRows(tvRes).map(r => ({
-        cd_vendedor: String(r.cd_vendedor || ''),
+        cd_pessoa_fun: Number(r.cd_pessoa_fun) || 0,
         total: Number(r.total) || 0,
         nfs: Number(r.nfs) || 0
       }));
     } catch (e) {
-      warnings.push('Falha ao extrair top vendedores: ' + (e.message || String(e)));
+      warnings.push('Falha ao extrair top vendedores: ' + (e.message || String(e)).slice(0, 120));
+    }
+
+    // Etapa 5b: Resolução de nomes (clientes + vendedores) via pessoa
+    try {
+      const codes = [...new Set([
+        ...topClients.map(c => Number(c.cd_pessoa)),
+        ...topVendors.map(v => v.cd_pessoa_fun),
+      ])].filter(Boolean);
+      const nameMap = {};
+      for (let i = 0; i < codes.length; i += 200) {
+        const batch = codes.slice(i, i + 200);
+        try {
+          const namesSql = `SELECT cd_pessoa, nm_pessoa, nm_fan_pessoa FROM pessoa WITH (NOLOCK) WHERE cd_pessoa IN (${batch.join(',')})`;
+          for (const r of getRows(await runQuery(source, wrap(namesSql)))) {
+            nameMap[Number(r.cd_pessoa)] = String(r.nm_fan_pessoa || r.nm_pessoa || '');
+          }
+          queryCount++;
+        } catch {}
+      }
+      topClients = topClients.map(c => ({
+        ...c,
+        nm_pessoa: nameMap[Number(c.cd_pessoa)] || `Cliente ${c.cd_pessoa}`,
+      }));
+      topVendors = topVendors.map(v => ({
+        ...v,
+        nm_pessoa: nameMap[v.cd_pessoa_fun] || `Vendedor ${v.cd_pessoa_fun}`,
+      }));
+    } catch (e) {
+      warnings.push('Falha ao resolver nomes: ' + (e.message || String(e)).slice(0, 120));
     }
     await updateStep(6, 65);
 

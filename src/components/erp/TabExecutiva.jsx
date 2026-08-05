@@ -199,7 +199,7 @@ export default function TabExecutiva() {
                     {topClients.map((c, i) => (
                       <tr key={i} className="border-b border-gray-800/50">
                         <td className="py-1.5 px-2 text-gray-500">{i + 1}</td>
-                        <td className="py-1.5 px-2 text-gray-300 truncate max-w-[180px]">{getEmpresaLabel(c.cd_pessoa) !== `Empresa ${c.cd_pessoa}` ? getEmpresaLabel(c.cd_pessoa) : `Cliente ${c.cd_pessoa}`}</td>
+                        <td className="py-1.5 px-2 text-gray-300 truncate max-w-[180px]">{c.nm_pessoa || `Cliente ${c.cd_pessoa}`}</td>
                         <td className="py-1.5 px-2 text-right text-green-400">{fmtCur(c.total)}</td>
                         <td className="py-1.5 px-2 text-right text-gray-400">{fmtNum(c.nfs)}</td>
                       </tr>

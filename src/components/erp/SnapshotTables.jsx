@@ -28,7 +28,7 @@ export default function SnapshotTables() {
     let result = [...clients];
     if (searchTerm) {
       const t = searchTerm.toLowerCase();
-      result = result.filter(c => String(c.cd_pessoa).toLowerCase().includes(t));
+      result = result.filter(c => String(c.cd_pessoa).toLowerCase().includes(t) || (c.nm_pessoa || '').toLowerCase().includes(t));
     }
     if (minValue) {
       const min = parseFloat(minValue);
@@ -76,7 +76,7 @@ export default function SnapshotTables() {
       <div className="bg-gray-900 border border-gray-800 rounded-xl p-4">
         <div className="flex flex-wrap items-end gap-3">
           <div className="flex-1 min-w-[200px]">
-            <label className="text-gray-500 text-xs mb-1 block">Buscar por ID do cliente</label>
+            <label className="text-gray-500 text-xs mb-1 block">Buscar por ID ou nome</label>
             <div className="relative">
               <Search className="w-4 h-4 text-gray-600 absolute left-3 top-1/2 -translate-y-1/2" />
               <input
@@ -122,7 +122,8 @@ export default function SnapshotTables() {
           <table className="w-full text-sm">
             <thead className="bg-gray-800 border-b border-gray-700">
               <tr>
-                <th className="text-left px-4 py-3 text-gray-400 font-medium text-xs uppercase">ID Cliente</th>
+                <th className="text-left px-4 py-3 text-gray-400 font-medium text-xs uppercase">ID</th>
+                <th className="text-left px-4 py-3 text-gray-400 font-medium text-xs uppercase">Cliente</th>
                 <th className="text-right px-4 py-3 text-gray-400 font-medium text-xs uppercase">Faturamento</th>
                 <th className="text-right px-4 py-3 text-gray-400 font-medium text-xs uppercase">NFs</th>
                 <th className="text-left px-4 py-3 text-gray-400 font-medium text-xs uppercase">Última NF</th>
@@ -132,13 +133,14 @@ export default function SnapshotTables() {
               {pageData.map((c, i) => (
                 <tr key={i} className="border-b border-gray-800 hover:bg-gray-800/40">
                   <td className="px-4 py-3 text-gray-300 font-mono text-xs">{c.cd_pessoa}</td>
+                  <td className="px-4 py-3 text-gray-200">{c.nm_pessoa || `Cliente ${c.cd_pessoa}`}</td>
                   <td className="px-4 py-3 text-right text-green-400 font-medium">{c.total.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}</td>
                   <td className="px-4 py-3 text-right text-gray-400">{c.nfs}</td>
                   <td className="px-4 py-3 text-gray-400">{c.ultima_nf || "—"}</td>
                 </tr>
               ))}
               {pageData.length === 0 && (
-                <tr><td colSpan={4} className="px-4 py-8 text-center text-gray-500">Nenhum cliente encontrado.</td></tr>
+                <tr><td colSpan={5} className="px-4 py-8 text-center text-gray-500">Nenhum cliente encontrado.</td></tr>
               )}
             </tbody>
           </table>
