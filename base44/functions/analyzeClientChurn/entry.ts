@@ -166,7 +166,6 @@ Deno.serve(async (req) => {
           WHERE cd_pessoa IN (${codesList})
           AND dt_emi_nf >= '${refStart}' AND dt_emi_nf < '${refEnd}' ${cancelFilter}`;
         const nfRows = getRows(await runQuery(source, wrap(nfMapSql), 15000));
-        _debugNfCount = nfRows.length;
         const nfToPessoa = {};
         for (const r of nfRows) {
           nfToPessoa[String(r.cd_nf)] = String(r.cd_pessoa);
@@ -192,7 +191,6 @@ Deno.serve(async (req) => {
                 AND CAST(ds_mer_nfmerc AS nvarchar(500)) <> ''
               GROUP BY cd_nf, CAST(ds_mer_nfmerc AS nvarchar(500)), cd_equipto`;
             const prodRows = getRows(await runQuery(source, wrap(prodSql), 15000));
-            _debugProdRows += prodRows.length;
             for (const r of prodRows) {
               const key = nfToPessoa[String(r.cd_nf)];
               if (!key) continue;
@@ -212,7 +210,7 @@ Deno.serve(async (req) => {
             };
           }
         }
-      } catch (e) { _debugNfmercError = e.message || String(e); }
+      } catch {}
     }
 
     return Response.json({
