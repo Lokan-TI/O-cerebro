@@ -44,28 +44,42 @@
       "items": {
         "type": "object"
       },
-      "description": "KPIs por empresa/filial (matriz e filiais)"
+      "description": "KPIs por empresa/filial (matriz e filiais), incluindo coorte por empresa"
     },
     "top_clients": {
       "type": "array",
       "items": {
         "type": "object"
       },
-      "description": "Top clientes por faturamento"
+      "description": "Top clientes por faturamento (consolidado)"
+    },
+    "top_clients_by_empresa": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      },
+      "description": "Top clientes por empresa (top 15 de cada) \u2014 para vis\u00e3o filtrada"
     },
     "top_vendors": {
       "type": "array",
       "items": {
         "type": "object"
       },
-      "description": "Top vendedores por faturamento"
+      "description": "Top vendedores por faturamento (consolidado)"
+    },
+    "top_vendors_by_empresa": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      },
+      "description": "Top vendedores por empresa (top 15 de cada) \u2014 para vis\u00e3o filtrada"
     },
     "monthly_revenue": {
       "type": "array",
       "items": {
         "type": "object"
       },
-      "description": "S\u00e9rie mensal de faturamento"
+      "description": "S\u00e9rie mensal de faturamento (com cd_empresa por linha)"
     },
     "revenue_by_state": {
       "type": "array",

@@ -56,22 +56,38 @@ export default function TabExecutiva() {
   const clientesMes = isAll ? k.clientes_mes : empRow?.clientes_mes || 0;
   const receitaPorCliente = isAll ? k.receita_por_cliente : empRow?.receita_por_cliente || 0;
 
-  // Retenção/churn só existem consolidados no snapshot
-  const retencao = isAll ? k.retention_rate : null;
-  const churn = isAll ? k.churn_rate : null;
-  const churnedClients = isAll ? k.churned_clients : null;
-  const newClients = isAll ? k.new_clients : null;
-  const retainedClients = isAll ? k.retained_clients : null;
-  const newRevenue = isAll ? k.new_client_revenue : null;
-  const retainedRevenue = isAll ? k.retained_revenue : null;
+  // Retenção/churn: consolidado ou por empresa (armazenado em by_empresa)
+  const retencao = isAll ? k.retention_rate : empRow?.retention_rate ?? null;
+  const churn = isAll ? k.churn_rate : empRow?.churn_rate ?? null;
+  const churnedClients = isAll ? k.churned_clients : empRow?.churned_clients ?? null;
+  const newClients = isAll ? k.new_clients : empRow?.new_clients ?? null;
+  const retainedClients = isAll ? k.retained_clients : empRow?.retained_clients ?? null;
+  const newRevenue = isAll ? k.new_client_revenue : empRow?.new_client_revenue ?? null;
+  const retainedRevenue = isAll ? k.retained_revenue : empRow?.retained_revenue ?? null;
 
-  const monthly = (snapshot.monthly_revenue || []).map((r) => ({
-    label: `${["", "Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"][r.mes] || r.mes}/${String(r.ano).slice(2)}`,
+  const MONTHS = ["", "Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
+  const allMonthly = snapshot.monthly_revenue || [];
+  const monthlyRaw = isAll
+    ? Object.values(allMonthly.reduce((acc, r) => {
+        const k = `${r.ano}-${r.mes}`;
+        acc[k] = acc[k] || { ano: r.ano, mes: r.mes, valor: 0, nfs: 0, clientes: 0 };
+        acc[k].valor += Number(r.valor) || 0;
+        acc[k].nfs += Number(r.nfs) || 0;
+        acc[k].clientes += Number(r.clientes) || 0;
+        return acc;
+      }, {})).sort((a, b) => a.ano - b.ano || a.mes - b.mes)
+    : allMonthly.filter((r) => Number(r.cd_empresa) === selectedEmpresa);
+  const monthly = monthlyRaw.map((r) => ({
+    label: `${MONTHS[r.mes] || r.mes}/${String(r.ano).slice(2)}`,
     valor: r.valor,
     nfs: r.nfs,
   }));
-  const topClients = (snapshot.top_clients || []).slice(0, 15);
-  const topVendors = (snapshot.top_vendors || []).slice(0, 15);
+  const topClients = isAll
+    ? (snapshot.top_clients || []).slice(0, 15)
+    : (snapshot.top_clients_by_empresa || []).filter((c) => Number(c.cd_empresa) === selectedEmpresa).slice(0, 15);
+  const topVendors = isAll
+    ? (snapshot.top_vendors || []).slice(0, 15)
+    : (snapshot.top_vendors_by_empresa || []).filter((v) => Number(v.cd_empresa) === selectedEmpresa).slice(0, 15);
   const alerts = snapshot.alerts || [];
 
   const fmtPct = (v) => (v == null ? "—" : `${v.toFixed(1)}%`);
@@ -105,9 +121,9 @@ export default function TabExecutiva() {
         <h3 className="text-purple-300 text-xs font-semibold uppercase tracking-wider mb-3">Clientes</h3>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <KpiCard icon={Users} label="Clientes ativos (ano)" value={fmtNum(clientes)} sub={`${fmtNum(clientesMes)} no mês`} color="purple" />
-          <KpiCard icon={UserPlus} label="Novos clientes" value={isAll ? fmtNum(newClients) : "—"} sub="Primeira compra no ano" color="green" />
-          <KpiCard icon={Repeat} label="Recorrentes" value={isAll ? fmtNum(retainedClients) : "—"} sub="Compraram ano anterior e atual" color="blue" />
-          <KpiCard icon={UserMinus} label="Em churn" value={isAll ? fmtNum(churnedClients) : "—"} sub="Pararam de comprar" color="red" />
+          <KpiCard icon={UserPlus} label="Novos clientes" value={fmtNum(newClients)} sub="Primeira compra no ano" color="green" />
+          <KpiCard icon={Repeat} label="Recorrentes" value={fmtNum(retainedClients)} sub="Compraram ano anterior e atual" color="blue" />
+          <KpiCard icon={UserMinus} label="Em churn" value={fmtNum(churnedClients)} sub="Pararam de comprar" color="red" />
         </div>
       </div>
 
@@ -115,10 +131,10 @@ export default function TabExecutiva() {
       <div>
         <h3 className="text-purple-300 text-xs font-semibold uppercase tracking-wider mb-3">Retenção & Churn</h3>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <KpiCard icon={Repeat} label="Taxa de retenção" value={fmtPct(retencao)} sub={isAll ? "Consolidado" : "Por empresa: indisponível"} color="green" />
-          <KpiCard icon={UserMinus} label="Churn de clientes" value={fmtPct(churn)} sub={isAll ? "Consolidado" : "Por empresa: indisponível"} color="red" />
-          <KpiCard icon={TrendingUp} label="Receita de novos" value={isAll ? fmtCur(newRevenue) : "—"} sub="Trazida por novos clientes" color="green" />
-          <KpiCard icon={TrendingDown} label="Receita retida" value={isAll ? fmtCur(retainedRevenue) : "—"} sub="De clientes recorrentes" color="amber" />
+          <KpiCard icon={Repeat} label="Taxa de retenção" value={fmtPct(retencao)} sub={isAll ? "Consolidado" : "Empresa selecionada"} color="green" />
+          <KpiCard icon={UserMinus} label="Churn de clientes" value={fmtPct(churn)} sub={isAll ? "Consolidado" : "Empresa selecionada"} color="red" />
+          <KpiCard icon={TrendingUp} label="Receita de novos" value={fmtCur(newRevenue)} sub="Trazida por novos clientes" color="green" />
+          <KpiCard icon={TrendingDown} label="Receita retida" value={fmtCur(retainedRevenue)} sub="De clientes recorrentes" color="amber" />
         </div>
       </div>
 
@@ -163,9 +179,8 @@ export default function TabExecutiva() {
         </div>
       </div>
 
-      {/* Série mensal + Top clientes/vendedores — apenas consolidado */}
-      {isAll && (
-        <div className="space-y-6">
+      {/* Série mensal + Top clientes/vendedores — consolidado ou por empresa */}
+      <div className="space-y-6">
           {monthly.length > 0 && (
             <div className="bg-gray-900 border border-gray-800 rounded-xl p-5">
               <h3 className="text-white font-semibold mb-4 text-sm flex items-center gap-2">
@@ -244,7 +259,6 @@ export default function TabExecutiva() {
             )}
           </div>
         </div>
-      )}
 
       {/* Alertas */}
       {isAll && alerts.length > 0 && (

@@ -337,6 +337,28 @@ async function processRefresh(base44, source, run, version, previousVersion) {
     } catch (e) {
       warnings.push('Falha ao extrair top clientes: ' + (e.message || String(e)).slice(0, 120));
     }
+    // Top clientes por empresa (top 15 de cada) — para visão filtrada por empresa
+    let topClientsByEmpresa = [];
+    try {
+      const tceSql = `SELECT cd_empresa, cd_pessoa, total, nfs, ultima_nf FROM (
+        SELECT cd_empresa, cd_pessoa, ISNULL(SUM(vl_faturamento),0) AS total, COUNT(*) AS nfs, MAX(dt_emi_nf) AS ultima_nf,
+          ROW_NUMBER() OVER (PARTITION BY cd_empresa ORDER BY ISNULL(SUM(vl_faturamento),0) DESC) AS rn
+        FROM nf WITH (NOLOCK)
+        WHERE dt_emi_nf >= ${yearStart} AND dt_emi_nf < ${yearEnd} ${cancelFilter}
+        GROUP BY cd_empresa, cd_pessoa
+      ) x WHERE rn <= 15 ORDER BY cd_empresa, rn`;
+      const tceRes = await runQuery(source, wrap(tceSql), 30000);
+      queryCount++;
+      topClientsByEmpresa = getRows(tceRes).map(r => ({
+        cd_empresa: Number(r.cd_empresa),
+        cd_pessoa: String(r.cd_pessoa || ''),
+        total: Number(r.total) || 0,
+        nfs: Number(r.nfs) || 0,
+        ultima_nf: r.ultima_nf ? new Date(r.ultima_nf).toISOString().slice(0, 10) : null
+      }));
+    } catch (e) {
+      warnings.push('Falha ao extrair top clientes por empresa: ' + (e.message || String(e)).slice(0, 120));
+    }
     await updateStep(5, 50);
 
     // Etapa 5: Top 15 vendedores — via relação de comissão (financas_car_comissao.cd_nf = nf.cd_nf).
@@ -367,10 +389,38 @@ async function processRefresh(base44, source, run, version, previousVersion) {
     } catch (e) {
       warnings.push('Falha ao extrair top vendedores: ' + (e.message || String(e)).slice(0, 120));
     }
+    // Top vendedores por empresa (top 15 de cada) — para visão filtrada por empresa
+    let topVendorsByEmpresa = [];
+    try {
+      const tveSql = `SELECT cd_empresa, cd_pessoa, nm_pessoa, total, nfs FROM (
+        SELECT n.cd_empresa, c.cd_pessoa,
+          COALESCE(NULLIF(p.nm_fan_pessoa,''), p.nm_pessoa) AS nm_pessoa,
+          ISNULL(SUM(c.vl_base_comissao),0) AS total,
+          COUNT(DISTINCT c.cd_nf) AS nfs,
+          ROW_NUMBER() OVER (PARTITION BY n.cd_empresa ORDER BY ISNULL(SUM(c.vl_base_comissao),0) DESC) AS rn
+        FROM financas_car_comissao c WITH (NOLOCK)
+        JOIN nf n WITH (NOLOCK) ON n.cd_nf = c.cd_nf
+        JOIN pessoa p WITH (NOLOCK) ON p.cd_pessoa = c.cd_pessoa
+        WHERE n.dt_emi_nf >= ${yearStart} AND n.dt_emi_nf < ${yearEnd} ${cancelFilter}
+          AND c.cd_pessoa IS NOT NULL
+        GROUP BY n.cd_empresa, c.cd_pessoa, p.nm_fan_pessoa, p.nm_pessoa
+      ) x WHERE rn <= 15 ORDER BY cd_empresa, rn`;
+      const tveRes = await runQuery(source, wrap(tveSql), 30000);
+      queryCount++;
+      topVendorsByEmpresa = getRows(tveRes).map(r => ({
+        cd_empresa: Number(r.cd_empresa),
+        cd_pessoa_fun: Number(r.cd_pessoa) || 0,
+        nm_pessoa: String(r.nm_pessoa || ''),
+        total: Number(r.total) || 0,
+        nfs: Number(r.nfs) || 0
+      }));
+    } catch (e) {
+      warnings.push('Falha ao extrair top vendedores por empresa: ' + (e.message || String(e)).slice(0, 120));
+    }
 
     // Etapa 5b: Resolução de nomes dos clientes (vendedores já vêm com nome da tabela de comissão)
     try {
-      const codes = [...new Set(topClients.map(c => Number(c.cd_pessoa)))].filter(Boolean);
+      const codes = [...new Set([...topClients, ...topClientsByEmpresa].map(c => Number(c.cd_pessoa)))].filter(Boolean);
       const nameMap = {};
       for (let i = 0; i < codes.length; i += 200) {
         const batch = codes.slice(i, i + 200);
@@ -386,6 +436,10 @@ async function processRefresh(base44, source, run, version, previousVersion) {
         ...c,
         nm_pessoa: nameMap[Number(c.cd_pessoa)] || `Cliente ${c.cd_pessoa}`,
       }));
+      topClientsByEmpresa = topClientsByEmpresa.map(c => ({
+        ...c,
+        nm_pessoa: nameMap[Number(c.cd_pessoa)] || `Cliente ${c.cd_pessoa}`,
+      }));
     } catch (e) {
       warnings.push('Falha ao resolver nomes: ' + (e.message || String(e)).slice(0, 120));
     }
@@ -394,12 +448,13 @@ async function processRefresh(base44, source, run, version, previousVersion) {
     // Etapa 6: Série mensal (12 meses) — timeout estendido
     let monthlyRevenue = [];
     try {
-      const monthlySql = `SELECT YEAR(dt_emi_nf) AS ano, MONTH(dt_emi_nf) AS mes, ISNULL(SUM(vl_faturamento),0) AS valor, COUNT(*) AS nfs, COUNT(DISTINCT cd_pessoa) AS clientes
+      const monthlySql = `SELECT cd_empresa, YEAR(dt_emi_nf) AS ano, MONTH(dt_emi_nf) AS mes, ISNULL(SUM(vl_faturamento),0) AS valor, COUNT(*) AS nfs, COUNT(DISTINCT cd_pessoa) AS clientes
         FROM nf WHERE dt_emi_nf >= DATEADD(month,-12,${monthStart}) AND dt_emi_nf < ${monthEnd} ${cancelFilter}
-        GROUP BY YEAR(dt_emi_nf), MONTH(dt_emi_nf) ORDER BY 1, 2`;
+        GROUP BY cd_empresa, YEAR(dt_emi_nf), MONTH(dt_emi_nf) ORDER BY 1, 2, 3`;
       const monthlyRes = await runQuery(source, wrap(monthlySql), 30000);
       queryCount++;
       monthlyRevenue = getRows(monthlyRes).map(r => ({
+        cd_empresa: Number(r.cd_empresa),
         ano: Number(r.ano),
         mes: Number(r.mes),
         valor: Number(r.valor) || 0,
@@ -413,41 +468,63 @@ async function processRefresh(base44, source, run, version, previousVersion) {
 
     // Etapa 7: Coorte de clientes (universo de locação fich_loc; receita proxy do nf)
     let cohortKpis = {};
+    let cohortByEmpresa = {};
     try {
-      // Classificação pelo universo de locação (fich_loc)
-      const classSql = `SELECT cd_pessoa,
+      // Classificação pelo universo de locação (fich_loc) — por empresa e consolidado
+      const classSql = `SELECT cd_empresa, cd_pessoa,
           MAX(CASE WHEN dt_pedido >= ${lastYearStart} AND dt_pedido < ${yearStart} THEN 1 ELSE 0 END) AS last_yr,
           MAX(CASE WHEN dt_pedido >= ${yearStart} AND dt_pedido < ${yearEnd} THEN 1 ELSE 0 END) AS this_yr
         FROM fich_loc WITH (NOLOCK)
         WHERE dt_pedido >= ${lastYearStart} AND dt_pedido < ${yearEnd}
           AND cd_pessoa IS NOT NULL AND cd_pessoa <> ''
-        GROUP BY cd_pessoa`;
+        GROUP BY cd_empresa, cd_pessoa`;
       const classRes = await runQuery(source, wrap(classSql), 30000);
       queryCount++;
       const classRows = getRows(classRes);
-      let retained = 0, newC = 0, churned = 0, clientsLastYear = 0;
-      const newSet = new Set(), retainedSet = new Set();
+      // Consolidado (dedupe por cd_pessoa entre empresas)
+      const consolidated = {};
       for (const r of classRows) {
+        const emp = Number(r.cd_empresa);
         const ly = Number(r.last_yr) || 0, ty = Number(r.this_yr) || 0;
         const code = String(r.cd_pessoa);
-        if (ly === 1) clientsLastYear++;
-        if (ly === 1 && ty === 1) { retained++; retainedSet.add(code); }
-        if (ty === 1 && ly === 0) { newC++; newSet.add(code); }
-        if (ly === 1 && ty === 0) churned++;
+        if (!cohortByEmpresa[emp]) cohortByEmpresa[emp] = { retained: 0, newC: 0, churned: 0, clientsLastYear: 0, newSet: new Set(), retainedSet: new Set() };
+        const ce = cohortByEmpresa[emp];
+        if (ly === 1) ce.clientsLastYear++;
+        if (ly === 1 && ty === 1) { ce.retained++; ce.retainedSet.add(code); }
+        if (ty === 1 && ly === 0) { ce.newC++; ce.newSet.add(code); }
+        if (ly === 1 && ty === 0) ce.churned++;
+        if (!consolidated[code]) consolidated[code] = { ly: 0, ty: 0 };
+        consolidated[code].ly = Math.max(consolidated[code].ly, ly);
+        consolidated[code].ty = Math.max(consolidated[code].ty, ty);
       }
-      // Receita do ano (nf) por cliente — proxy para novos e recorrentes
+      let retained = 0, newC = 0, churned = 0, clientsLastYear = 0;
+      const newSet = new Set(), retainedSet = new Set();
+      for (const [code, v] of Object.entries(consolidated)) {
+        if (v.ly === 1) clientsLastYear++;
+        if (v.ly === 1 && v.ty === 1) { retained++; retainedSet.add(code); }
+        if (v.ty === 1 && v.ly === 0) { newC++; newSet.add(code); }
+        if (v.ly === 1 && v.ty === 0) churned++;
+      }
+      // Receita do ano (nf) por (empresa, cliente) — atribui ao coorte consolidado e por empresa
       let newRevenue = 0, retainedRevenue = 0;
+      const perEmpRev = {};
       try {
-        const revSql = `SELECT cd_pessoa, ISNULL(SUM(vl_faturamento),0) AS rev
+        const revSql = `SELECT cd_empresa, cd_pessoa, ISNULL(SUM(vl_faturamento),0) AS rev
           FROM nf WITH (NOLOCK)
           WHERE dt_emi_nf >= ${yearStart} AND dt_emi_nf < ${yearEnd} ${cancelFilter}
             AND cd_pessoa IS NOT NULL AND cd_pessoa <> ''
-          GROUP BY cd_pessoa`;
+          GROUP BY cd_empresa, cd_pessoa`;
         for (const r of getRows(await runQuery(source, wrap(revSql), 30000))) {
+          const emp = Number(r.cd_empresa);
           const code = String(r.cd_pessoa);
           const v = Number(r.rev) || 0;
           if (retainedSet.has(code)) retainedRevenue += v;
           else if (newSet.has(code)) newRevenue += v;
+          if (cohortByEmpresa[emp]) {
+            if (!perEmpRev[emp]) perEmpRev[emp] = { newRev: 0, retainedRev: 0 };
+            if (cohortByEmpresa[emp].retainedSet.has(code)) perEmpRev[emp].retainedRev += v;
+            else if (cohortByEmpresa[emp].newSet.has(code)) perEmpRev[emp].newRev += v;
+          }
         }
         queryCount++;
       } catch (e) { warnings.push('Falha ao extrair receita coorte: ' + (e.message || String(e)).slice(0, 120)); }
@@ -461,6 +538,12 @@ async function processRefresh(base44, source, run, version, previousVersion) {
         new_client_revenue: newRevenue,
         retained_revenue: retainedRevenue,
       };
+      for (const [emp, ce] of Object.entries(cohortByEmpresa)) {
+        ce.retention_rate = ce.clientsLastYear > 0 ? (ce.retained / ce.clientsLastYear * 100) : null;
+        ce.churn_rate = ce.clientsLastYear > 0 ? (ce.churned / ce.clientsLastYear * 100) : null;
+        ce.new_client_revenue = perEmpRev[emp]?.newRev || 0;
+        ce.retained_revenue = perEmpRev[emp]?.retainedRev || 0;
+      }
     } catch (e) {
       warnings.push('Falha ao extrair coorte de clientes: ' + (e.message || String(e)).slice(0, 120));
     }
@@ -550,6 +633,7 @@ async function processRefresh(base44, source, run, version, previousVersion) {
         const nfsAno = Number(r.nfs_ano) || 0;
         const nfsMes = Number(r.nfs_mes) || 0;
         const clientesAno = fichEmpClients[Number(r.cd_empresa)]?.ano || 0;
+        const ce = cohortByEmpresa[Number(r.cd_empresa)];
         return {
           cd_empresa: Number(r.cd_empresa),
           nm_empresa: empNames[Number(r.cd_empresa)] || `Empresa ${r.cd_empresa}`,
@@ -566,6 +650,14 @@ async function processRefresh(base44, source, run, version, previousVersion) {
           crescimento_ano: fatAnoAnt > 0 ? ((fatAno - fatAnoAnt) / fatAnoAnt * 100) : null,
           crescimento_mes: fatMesAnt > 0 ? ((fatMes - fatMesAnt) / fatMesAnt * 100) : null,
           receita_por_cliente: clientesAno > 0 ? fatAno / clientesAno : 0,
+          retained_clients: ce?.retained || 0,
+          new_clients: ce?.newC || 0,
+          churned_clients: ce?.churned || 0,
+          clients_last_year: ce?.clientsLastYear || 0,
+          retention_rate: ce?.retention_rate ?? null,
+          churn_rate: ce?.churn_rate ?? null,
+          new_client_revenue: ce?.new_client_revenue || 0,
+          retained_revenue: ce?.retained_revenue || 0,
         };
       }).sort((a, b) => b.fat_ano - a.fat_ano);
     } catch (e) {
@@ -623,7 +715,9 @@ async function processRefresh(base44, source, run, version, previousVersion) {
       record_count: totalRecords,
       kpis,
       top_clients: topClients,
+      top_clients_by_empresa: topClientsByEmpresa,
       top_vendors: topVendors,
+      top_vendors_by_empresa: topVendorsByEmpresa,
       monthly_revenue: monthlyRevenue,
       revenue_by_state: revenueByState,
       new_clients_monthly: newClientsMonthly,
