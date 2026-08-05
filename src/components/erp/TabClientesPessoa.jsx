@@ -13,45 +13,49 @@ export default function TabClientesPessoa() {
   if (error) return <div className="text-red-400 p-8 text-center">Erro: {error}</div>;
   if (!data) return <div className="text-gray-500 p-8 text-center">Sem dados.</div>;
 
-  const topClients = data.top_clients_car || [];
+  const topLoc = data.fichloc_top_clientes || [];
   const newClientsMonthly = (data.new_clients_monthly || []).map(r => ({
     label: `${["", "Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"][r.mes] || r.mes}/${String(r.ano).slice(2)}`,
     qtd: r.qtd,
   }));
   const k = data.kpis || {};
+  const totalFichas = topLoc.reduce((s, r) => s + (r.qtd_loc || 0), 0);
 
   const q = search.trim().toLowerCase();
   const filtered = q
-    ? topClients.filter(c => c.nm_pessoa?.toLowerCase().includes(q) || String(c.cd_pessoa).includes(q))
-    : topClients;
+    ? topLoc.filter(c => c.nm_pessoa?.toLowerCase().includes(q) || String(c.cd_pessoa).includes(q))
+    : topLoc;
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between flex-wrap gap-3">
-        <div className="text-sm text-gray-400">PESSOA × CAR × DATA</div>
+        <div className="text-sm text-gray-400">PESSOA × FICH_LOC (universo de locação)</div>
         <AnalyticsFilterBar />
       </div>
 
       {/* KPIs */}
       <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
         <div className="rounded-xl border border-gray-700/40 bg-gray-900/40 p-4">
-          <div className="flex items-center gap-2 mb-2"><Users className="w-4 h-4 text-gray-400" /><span className="text-xs text-gray-400 uppercase">Pessoas (base)</span></div>
-          <div className="text-2xl font-bold text-white">{fmtNum(k.pessoa_total || data.pessoa_total || 0)}</div>
+          <div className="flex items-center gap-2 mb-2"><Users className="w-4 h-4 text-gray-400" /><span className="text-xs text-gray-400 uppercase">Clientes ativos (locação)</span></div>
+          <div className="text-2xl font-bold text-white">{fmtNum(k.fichloc_clientes_ativos || 0)}</div>
+          <div className="text-xs text-gray-500 mt-1">Que alugaram no período</div>
         </div>
-        <div className="rounded-xl border border-blue-700/40 bg-blue-950/30 p-4">
-          <div className="flex items-center gap-2 mb-2"><TrendingUp className="w-4 h-4 text-blue-400" /><span className="text-xs text-gray-400 uppercase">CAR total top50</span></div>
-          <div className="text-2xl font-bold text-white">{fmtCur(topClients.reduce((s, r) => s + (r.vl_total || 0), 0))}</div>
+        <div className="rounded-xl border border-purple-700/40 bg-purple-950/30 p-4">
+          <div className="flex items-center gap-2 mb-2"><TrendingUp className="w-4 h-4 text-purple-400" /><span className="text-xs text-gray-400 uppercase">Fichas (top20)</span></div>
+          <div className="text-2xl font-bold text-white">{fmtNum(totalFichas)}</div>
+          <div className="text-xs text-gray-500 mt-1">Contratos de locação</div>
         </div>
         <div className="rounded-xl border border-amber-700/40 bg-amber-950/30 p-4">
-          <div className="flex items-center gap-2 mb-2"><UserPlus className="w-4 h-4 text-amber-400" /><span className="text-xs text-gray-400 uppercase">Novos cadastros (12m)</span></div>
+          <div className="flex items-center gap-2 mb-2"><UserPlus className="w-4 h-4 text-amber-400" /><span className="text-xs text-gray-400 uppercase">Novos clientes (12m)</span></div>
           <div className="text-2xl font-bold text-white">{fmtNum(newClientsMonthly.reduce((s, r) => s + r.qtd, 0))}</div>
+          <div className="text-xs text-gray-500 mt-1">Primeira locação</div>
         </div>
       </div>
 
       {/* New clients chart */}
       {newClientsMonthly.length > 0 && (
         <div className="bg-gray-900 border border-gray-800 rounded-xl p-5">
-          <h3 className="text-white font-semibold mb-4 text-sm">Novos cadastros de PESSOA por mês (DATA)</h3>
+          <h3 className="text-white font-semibold mb-4 text-sm">Novos clientes de locação por mês (primeira ficha)</h3>
           <ResponsiveContainer width="100%" height={250}>
             <BarChart data={newClientsMonthly}>
               <CartesianGrid strokeDasharray="3 3" stroke="#222" />
@@ -64,11 +68,11 @@ export default function TabClientesPessoa() {
         </div>
       )}
 
-      {/* Top clients table — PESSOA × CAR */}
+      {/* Top clients table — PESSOA × FICH_LOC */}
       <div className="bg-gray-900 border border-gray-800 rounded-xl p-5">
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-white font-semibold text-sm flex items-center gap-2">
-            <Search className="w-4 h-4 text-purple-400" /> Top 50 clientes por CAR (PESSOA × Contas a Receber)
+            <Search className="w-4 h-4 text-purple-400" /> Top 20 clientes por locação (FICH_LOC)
           </h3>
           <input
             type="text"
@@ -84,9 +88,9 @@ export default function TabClientesPessoa() {
               <tr className="text-gray-500 text-xs uppercase border-b border-gray-800">
                 <th className="text-left py-2 px-3">#</th>
                 <th className="text-left py-2 px-3">Cliente (PESSOA)</th>
-                <th className="text-right py-2 px-3">Títulos CAR</th>
-                <th className="text-right py-2 px-3">Total CAR</th>
-                <th className="text-right py-2 px-3">Em aberto</th>
+                <th className="text-right py-2 px-3">Fichas</th>
+                <th className="text-right py-2 px-3">Ativas</th>
+                <th className="text-right py-2 px-3">Vl. mínimo</th>
               </tr>
             </thead>
             <tbody>
@@ -94,9 +98,9 @@ export default function TabClientesPessoa() {
                 <tr key={i} className="border-b border-gray-800/50 hover:bg-gray-800/30">
                   <td className="py-2 px-3 text-gray-500">{i + 1}</td>
                   <td className="py-2 px-3 text-white">{c.nm_pessoa}</td>
-                  <td className="py-2 px-3 text-right text-gray-300">{fmtNum(c.qtd_car)}</td>
-                  <td className="py-2 px-3 text-right text-green-400 font-medium">{fmtCur(c.vl_total)}</td>
-                  <td className="py-2 px-3 text-right text-amber-400">{fmtCur(c.vl_aberto)}</td>
+                  <td className="py-2 px-3 text-right text-gray-300">{fmtNum(c.qtd_loc)}</td>
+                  <td className="py-2 px-3 text-right text-purple-400">{fmtNum(c.qtd_ativas)}</td>
+                  <td className="py-2 px-3 text-right text-green-400 font-medium">{fmtCur(c.vl_minimo)}</td>
                 </tr>
               ))}
               {filtered.length === 0 && (

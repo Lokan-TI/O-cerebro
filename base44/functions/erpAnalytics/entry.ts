@@ -66,6 +66,7 @@ Deno.serve(async (req) => {
       plano_balancete: [],
       new_clients_monthly: [],
       pessoa_total: 0,
+      fichloc_clientes_ativos: 0,
       empresas: [],
       kpis: {},
       errors: [],
@@ -281,12 +282,18 @@ Deno.serve(async (req) => {
       }));
     } catch (e) { out.errors.push('plano_balancete: ' + (e.message || '').slice(0, 80)); }
 
-    // ── 12. Novos clientes por mês (pessoa) ──
+    // ── 12. Novos clientes por mês (primeira locação — fich_loc) ──
     try {
-      const ncmSql = `SELECT YEAR(dt_cad_pessoa) AS ano, MONTH(dt_cad_pessoa) AS mes, COUNT(*) AS qtd
-        FROM pessoa WITH (NOLOCK)
-        WHERE dt_cad_pessoa >= '${lastYearStart}' AND dt_cad_pessoa < '${endDate}'
-        GROUP BY YEAR(dt_cad_pessoa), MONTH(dt_cad_pessoa)
+      const ncmSql = `SELECT YEAR(first_ficha) AS ano, MONTH(first_ficha) AS mes, COUNT(*) AS qtd
+        FROM (
+          SELECT cd_pessoa, MIN(dt_pedido) AS first_ficha
+          FROM fich_loc WITH (NOLOCK)
+          WHERE dt_pedido >= '${lastYearStart}' AND dt_pedido < '${endDate}'${empFich}
+            AND cd_pessoa IS NOT NULL AND cd_pessoa <> ''
+          GROUP BY cd_pessoa
+        ) x
+        WHERE first_ficha >= '${lastYearStart}' AND first_ficha < '${endDate}'
+        GROUP BY YEAR(first_ficha), MONTH(first_ficha)
         ORDER BY 1, 2`;
       out.new_clients_monthly = getRows(await runQuery(source, wrap(ncmSql))).map(r => ({
         ano: Number(r.ano), mes: Number(r.mes), qtd: Number(r.qtd) || 0,
@@ -299,6 +306,15 @@ Deno.serve(async (req) => {
       const pRows = getRows(await runQuery(source, wrap(pSql)));
       out.pessoa_total = Number(pRows[0]?.total) || 0;
     } catch (e) { out.errors.push('pessoa_total: ' + (e.message || '').slice(0, 80)); }
+
+    // ── 12b2. Clientes ativos por locação (fich_loc) ──
+    try {
+      const fcaSql = `SELECT COUNT(DISTINCT cd_pessoa) AS total
+        FROM fich_loc WITH (NOLOCK)
+        WHERE dt_pedido >= '${startDate}' AND dt_pedido < '${endDate}'${empFich}
+          AND cd_pessoa IS NOT NULL AND cd_pessoa <> ''`;
+      out.fichloc_clientes_ativos = Number(getRows(await runQuery(source, wrap(fcaSql)))[0]?.total) || 0;
+    } catch (e) { out.errors.push('fichloc_clientes_ativos: ' + (e.message || '').slice(0, 80)); }
 
     // ── 12c. Top clientes por locações (fich_loc × pessoa — dados + nomes depois) ──
     let topLocRows = [];
@@ -389,6 +405,7 @@ Deno.serve(async (req) => {
         fichloc_encerradas: fichEncerradas,
         est_mov_total: movTotal,
         pessoa_total: out.pessoa_total,
+        fichloc_clientes_ativos: out.fichloc_clientes_ativos,
         top_clients_count: out.top_clients_car.length,
       };
     } catch (e) { out.errors.push('kpis: ' + (e.message || '').slice(0, 80)); }

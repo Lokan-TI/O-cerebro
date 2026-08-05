@@ -50,7 +50,7 @@ export default function TabVisaoGeral() {
 
       {/* KPI Grid — cross-table overview */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <KpiCard icon={Users} label="Pessoas (base)" value={fmtNum(k.pessoa_total)} sub="Total cadastradas" color="gray" />
+        <KpiCard icon={Users} label="Clientes ativos (locação)" value={fmtNum(k.fichloc_clientes_ativos)} sub="Que alugaram no período" color="gray" />
         <KpiCard icon={TrendingUp} label="CAR (Receber)" value={fmtCur(k.car_total)} sub={`${fmtCur(k.car_aberto)} em aberto`} color="green" />
         <KpiCard icon={TrendingDown} label="CAP (Pagar)" value={fmtCur(k.cap_total)} sub={`${fmtCur(k.cap_aberto)} em aberto`} color="red" />
         <KpiCard icon={Wallet} label="Margem Fluxo" value={fmtCur(k.margem_fluxo)} sub={k.margem_percent != null ? `${k.margem_percent.toFixed(1)}%` : "—"} color={k.margem_fluxo >= 0 ? "green" : "red"} />

@@ -54,7 +54,7 @@ function generateAlerts(kpis, topClients) {
     alerts.push({
       type: 'risk', severity: kpis.churn_rate > 35 ? 'critical' : 'warning',
       title: 'Churn de clientes elevado',
-      message: `${kpis.churned_clients} clientes do ano anterior não voltaram a comprar (churn de ${kpis.churn_rate.toFixed(1)}%).`,
+      message: `${kpis.churned_clients} clientes do ano anterior não voltaram a alugar (churn de ${kpis.churn_rate.toFixed(1)}%).`,
       impact: null,
     });
   }
@@ -64,7 +64,7 @@ function generateAlerts(kpis, topClients) {
     alerts.push({
       type: 'risk', severity: 'warning',
       title: 'Taxa de retenção baixa',
-      message: `Apenas ${kpis.retention_rate.toFixed(1)}% dos clientes do ano anterior continuaram comprando este ano.`,
+      message: `Apenas ${kpis.retention_rate.toFixed(1)}% dos clientes do ano anterior continuaram alugando este ano.`,
       impact: null,
     });
   }
@@ -288,6 +288,36 @@ async function processRefresh(base44, source, run, version, previousVersion) {
     } catch (e) {
       warnings.push('Falha ao extrair KPIs combinados: ' + (e.message || String(e)).slice(0, 120));
     }
+
+    // Clientes ativos por locação (fich_loc) — global distinto e por empresa (universo de locação)
+    let fichClients = { ano: 0, mes: 0 };
+    let fichEmpClients = {};
+    try {
+      const fecSql = `SELECT cd_empresa,
+        COUNT(DISTINCT CASE WHEN dt_pedido >= ${yearStart} AND dt_pedido < ${yearEnd} THEN cd_pessoa END) AS clientes_ano,
+        COUNT(DISTINCT CASE WHEN dt_pedido >= ${monthStart} AND dt_pedido < ${monthEnd} THEN cd_pessoa END) AS clientes_mes
+        FROM fich_loc WITH (NOLOCK)
+        WHERE dt_pedido >= ${lastYearStart} AND dt_pedido < ${yearEnd}
+          AND cd_pessoa IS NOT NULL AND cd_pessoa <> ''
+        GROUP BY cd_empresa`;
+      const fecRes = await runQuery(source, wrap(fecSql), 30000);
+      queryCount++;
+      for (const r of getRows(fecRes)) {
+        const ce = Number(r.cd_empresa);
+        fichEmpClients[ce] = { ano: Number(r.clientes_ano) || 0, mes: Number(r.clientes_mes) || 0 };
+      }
+      // Contagem global distinta (evita dupla contagem de clientes multi-empresa)
+      const gSql = `SELECT
+        COUNT(DISTINCT CASE WHEN dt_pedido >= ${yearStart} AND dt_pedido < ${yearEnd} THEN cd_pessoa END) AS clientes_ano,
+        COUNT(DISTINCT CASE WHEN dt_pedido >= ${monthStart} AND dt_pedido < ${monthEnd} THEN cd_pessoa END) AS clientes_mes
+        FROM fich_loc WITH (NOLOCK)
+        WHERE dt_pedido >= ${lastYearStart} AND dt_pedido < ${yearEnd}
+          AND cd_pessoa IS NOT NULL AND cd_pessoa <> ''`;
+      const gRes = await runQuery(source, wrap(gSql), 30000);
+      queryCount++;
+      const gRow = getRows(gRes)[0] || {};
+      fichClients = { ano: Number(gRow.clientes_ano) || 0, mes: Number(gRow.clientes_mes) || 0 };
+    } catch (e) { warnings.push('Falha ao extrair clientes fich_loc: ' + (e.message || String(e)).slice(0, 120)); }
     await updateStep(4, 35);
 
     // Etapa 4: Top 100 clientes — timeout estendido
@@ -347,59 +377,74 @@ async function processRefresh(base44, source, run, version, previousVersion) {
     }
     await updateStep(6, 65);
 
-    // Etapa 7: Coorte de clientes (retenção, churn, novos vs existentes)
+    // Etapa 7: Coorte de clientes (universo de locação fich_loc; receita proxy do nf)
     let cohortKpis = {};
     try {
-      const cohortSql = `SELECT
-        COUNT(*) AS total_2yr,
-        COUNT(CASE WHEN last_yr = 1 AND this_yr = 1 THEN 1 END) AS retained,
-        COUNT(CASE WHEN this_yr = 1 AND last_yr = 0 THEN 1 END) AS new_this_year,
-        COUNT(CASE WHEN last_yr = 1 AND this_yr = 0 THEN 1 END) AS churned,
-        ISNULL(SUM(CASE WHEN this_yr = 1 AND last_yr = 0 THEN rev_this_yr ELSE 0 END), 0) AS new_revenue,
-        ISNULL(SUM(CASE WHEN this_yr = 1 AND last_yr = 1 THEN rev_this_yr ELSE 0 END), 0) AS retained_revenue,
-        COUNT(DISTINCT CASE WHEN last_yr = 1 THEN cd_pessoa END) AS clients_last_year
-      FROM (
-        SELECT cd_pessoa,
-          MAX(CASE WHEN dt_emi_nf >= ${lastYearStart} AND dt_emi_nf < ${yearStart} THEN 1 ELSE 0 END) AS last_yr,
-          MAX(CASE WHEN dt_emi_nf >= ${yearStart} AND dt_emi_nf < ${yearEnd} THEN 1 ELSE 0 END) AS this_yr,
-          ISNULL(SUM(CASE WHEN dt_emi_nf >= ${yearStart} AND dt_emi_nf < ${yearEnd} THEN vl_faturamento ELSE 0 END), 0) AS rev_this_yr
-        FROM nf WITH (NOLOCK)
-        WHERE dt_emi_nf >= ${lastYearStart} AND dt_emi_nf < ${yearEnd} ${cancelFilter}
-        GROUP BY cd_pessoa
-      ) x`;
-      const cohortRes = await runQuery(source, wrap(cohortSql), 30000);
+      // Classificação pelo universo de locação (fich_loc)
+      const classSql = `SELECT cd_pessoa,
+          MAX(CASE WHEN dt_pedido >= ${lastYearStart} AND dt_pedido < ${yearStart} THEN 1 ELSE 0 END) AS last_yr,
+          MAX(CASE WHEN dt_pedido >= ${yearStart} AND dt_pedido < ${yearEnd} THEN 1 ELSE 0 END) AS this_yr
+        FROM fich_loc WITH (NOLOCK)
+        WHERE dt_pedido >= ${lastYearStart} AND dt_pedido < ${yearEnd}
+          AND cd_pessoa IS NOT NULL AND cd_pessoa <> ''
+        GROUP BY cd_pessoa`;
+      const classRes = await runQuery(source, wrap(classSql), 30000);
       queryCount++;
-      const cr = getRows(cohortRes)[0] || {};
-      const retained = Number(cr.retained) || 0;
-      const clientsLastYear = Number(cr.clients_last_year) || 0;
-      const churned = Number(cr.churned) || 0;
+      const classRows = getRows(classRes);
+      let retained = 0, newC = 0, churned = 0, clientsLastYear = 0;
+      const newSet = new Set(), retainedSet = new Set();
+      for (const r of classRows) {
+        const ly = Number(r.last_yr) || 0, ty = Number(r.this_yr) || 0;
+        const code = String(r.cd_pessoa);
+        if (ly === 1) clientsLastYear++;
+        if (ly === 1 && ty === 1) { retained++; retainedSet.add(code); }
+        if (ty === 1 && ly === 0) { newC++; newSet.add(code); }
+        if (ly === 1 && ty === 0) churned++;
+      }
+      // Receita do ano (nf) por cliente — proxy para novos e recorrentes
+      let newRevenue = 0, retainedRevenue = 0;
+      try {
+        const revSql = `SELECT cd_pessoa, ISNULL(SUM(vl_faturamento),0) AS rev
+          FROM nf WITH (NOLOCK)
+          WHERE dt_emi_nf >= ${yearStart} AND dt_emi_nf < ${yearEnd} ${cancelFilter}
+            AND cd_pessoa IS NOT NULL AND cd_pessoa <> ''
+          GROUP BY cd_pessoa`;
+        for (const r of getRows(await runQuery(source, wrap(revSql), 30000))) {
+          const code = String(r.cd_pessoa);
+          const v = Number(r.rev) || 0;
+          if (retainedSet.has(code)) retainedRevenue += v;
+          else if (newSet.has(code)) newRevenue += v;
+        }
+        queryCount++;
+      } catch (e) { warnings.push('Falha ao extrair receita coorte: ' + (e.message || String(e)).slice(0, 120)); }
       cohortKpis = {
         retained_clients: retained,
-        new_clients: Number(cr.new_this_year) || 0,
+        new_clients: newC,
         churned_clients: churned,
         clients_last_year: clientsLastYear,
         retention_rate: clientsLastYear > 0 ? (retained / clientsLastYear * 100) : null,
         churn_rate: clientsLastYear > 0 ? (churned / clientsLastYear * 100) : null,
-        new_client_revenue: Number(cr.new_revenue) || 0,
-        retained_revenue: Number(cr.retained_revenue) || 0,
+        new_client_revenue: newRevenue,
+        retained_revenue: retainedRevenue,
       };
     } catch (e) {
       warnings.push('Falha ao extrair coorte de clientes: ' + (e.message || String(e)).slice(0, 120));
     }
     await updateStep(7, 72);
 
-    // Etapa 8: Novos clientes por mês
+    // Etapa 8: Novos clientes por mês (primeira locação — fich_loc)
     let newClientsMonthly = [];
     try {
-      const ncmSql = `SELECT YEAR(first_nf) AS ano, MONTH(first_nf) AS mes, COUNT(*) AS new_clients
+      const ncmSql = `SELECT YEAR(first_ficha) AS ano, MONTH(first_ficha) AS mes, COUNT(*) AS new_clients
         FROM (
-          SELECT cd_pessoa, MIN(dt_emi_nf) AS first_nf
-          FROM nf WITH (NOLOCK)
-          WHERE dt_emi_nf >= ${lastYearStart} AND dt_emi_nf < ${yearEnd} ${cancelFilter}
+          SELECT cd_pessoa, MIN(dt_pedido) AS first_ficha
+          FROM fich_loc WITH (NOLOCK)
+          WHERE dt_pedido >= ${lastYearStart} AND dt_pedido < ${yearEnd}
+            AND cd_pessoa IS NOT NULL AND cd_pessoa <> ''
           GROUP BY cd_pessoa
         ) x
-        WHERE first_nf >= ${yearStart} AND first_nf < ${yearEnd}
-        GROUP BY YEAR(first_nf), MONTH(first_nf)
+        WHERE first_ficha >= ${yearStart} AND first_ficha < ${yearEnd}
+        GROUP BY YEAR(first_ficha), MONTH(first_ficha)
         ORDER BY 1, 2`;
       const ncmRes = await runQuery(source, wrap(ncmSql), 30000);
       queryCount++;
@@ -470,7 +515,7 @@ async function processRefresh(base44, source, run, version, previousVersion) {
         const fatMesAnt = Number(r.fat_mes_ant) || 0;
         const nfsAno = Number(r.nfs_ano) || 0;
         const nfsMes = Number(r.nfs_mes) || 0;
-        const clientesAno = Number(r.clientes_ano) || 0;
+        const clientesAno = fichEmpClients[Number(r.cd_empresa)]?.ano || 0;
         return {
           cd_empresa: Number(r.cd_empresa),
           nm_empresa: empNames[Number(r.cd_empresa)] || `Empresa ${r.cd_empresa}`,
@@ -481,7 +526,7 @@ async function processRefresh(base44, source, run, version, previousVersion) {
           nfs_ano: nfsAno,
           nfs_mes: nfsMes,
           clientes_ano: clientesAno,
-          clientes_mes: Number(r.clientes_mes) || 0,
+          clientes_mes: fichEmpClients[Number(r.cd_empresa)]?.mes || 0,
           ticket_ano: nfsAno > 0 ? fatAno / nfsAno : 0,
           ticket_mes: nfsMes > 0 ? fatMes / nfsMes : 0,
           crescimento_ano: fatAnoAnt > 0 ? ((fatAno - fatAnoAnt) / fatAnoAnt * 100) : null,
@@ -502,8 +547,8 @@ async function processRefresh(base44, source, run, version, previousVersion) {
       fat_mes_ant: Number(kpiRow.fat_mes_ant) || 0,
       nfs_mes: Number(kpiRow.nfs_mes) || 0,
       nfs_ano: Number(kpiRow.nfs_ano) || 0,
-      clientes_mes: Number(kpiRow.clientes_mes) || 0,
-      clientes_ano: Number(kpiRow.clientes_ano) || 0,
+      clientes_mes: fichClients.mes,
+      clientes_ano: fichClients.ano,
       ticket_ano: Number(kpiRow.ticket_ano) || 0,
       ticket_mes: Number(kpiRow.ticket_mes) || 0,
       crescimento_ano: Number(kpiRow.fat_ano_ant) > 0 ? ((Number(kpiRow.fat_ano) - Number(kpiRow.fat_ano_ant)) / Number(kpiRow.fat_ano_ant) * 100) : null,
