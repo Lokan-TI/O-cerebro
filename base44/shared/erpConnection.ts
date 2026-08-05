@@ -29,7 +29,7 @@ export function buildConfig(source) {
         user: Deno.env.get('SQL_SERVER_USER'),
         password: Deno.env.get('SQL_SERVER_PASSWORD'),
         options: { encrypt: false, trustServerCertificate: true },
-        requestTimeout: 25000,
+        requestTimeout: 15000,
       },
       clientId,
     };

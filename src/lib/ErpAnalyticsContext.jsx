@@ -16,23 +16,43 @@ export function ErpAnalyticsProvider({ children }) {
     if (!selectedSource?.id) return;
     setLoading(true);
     setError(null);
-    try {
-      const payload = { source_id: selectedSource.id, year };
-      if (empresaFilter != null) payload.cd_empresa = empresaFilter;
-      const res = await base44.functions.invoke("erpAnalytics", payload);
-      const result = res?.data || res;
-      if (result?.success === false) {
-        setError(result.error || "Erro ao buscar dados");
-        setData(null);
-      } else {
-        setData(result);
+    const payload = { source_id: selectedSource.id, year };
+    if (empresaFilter != null) payload.cd_empresa = empresaFilter;
+    // Retry transient 504/timeouts (cold pool or momentary DB load) once with backoff
+    const isTransient = (e) => {
+      const m = String(e?.message || e || "");
+      return /504|timeout|timed out|network|failed to fetch/i.test(m);
+    };
+    let attempt = 0;
+    let lastErr = null;
+    while (attempt < 2) {
+      try {
+        const res = await base44.functions.invoke("erpAnalytics", payload);
+        const result = res?.data || res;
+        if (result?.success === false) {
+          setError(result.error || "Erro ao buscar dados");
+          setData(null);
+        } else {
+          setData(result);
+        }
+        lastErr = null;
+        break;
+      } catch (e) {
+        lastErr = e;
+        if (!isTransient(e) || attempt === 1) break;
+        await new Promise((r) => setTimeout(r, 2000));
+        attempt++;
       }
-    } catch (e) {
-      setError(e.message || String(e));
-      setData(null);
-    } finally {
-      setLoading(false);
     }
+    if (lastErr) {
+      setError(
+        /504|timeout/i.test(String(lastErr.message || lastErr))
+          ? "O banco de dados demorou a responder (504). Toque em 'Atualizar' para tentar novamente."
+          : String(lastErr.message || lastErr)
+      );
+      setData(null);
+    }
+    setLoading(false);
   }, [selectedSource?.id, year, empresaFilter]);
 
   useEffect(() => { fetchAnalytics(); }, [fetchAnalytics]);
