@@ -114,7 +114,7 @@ Deno.serve(async (req) => {
         ${approvedRemessaFrom}
           AND r.dt_saida >= '${isoDate(remessaLowerD)}'
         GROUP BY f.cd_pessoa`;
-      for (const r of getRows(await runQuery(source, wrap(sql), 30000))) {
+      for (const r of getRows(await runQuery(source, wrap(sql), 60000))) {
         const code = String(r.cd_pessoa);
         clients[code] = {
           cd_pessoa: code,
@@ -179,11 +179,15 @@ Deno.serve(async (req) => {
       });
     }
 
-    // 5. Resolução de nomes (batch)
-    const codes = Object.keys(clients);
+    // Distribuição ordenada + clients top 1000 por receita (antes da resolução de nomes)
+    const distArr = CLIENT_STATUSES.map((s) => ({ status: s, count: distribution[s].count, revenue: distribution[s].revenue }));
+    const totalClients = clientList.length;
+    const topClients = clientList.sort((a, b) => (b.revenue - a.revenue) || (b.cnt_a - a.cnt_a)).slice(0, 1000);
+
+    // 5. Resolução de nomes (batch) — apenas para os 1000 clientes retornados
     const nameMap = {};
-    for (let i = 0; i < codes.length; i += 200) {
-      const batch = codes.slice(i, i + 200);
+    for (let i = 0; i < topClients.length; i += 200) {
+      const batch = topClients.slice(i, i + 200).map((c) => c.cd_pessoa);
       try {
         const namesSql = `SELECT cd_pessoa, COALESCE(NULLIF(nm_fan_pessoa,''), nm_pessoa) AS nome FROM pessoa WITH (NOLOCK) WHERE cd_pessoa IN (${batch.join(',')})`;
         for (const r of getRows(await runQuery(source, wrap(namesSql)))) {
@@ -191,12 +195,7 @@ Deno.serve(async (req) => {
         }
       } catch {}
     }
-    for (const c of clientList) c.nm_pessoa = nameMap[c.cd_pessoa] || `Cliente ${c.cd_pessoa}`;
-
-    // Distribuição ordenada + clients top 1000 por receita
-    const distArr = CLIENT_STATUSES.map((s) => ({ status: s, count: distribution[s].count, revenue: distribution[s].revenue }));
-    const totalClients = clientList.length;
-    const topClients = clientList.sort((a, b) => (b.revenue - a.revenue) || (b.cnt_a - a.cnt_a)).slice(0, 1000);
+    for (const c of topClients) c.nm_pessoa = nameMap[c.cd_pessoa] || `Cliente ${c.cd_pessoa}`;
 
     return Response.json({
       success: true,
