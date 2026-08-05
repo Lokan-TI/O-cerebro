@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { base44 } from "@/api/base44Client";
 import { useErpSource } from "@/lib/ErpSourceContext";
-import { X, Loader2, Wifi, Copy, Stethoscope, Save } from "lucide-react";
+import SchemaValidationResult from "@/components/erp/SchemaValidationResult";
+import { X, Loader2, Wifi, Copy, Stethoscope, Save, ShieldCheck } from "lucide-react";
 
 const ENVIRONMENTS = [
   { value: "producao", label: "Produção" },
@@ -27,6 +28,8 @@ export default function AdicionarFonteModal({ open, onClose, existing = null }) 
   const [saving, setSaving] = useState(false);
   const [testing, setTesting] = useState(false);
   const [testResult, setTestResult] = useState(null);
+  const [validating, setValidating] = useState(false);
+  const [validationResult, setValidationResult] = useState(null);
   const [error, setError] = useState(null);
 
   if (!open) return null;
@@ -44,6 +47,20 @@ export default function AdicionarFonteModal({ open, onClose, existing = null }) 
       setError(err?.response?.data?.error || err?.message || "Erro ao testar conexão");
     } finally {
       setTesting(false);
+    }
+  };
+
+  const handleValidateSchema = async () => {
+    setValidating(true);
+    setValidationResult(null);
+    setError(null);
+    try {
+      const res = await base44.functions.invoke("validateSislocSchema", { source: form });
+      setValidationResult(res?.data || res);
+    } catch (err) {
+      setError(err?.response?.data?.error || err?.message || "Erro ao validar schema");
+    } finally {
+      setValidating(false);
     }
   };
 
@@ -183,6 +200,11 @@ export default function AdicionarFonteModal({ open, onClose, existing = null }) 
               )}
             </div>
           )}
+          {validationResult && (
+            <div className="mt-3">
+              <SchemaValidationResult result={validationResult} loading={validating} />
+            </div>
+          )}
           {error && <p className="text-red-400 text-sm">{error}</p>}
         </div>
 
@@ -191,6 +213,9 @@ export default function AdicionarFonteModal({ open, onClose, existing = null }) 
           <div className="flex items-center gap-2">
             <button onClick={handleTest} disabled={testing} className="flex items-center gap-2 px-3 py-2 bg-gray-800 hover:bg-gray-700 border border-gray-700 text-gray-300 rounded-lg text-sm font-medium transition-colors disabled:opacity-50">
               {testing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Wifi className="w-4 h-4" />} Testar conexão
+            </button>
+            <button onClick={handleValidateSchema} disabled={validating} className="flex items-center gap-2 px-3 py-2 bg-gray-800 hover:bg-gray-700 border border-gray-700 text-gray-300 rounded-lg text-sm font-medium transition-colors disabled:opacity-50">
+              {validating ? <Loader2 className="w-4 h-4 animate-spin" /> : <ShieldCheck className="w-4 h-4" />} Validar schema
             </button>
             <button onClick={handleDuplicate} className="flex items-center gap-2 px-3 py-2 bg-gray-800 hover:bg-gray-700 border border-gray-700 text-gray-300 rounded-lg text-sm font-medium transition-colors">
               <Copy className="w-4 h-4" /> Duplicar

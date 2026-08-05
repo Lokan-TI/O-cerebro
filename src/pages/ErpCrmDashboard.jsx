@@ -13,6 +13,7 @@ import TabFinanceiro from "@/components/erp/TabFinanceiro";
 import TabLocacoes from "@/components/erp/TabLocacoes";
 import TabOperacional from "@/components/erp/TabOperacional";
 import TabClientesPessoa from "@/components/erp/TabClientesPessoa";
+import TabClassificacao from "@/components/erp/TabClassificacao";
 import { Link } from "react-router-dom";
 import { Settings2 } from "lucide-react";
 import { EmpresaFilterProvider } from "@/lib/EmpresaFilterContext";
@@ -26,6 +27,7 @@ const TABS = [
   { id: "locacoes", label: "Locações" },
   { id: "operacional", label: "Operacional" },
   { id: "clientes_pessoa", label: "Clientes" },
+  { id: "classificacao", label: "Classificação" },
   { id: "comparativo", label: "Comparativo" },
   { id: "kpis", label: "KPIs Snapshot" },
   { id: "clientes_snapshot", label: "Clientes Snapshot" },
@@ -46,6 +48,7 @@ function ErpCrmDashboardContent() {
       case "locacoes": return <TabLocacoes />;
       case "operacional": return <TabOperacional />;
       case "clientes_pessoa": return <TabClientesPessoa />;
+      case "classificacao": return <TabClassificacao />;
       case "comparativo": return <TabComparativo />;
       case "kpis": return <SnapshotKpiGrid />;
       case "clientes_snapshot": return <SnapshotTables />;

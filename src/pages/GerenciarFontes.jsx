@@ -4,7 +4,8 @@ import { base44 } from "@/api/base44Client";
 import { useErpSource } from "@/lib/ErpSourceContext";
 import SourceStatusBadge from "@/components/erp/SourceStatusBadge";
 import AdicionarFonteModal from "@/components/erp/AdicionarFonteModal";
-import { Plus, Pencil, Wifi, Loader2, Eye, Power, ChevronLeft, RefreshCw, CheckCircle2, AlertTriangle, Clock } from "lucide-react";
+import SchemaValidationResult from "@/components/erp/SchemaValidationResult";
+import { Plus, Pencil, Wifi, Loader2, Eye, Power, ChevronLeft, RefreshCw, CheckCircle2, AlertTriangle, Clock, ShieldCheck } from "lucide-react";
 import { pollRun } from "@/lib/erpSync";
 
 function formatDate(dt) {
@@ -22,6 +23,8 @@ export default function GerenciarFontes() {
   const [testMsg, setTestMsg] = useState({});
   const [refreshProgress, setRefreshProgress] = useState({});
   const [refreshingAll, setRefreshingAll] = useState(false);
+  const [validatingId, setValidatingId] = useState(null);
+  const [validation, setValidation] = useState(null); // { sourceName, result, loading }
 
   const openAdd = () => { setEditing(null); setModalOpen(true); };
   const openEdit = (s) => { setEditing(s); setModalOpen(true); };
@@ -48,6 +51,19 @@ export default function GerenciarFontes() {
     const newActive = s.is_active === false;
     await base44.entities.ErpDataSource.update(s.id, { is_active: newActive, status: newActive ? "disconnected" : "inactive" });
     await refreshSources();
+  };
+
+  const handleValidate = async (s) => {
+    setValidatingId(s.id);
+    setValidation({ sourceName: s.name, result: null, loading: true });
+    try {
+      const res = await base44.functions.invoke("validateSislocSchema", { source_id: s.id });
+      setValidation({ sourceName: s.name, result: res?.data || res, loading: false });
+    } catch (err) {
+      setValidation({ sourceName: s.name, result: { success: false, classification: "Incompatível", message: err?.response?.data?.error || err?.message || "Erro ao validar" }, loading: false });
+    } finally {
+      setValidatingId(null);
+    }
   };
 
   const handleRefresh = async (s) => {
@@ -197,6 +213,9 @@ export default function GerenciarFontes() {
                         <button onClick={() => handleTest(s)} disabled={testingId === s.id} title="Testar conexão" className="p-1.5 text-gray-500 hover:text-white hover:bg-gray-800 rounded disabled:opacity-50">
                           {testingId === s.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Wifi className="w-4 h-4" />}
                         </button>
+                        <button onClick={() => handleValidate(s)} disabled={validatingId === s.id} title="Validar estrutura (schema Sisloc)" className="p-1.5 text-gray-500 hover:text-purple-400 hover:bg-gray-800 rounded disabled:opacity-50">
+                          {validatingId === s.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <ShieldCheck className="w-4 h-4" />}
+                        </button>
                         <button onClick={() => handleRefresh(s)} disabled={refreshProgress[s.id] === "processing"} title="Atualizar dados" className="p-1.5 text-gray-500 hover:text-white hover:bg-gray-800 rounded disabled:opacity-50">
                           {refreshProgress[s.id] === "processing" ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
                         </button>
@@ -219,6 +238,20 @@ export default function GerenciarFontes() {
           As credenciais são processadas exclusivamente pelo back-end e nunca exibidas na interface. As consultas ao ERP permanecem somente leitura (SELECT / WITH). Fontes com dados históricos podem apenas ser desativadas, não excluídas.
         </p>
       </div>
+
+      {validation && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70" onClick={() => setValidation(null)}>
+          <div className="bg-gray-900 border border-gray-700 rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+            <div className="sticky top-0 bg-gray-900 border-b border-gray-800 px-6 py-4 flex items-center justify-between z-10">
+              <h2 className="text-white font-bold text-lg">Validação de estrutura — {validation.sourceName}</h2>
+              <button onClick={() => setValidation(null)} className="text-gray-500 hover:text-white text-sm">Fechar</button>
+            </div>
+            <div className="p-6">
+              <SchemaValidationResult result={validation.result} loading={validation.loading} />
+            </div>
+          </div>
+        </div>
+      )}
 
       <AdicionarFonteModal open={modalOpen} onClose={() => setModalOpen(false)} existing={editing} />
     </div>
