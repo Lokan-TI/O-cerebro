@@ -137,7 +137,6 @@ export default function ChurnClientTable({ clients }) {
       <div className="flex items-center justify-between p-4 border-b border-gray-800 gap-3 flex-wrap">
         <h3 className="text-white font-semibold text-sm">
           Clientes que Pararam de Alugar ({filtered.length})
-          <span className="text-gray-500 font-normal ml-2">máx. 100 detalhados</span>
         </h3>
         <div className="flex items-center gap-2">
           <div className="relative">

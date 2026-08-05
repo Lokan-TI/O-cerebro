@@ -118,66 +118,72 @@ Deno.serve(async (req) => {
       })
       .sort((a, b) => a.ano === b.ano ? a.mes - b.mes : a.ano - b.ano);
 
-    // ---- Detailed enrichment (limited to 100 churned clients to avoid DB overload) ----
-    const detailLimit = 100;
-    const detailClients = churnedRows.slice(0, detailLimit);
+    // ---- Detailed enrichment for ALL churned clients (batched to respect DW_API 8000 char limit) ----
+    const detailClients = churnedRows;
     const pessoaCodes = detailClients.map(r => r.cd_pessoa).filter(v => v != null && v !== '');
-    const codesList = pessoaCodes.map(c => {
+    const buildCodesList = (codes) => codes.map(c => {
       const n = Number(c);
       return isNaN(n) ? `'${String(c).replace(/'/g, "''")}'` : String(n);
     }).join(',');
+    const BATCH = 500;
 
     const pessoaMap = {};
     const fichlocMap = {};
     const movitemMap = {};
-    if (codesList) {
-      // 1. Client master data (pessoa): name, CPF/CNPJ, phone, email, region
+
+    if (pessoaCodes.length > 0) {
+      // 1. Client master data (pessoa): name, CPF/CNPJ, phone, email, region — batched
       try {
-        const pessoaSql = `SELECT cd_pessoa, nm_pessoa, fl_tipo_pessoa, nr_cpf_pessoa, nr_cnpj_pessoa,
-          en_mail_pessoa, tel_pessoa, tl_res_pessoa, tl_cel_pessoa, uf_pessoa, cidade_pessoa
-          FROM pessoa WITH (NOLOCK) WHERE cd_pessoa IN (${codesList})`;
-        for (const p of getRows(await runQuery(source, wrap(pessoaSql), 15000))) {
-          pessoaMap[String(p.cd_pessoa)] = p;
+        for (let i = 0; i < pessoaCodes.length; i += BATCH) {
+          const codesList = buildCodesList(pessoaCodes.slice(i, i + BATCH));
+          const pessoaSql = `SELECT cd_pessoa, nm_pessoa, fl_tipo_pessoa, nr_cpf_pessoa, nr_cnpj_pessoa,
+            en_mail_pessoa, tel_pessoa, tl_res_pessoa, tl_cel_pessoa, uf_pessoa, cidade_pessoa
+            FROM pessoa WITH (NOLOCK) WHERE cd_pessoa IN (${codesList})`;
+          for (const p of getRows(await runQuery(source, wrap(pessoaSql), 20000))) {
+            pessoaMap[String(p.cd_pessoa)] = p;
+          }
         }
       } catch {}
 
-      // 2. Rental contracts (fich_loc): contract period, renewals, closing value
+      // 2. Rental contracts (fich_loc): contract period, renewals, closing value — batched
       try {
-        const fichSql = `SELECT cd_pessoa,
-          MIN(dt_pedido) AS prim_dt_pedido,
-          MAX(dt_pedido) AS ult_dt_pedido,
-          MAX(dt_enc_ficha) AS ult_dt_enc_ficha,
-          COUNT(*) AS total_contratos,
-          SUM(CASE WHEN fl_rep_ficha = 'S' THEN 1 ELSE 0 END) AS qtd_renovacoes,
-          ISNULL(SUM(vl_encerramento),0) AS total_encerramento
-          FROM fich_loc WITH (NOLOCK)
-          WHERE cd_pessoa IN (${codesList})
-          GROUP BY cd_pessoa`;
-        for (const f of getRows(await runQuery(source, wrap(fichSql), 15000))) {
-          fichlocMap[String(f.cd_pessoa)] = f;
+        for (let i = 0; i < pessoaCodes.length; i += BATCH) {
+          const codesList = buildCodesList(pessoaCodes.slice(i, i + BATCH));
+          const fichSql = `SELECT cd_pessoa,
+            MIN(dt_pedido) AS prim_dt_pedido,
+            MAX(dt_pedido) AS ult_dt_pedido,
+            MAX(dt_enc_ficha) AS ult_dt_enc_ficha,
+            COUNT(*) AS total_contratos,
+            SUM(CASE WHEN fl_rep_ficha = 'S' THEN 1 ELSE 0 END) AS qtd_renovacoes,
+            ISNULL(SUM(vl_encerramento),0) AS total_encerramento
+            FROM fich_loc WITH (NOLOCK)
+            WHERE cd_pessoa IN (${codesList})
+            GROUP BY cd_pessoa`;
+          for (const f of getRows(await runQuery(source, wrap(fichSql), 20000))) {
+            fichlocMap[String(f.cd_pessoa)] = f;
+          }
         }
       } catch {}
 
       // 3. Rented products (nfmerc): split JOIN into two simple queries to avoid timeout.
-      //    Step A: get cd_nf → cd_pessoa mapping for detail clients in ref period.
-      //    Step B: query nfmerc by cd_nf IN (...) — uses index on cd_nf (key field).
+      //    Step A: cd_nf → cd_pessoa mapping for ALL churned clients in ref period — batched
+      //    Step B: nfmerc by cd_nf IN (...) — uses index on cd_nf (key field).
       try {
-        const nfMapSql = `SELECT cd_nf, cd_pessoa FROM nf WITH (NOLOCK)
-          WHERE cd_pessoa IN (${codesList})
-          AND dt_emi_nf >= '${refStart}' AND dt_emi_nf < '${refEnd}' ${cancelFilter}`;
-        const nfRows = getRows(await runQuery(source, wrap(nfMapSql), 15000));
         const nfToPessoa = {};
-        for (const r of nfRows) {
-          nfToPessoa[String(r.cd_nf)] = String(r.cd_pessoa);
+        for (let i = 0; i < pessoaCodes.length; i += BATCH) {
+          const codesList = buildCodesList(pessoaCodes.slice(i, i + BATCH));
+          const nfMapSql = `SELECT cd_nf, cd_pessoa FROM nf WITH (NOLOCK)
+            WHERE cd_pessoa IN (${codesList})
+            AND dt_emi_nf >= '${refStart}' AND dt_emi_nf < '${refEnd}' ${cancelFilter}`;
+          for (const r of getRows(await runQuery(source, wrap(nfMapSql), 20000))) {
+            nfToPessoa[String(r.cd_nf)] = String(r.cd_pessoa);
+          }
         }
         const nfCodes = Object.keys(nfToPessoa);
         if (nfCodes.length > 0) {
-          // Batch nfmerc query — DW_API has 8000 char limit, so chunk cd_nf values
-          const BATCH = 500;
           const agg = {};
           for (let i = 0; i < nfCodes.length; i += BATCH) {
-            const batch = nfCodes.slice(i, i + BATCH);
-            const nfList = batch.map(c => {
+            const nfList = nfCodes.slice(i, i + BATCH).map(c => {
               const n = Number(c);
               return isNaN(n) ? `'${c.replace(/'/g, "''")}'` : String(n);
             }).join(',');
@@ -190,8 +196,7 @@ Deno.serve(async (req) => {
               WHERE cd_nf IN (${nfList})
                 AND CAST(ds_mer_nfmerc AS nvarchar(500)) <> ''
               GROUP BY cd_nf, CAST(ds_mer_nfmerc AS nvarchar(500)), cd_equipto`;
-            const prodRows = getRows(await runQuery(source, wrap(prodSql), 15000));
-            for (const r of prodRows) {
+            for (const r of getRows(await runQuery(source, wrap(prodSql), 20000))) {
               const key = nfToPessoa[String(r.cd_nf)];
               if (!key) continue;
               if (!agg[key]) agg[key] = { produtos: [], codigos: [], total_qt: 0, total_valor: 0 };
