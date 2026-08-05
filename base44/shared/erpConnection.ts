@@ -73,13 +73,17 @@ async function getPool(key, config) {
 }
 
 // Run a query against a source's pool, serialized globally.
-export async function runQuery(source, execSql) {
+// Optional `timeoutMs` overrides the pool's default requestTimeout (heavy ETL queries
+// can afford longer limits since refreshErpData is fire-and-forget with status polling).
+export async function runQuery(source, execSql, timeoutMs) {
   const key = poolKeyFor(source);
   const built = buildConfig(source);
   if (!built) throw new Error('Configuração de conexão incompleta para a fonte selecionada.');
   return await serialize(async () => {
     const pool = await getPool(key, built.config);
-    return await pool.request().query(execSql);
+    const req = pool.request();
+    if (timeoutMs && timeoutMs > 0) req.requestTimeout = timeoutMs;
+    return await req.query(execSql);
   });
 }
 

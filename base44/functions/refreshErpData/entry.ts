@@ -264,39 +264,49 @@ async function processRefresh(base44, source, run, version, previousVersion) {
     const lastMonthStart = 'DATEFROMPARTS(YEAR(GETDATE())-1,MONTH(GETDATE()),1)';
     const lastMonthEnd = 'DATEADD(month,1,DATEFROMPARTS(YEAR(GETDATE())-1,MONTH(GETDATE()),1))';
 
-    // Etapa 3: KPIs combinados (único scan da tabela nf)
+    // Etapa 3: KPIs combinados (único scan da tabela nf) — timeout estendido (ETL fire-and-forget)
     await updateStep(3, 20);
-    const kpiSql = `SELECT
-      ISNULL(SUM(CASE WHEN dt_emi_nf >= ${yearStart} AND dt_emi_nf < ${yearEnd} THEN vl_faturamento ELSE 0 END),0) AS fat_ano,
-      ISNULL(SUM(CASE WHEN dt_emi_nf >= ${lastYearStart} AND dt_emi_nf < ${lastYearEnd} THEN vl_faturamento ELSE 0 END),0) AS fat_ano_ant,
-      ISNULL(SUM(CASE WHEN dt_emi_nf >= ${monthStart} AND dt_emi_nf < ${monthEnd} THEN vl_faturamento ELSE 0 END),0) AS fat_mes,
-      ISNULL(SUM(CASE WHEN dt_emi_nf >= ${lastMonthStart} AND dt_emi_nf < ${lastMonthEnd} THEN vl_faturamento ELSE 0 END),0) AS fat_mes_ant,
-      COUNT(CASE WHEN dt_emi_nf >= ${monthStart} AND dt_emi_nf < ${monthEnd} THEN 1 END) AS nfs_mes,
-      COUNT(CASE WHEN dt_emi_nf >= ${yearStart} AND dt_emi_nf < ${yearEnd} THEN 1 END) AS nfs_ano,
-      COUNT(DISTINCT CASE WHEN dt_emi_nf >= ${monthStart} AND dt_emi_nf < ${monthEnd} THEN cd_pessoa END) AS clientes_mes,
-      COUNT(DISTINCT CASE WHEN dt_emi_nf >= ${yearStart} AND dt_emi_nf < ${yearEnd} THEN cd_pessoa END) AS clientes_ano,
-      ISNULL(SUM(CASE WHEN dt_emi_nf >= ${yearStart} AND dt_emi_nf < ${yearEnd} THEN vl_faturamento ELSE 0 END),0) / NULLIF(COUNT(CASE WHEN dt_emi_nf >= ${yearStart} AND dt_emi_nf < ${yearEnd} THEN 1 END),0) AS ticket_ano,
-      ISNULL(SUM(CASE WHEN dt_emi_nf >= ${monthStart} AND dt_emi_nf < ${monthEnd} THEN vl_faturamento ELSE 0 END),0) / NULLIF(COUNT(CASE WHEN dt_emi_nf >= ${monthStart} AND dt_emi_nf < ${monthEnd} THEN 1 END),0) AS ticket_mes,
-      MAX(dt_emi_nf) AS max_date
-    FROM nf WHERE dt_emi_nf >= ${lastYearStart} AND dt_emi_nf < ${yearEnd} ${cancelFilter}`;
+    let kpiRow = {};
+    try {
+      const kpiSql = `SELECT
+        ISNULL(SUM(CASE WHEN dt_emi_nf >= ${yearStart} AND dt_emi_nf < ${yearEnd} THEN vl_faturamento ELSE 0 END),0) AS fat_ano,
+        ISNULL(SUM(CASE WHEN dt_emi_nf >= ${lastYearStart} AND dt_emi_nf < ${lastYearEnd} THEN vl_faturamento ELSE 0 END),0) AS fat_ano_ant,
+        ISNULL(SUM(CASE WHEN dt_emi_nf >= ${monthStart} AND dt_emi_nf < ${monthEnd} THEN vl_faturamento ELSE 0 END),0) AS fat_mes,
+        ISNULL(SUM(CASE WHEN dt_emi_nf >= ${lastMonthStart} AND dt_emi_nf < ${lastMonthEnd} THEN vl_faturamento ELSE 0 END),0) AS fat_mes_ant,
+        COUNT(CASE WHEN dt_emi_nf >= ${monthStart} AND dt_emi_nf < ${monthEnd} THEN 1 END) AS nfs_mes,
+        COUNT(CASE WHEN dt_emi_nf >= ${yearStart} AND dt_emi_nf < ${yearEnd} THEN 1 END) AS nfs_ano,
+        COUNT(DISTINCT CASE WHEN dt_emi_nf >= ${monthStart} AND dt_emi_nf < ${monthEnd} THEN cd_pessoa END) AS clientes_mes,
+        COUNT(DISTINCT CASE WHEN dt_emi_nf >= ${yearStart} AND dt_emi_nf < ${yearEnd} THEN cd_pessoa END) AS clientes_ano,
+        ISNULL(SUM(CASE WHEN dt_emi_nf >= ${yearStart} AND dt_emi_nf < ${yearEnd} THEN vl_faturamento ELSE 0 END),0) / NULLIF(COUNT(CASE WHEN dt_emi_nf >= ${yearStart} AND dt_emi_nf < ${yearEnd} THEN 1 END),0) AS ticket_ano,
+        ISNULL(SUM(CASE WHEN dt_emi_nf >= ${monthStart} AND dt_emi_nf < ${monthEnd} THEN vl_faturamento ELSE 0 END),0) / NULLIF(COUNT(CASE WHEN dt_emi_nf >= ${monthStart} AND dt_emi_nf < ${monthEnd} THEN 1 END),0) AS ticket_mes,
+        MAX(dt_emi_nf) AS max_date
+      FROM nf WHERE dt_emi_nf >= ${lastYearStart} AND dt_emi_nf < ${yearEnd} ${cancelFilter}`;
 
-    const kpiRes = await runQuery(source, wrap(kpiSql));
-    queryCount++;
-    const kpiRow = getRows(kpiRes)[0] || {};
+      const kpiRes = await runQuery(source, wrap(kpiSql), 30000);
+      queryCount++;
+      kpiRow = getRows(kpiRes)[0] || {};
+    } catch (e) {
+      warnings.push('Falha ao extrair KPIs combinados: ' + (e.message || String(e)).slice(0, 120));
+    }
     await updateStep(4, 35);
 
-    // Etapa 4: Top 100 clientes
-    const topClientsSql = `SELECT TOP 100 cd_pessoa, ISNULL(SUM(vl_faturamento),0) AS total, COUNT(*) AS nfs, MAX(dt_emi_nf) AS ultima_nf
-      FROM nf WHERE dt_emi_nf >= ${yearStart} AND dt_emi_nf < ${yearEnd} ${cancelFilter}
-      GROUP BY cd_pessoa ORDER BY ISNULL(SUM(vl_faturamento),0) DESC`;
-    const topClientsRes = await runQuery(source, wrap(topClientsSql));
-    queryCount++;
-    const topClients = getRows(topClientsRes).map(r => ({
-      cd_pessoa: String(r.cd_pessoa || ''),
-      total: Number(r.total) || 0,
-      nfs: Number(r.nfs) || 0,
-      ultima_nf: r.ultima_nf ? new Date(r.ultima_nf).toISOString().slice(0, 10) : null
-    }));
+    // Etapa 4: Top 100 clientes — timeout estendido
+    let topClients = [];
+    try {
+      const topClientsSql = `SELECT TOP 100 cd_pessoa, ISNULL(SUM(vl_faturamento),0) AS total, COUNT(*) AS nfs, MAX(dt_emi_nf) AS ultima_nf
+        FROM nf WHERE dt_emi_nf >= ${yearStart} AND dt_emi_nf < ${yearEnd} ${cancelFilter}
+        GROUP BY cd_pessoa ORDER BY ISNULL(SUM(vl_faturamento),0) DESC`;
+      const topClientsRes = await runQuery(source, wrap(topClientsSql), 30000);
+      queryCount++;
+      topClients = getRows(topClientsRes).map(r => ({
+        cd_pessoa: String(r.cd_pessoa || ''),
+        total: Number(r.total) || 0,
+        nfs: Number(r.nfs) || 0,
+        ultima_nf: r.ultima_nf ? new Date(r.ultima_nf).toISOString().slice(0, 10) : null
+      }));
+    } catch (e) {
+      warnings.push('Falha ao extrair top clientes: ' + (e.message || String(e)).slice(0, 120));
+    }
     await updateStep(5, 50);
 
     // Etapa 5: Top 10 vendedores
@@ -305,7 +315,7 @@ async function processRefresh(base44, source, run, version, previousVersion) {
       const topVendorsSql = `SELECT TOP 10 cd_vendedor, ISNULL(SUM(vl_faturamento),0) AS total, COUNT(*) AS nfs
         FROM nf WHERE dt_emi_nf >= ${yearStart} AND dt_emi_nf < ${yearEnd} ${cancelFilter}
         GROUP BY cd_vendedor ORDER BY ISNULL(SUM(vl_faturamento),0) DESC`;
-      const tvRes = await runQuery(source, wrap(topVendorsSql));
+      const tvRes = await runQuery(source, wrap(topVendorsSql), 30000);
       queryCount++;
       topVendors = getRows(tvRes).map(r => ({
         cd_vendedor: String(r.cd_vendedor || ''),
@@ -317,19 +327,24 @@ async function processRefresh(base44, source, run, version, previousVersion) {
     }
     await updateStep(6, 65);
 
-    // Etapa 6: Série mensal (12 meses)
-    const monthlySql = `SELECT YEAR(dt_emi_nf) AS ano, MONTH(dt_emi_nf) AS mes, ISNULL(SUM(vl_faturamento),0) AS valor, COUNT(*) AS nfs, COUNT(DISTINCT cd_pessoa) AS clientes
-      FROM nf WHERE dt_emi_nf >= DATEADD(month,-12,${monthStart}) AND dt_emi_nf < ${monthEnd} ${cancelFilter}
-      GROUP BY YEAR(dt_emi_nf), MONTH(dt_emi_nf) ORDER BY 1, 2`;
-    const monthlyRes = await runQuery(source, wrap(monthlySql));
-    queryCount++;
-    const monthlyRevenue = getRows(monthlyRes).map(r => ({
-      ano: Number(r.ano),
-      mes: Number(r.mes),
-      valor: Number(r.valor) || 0,
-      nfs: Number(r.nfs) || 0,
-      clientes: Number(r.clientes) || 0
-    }));
+    // Etapa 6: Série mensal (12 meses) — timeout estendido
+    let monthlyRevenue = [];
+    try {
+      const monthlySql = `SELECT YEAR(dt_emi_nf) AS ano, MONTH(dt_emi_nf) AS mes, ISNULL(SUM(vl_faturamento),0) AS valor, COUNT(*) AS nfs, COUNT(DISTINCT cd_pessoa) AS clientes
+        FROM nf WHERE dt_emi_nf >= DATEADD(month,-12,${monthStart}) AND dt_emi_nf < ${monthEnd} ${cancelFilter}
+        GROUP BY YEAR(dt_emi_nf), MONTH(dt_emi_nf) ORDER BY 1, 2`;
+      const monthlyRes = await runQuery(source, wrap(monthlySql), 30000);
+      queryCount++;
+      monthlyRevenue = getRows(monthlyRes).map(r => ({
+        ano: Number(r.ano),
+        mes: Number(r.mes),
+        valor: Number(r.valor) || 0,
+        nfs: Number(r.nfs) || 0,
+        clientes: Number(r.clientes) || 0
+      }));
+    } catch (e) {
+      warnings.push('Falha ao extrair série mensal: ' + (e.message || String(e)).slice(0, 120));
+    }
     await updateStep(6, 65);
 
     // Etapa 7: Coorte de clientes (retenção, churn, novos vs existentes)
@@ -352,7 +367,7 @@ async function processRefresh(base44, source, run, version, previousVersion) {
         WHERE dt_emi_nf >= ${lastYearStart} AND dt_emi_nf < ${yearEnd} ${cancelFilter}
         GROUP BY cd_pessoa
       ) x`;
-      const cohortRes = await runQuery(source, wrap(cohortSql));
+      const cohortRes = await runQuery(source, wrap(cohortSql), 30000);
       queryCount++;
       const cr = getRows(cohortRes)[0] || {};
       const retained = Number(cr.retained) || 0;
@@ -386,7 +401,7 @@ async function processRefresh(base44, source, run, version, previousVersion) {
         WHERE first_nf >= ${yearStart} AND first_nf < ${yearEnd}
         GROUP BY YEAR(first_nf), MONTH(first_nf)
         ORDER BY 1, 2`;
-      const ncmRes = await runQuery(source, wrap(ncmSql));
+      const ncmRes = await runQuery(source, wrap(ncmSql), 30000);
       queryCount++;
       newClientsMonthly = getRows(ncmRes).map(r => ({
         ano: Number(r.ano), mes: Number(r.mes), new_clients: Number(r.new_clients) || 0
@@ -404,7 +419,7 @@ async function processRefresh(base44, source, run, version, previousVersion) {
           AND uf_destinatario IS NOT NULL AND uf_destinatario <> ''
         GROUP BY uf_destinatario
         ORDER BY ISNULL(SUM(vl_faturamento),0) DESC`;
-      const geoRes = await runQuery(source, wrap(geoSql));
+      const geoRes = await runQuery(source, wrap(geoSql), 30000);
       queryCount++;
       revenueByState = getRows(geoRes).map(r => ({
         uf: String(r.uf || ''),
@@ -433,7 +448,7 @@ async function processRefresh(base44, source, run, version, previousVersion) {
       FROM nf WITH (NOLOCK)
       WHERE nf.dt_emi_nf >= ${lastYearStart} AND nf.dt_emi_nf < ${yearEnd} ${cancelFilter}
       GROUP BY nf.cd_empresa`;
-      const empKpiRes = await runQuery(source, wrap(empKpiSql));
+      const empKpiRes = await runQuery(source, wrap(empKpiSql), 30000);
       queryCount++;
       const empKpiRows = getRows(empKpiRes);
 
