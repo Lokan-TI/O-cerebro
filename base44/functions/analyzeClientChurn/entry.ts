@@ -118,6 +118,83 @@ Deno.serve(async (req) => {
       })
       .sort((a, b) => a.ano === b.ano ? a.mes - b.mes : a.ano - b.ano);
 
+    // ---- Detailed enrichment (limited to 100 churned clients to avoid DB overload) ----
+    const detailLimit = 100;
+    const detailClients = churnedRows.slice(0, detailLimit);
+    const pessoaCodes = detailClients.map(r => r.cd_pessoa).filter(v => v != null && v !== '');
+    const codesList = pessoaCodes.map(c => {
+      const n = Number(c);
+      return isNaN(n) ? `'${String(c).replace(/'/g, "''")}'` : String(n);
+    }).join(',');
+
+    const pessoaMap = {};
+    const fichlocMap = {};
+    const movitemMap = {};
+
+    if (codesList) {
+      // 1. Client master data (pessoa): name, CPF/CNPJ, phone, email, region
+      try {
+        const pessoaSql = `SELECT cd_pessoa, nm_pessoa, fl_tipo_pessoa, nr_cpf_pessoa, nr_cnpj_pessoa,
+          en_mail_pessoa, tel_pessoa, tl_res_pessoa, tl_cel_pessoa, uf_pessoa, cidade_pessoa
+          FROM pessoa WITH (NOLOCK) WHERE cd_pessoa IN (${codesList})`;
+        for (const p of getRows(await runQuery(source, wrap(pessoaSql)))) {
+          pessoaMap[String(p.cd_pessoa)] = p;
+        }
+      } catch {}
+
+      // 2. Rental contracts (fich_loc): contract period, renewals, closing value
+      try {
+        const fichSql = `SELECT cd_pessoa,
+          MIN(dt_pedido) AS prim_dt_pedido,
+          MAX(dt_pedido) AS ult_dt_pedido,
+          MAX(dt_enc_ficha) AS ult_dt_enc_ficha,
+          COUNT(*) AS total_contratos,
+          SUM(CASE WHEN fl_rep_ficha = 'S' THEN 1 ELSE 0 END) AS qtd_renovacoes,
+          ISNULL(SUM(vl_encerramento),0) AS total_encerramento
+          FROM fich_loc WITH (NOLOCK)
+          WHERE cd_pessoa IN (${codesList})
+          GROUP BY cd_pessoa`;
+        for (const f of getRows(await runQuery(source, wrap(fichSql)))) {
+          fichlocMap[String(f.cd_pessoa)] = f;
+        }
+      } catch {}
+
+      // 3. Rented products (nfmerc): products + quantities + values from invoice items
+      //    nfmerc links to nf via cd_nf; nf has cd_pessoa. Filtered to the ref period
+      //    (when they were renting) to bound the result set.
+      try {
+        const prodSql = `SELECT n.cd_pessoa,
+          CAST(nm.ds_mer_nfmerc AS nvarchar(500)) AS ds_mer_nfmerc,
+          nm.cd_equipto,
+          SUM(nm.qt_nfmerc) AS qt,
+          SUM(nm.qt_nfmerc * nm.vl_uni_nfmerc) AS valor
+          FROM nf n WITH (NOLOCK)
+          INNER JOIN nfmerc nm WITH (NOLOCK) ON nm.cd_nf = n.cd_nf
+          WHERE n.cd_pessoa IN (${codesList})
+            AND n.dt_emi_nf >= '${refStart}' AND n.dt_emi_nf < '${refEnd}' ${cancelFilter}
+            AND CAST(nm.ds_mer_nfmerc AS nvarchar(500)) <> ''
+          GROUP BY n.cd_pessoa, CAST(nm.ds_mer_nfmerc AS nvarchar(500)), nm.cd_equipto`;
+        const prodRows = getRows(await runQuery(source, wrap(prodSql)));
+        const agg = {};
+        for (const r of prodRows) {
+          const key = String(r.cd_pessoa);
+          if (!agg[key]) agg[key] = { produtos: [], codigos: [], total_qt: 0, total_valor: 0 };
+          agg[key].produtos.push(r.ds_mer_nfmerc);
+          if (r.cd_equipto != null) agg[key].codigos.push(String(r.cd_equipto));
+          agg[key].total_qt += Number(r.qt) || 0;
+          agg[key].total_valor += Number(r.valor) || 0;
+        }
+        for (const [k, v] of Object.entries(agg)) {
+          movitemMap[k] = {
+            produtos_locados: [...new Set(v.produtos)].join(', '),
+            codigos_equipto: [...new Set(v.codigos)].join(', '),
+            total_qt: v.total_qt,
+            total_valor: v.total_valor,
+          };
+        }
+      } catch {}
+    }
+
     return Response.json({
       success: true,
       summary: {
@@ -129,15 +206,38 @@ Deno.serve(async (req) => {
         active_revenue: activeRevenue,
         avg_churned_revenue: churnedRows.length > 0 ? revenueAtRisk / churnedRows.length : 0,
       },
-      churned_clients: churnedRows.slice(0, 500).map(r => ({
-        cd_pessoa: String(r.cd_pessoa || ''),
-        ref_revenue: Number(r.ref_revenue) || 0,
-        ref_nfs: Number(r.ref_nfs) || 0,
-        ref_first_nf: r.ref_first_nf ? new Date(r.ref_first_nf).toISOString().slice(0, 10) : null,
-        ref_last_nf: r.ref_last_nf ? new Date(r.ref_last_nf).toISOString().slice(0, 10) : null,
-        analysis_revenue: Number(r.analysis_revenue) || 0,
-        analysis_nfs: Number(r.analysis_nfs) || 0,
-      })),
+      churned_clients: detailClients.map(r => {
+        const p = pessoaMap[String(r.cd_pessoa)] || {};
+        const f = fichlocMap[String(r.cd_pessoa)] || {};
+        const m = movitemMap[String(r.cd_pessoa)] || {};
+        return {
+          cd_pessoa: String(r.cd_pessoa || ''),
+          nm_pessoa: p.nm_pessoa || null,
+          fl_tipo_pessoa: p.fl_tipo_pessoa || null,
+          nr_cpf_pessoa: p.nr_cpf_pessoa || null,
+          nr_cnpj_pessoa: p.nr_cnpj_pessoa || null,
+          en_mail_pessoa: p.en_mail_pessoa || null,
+          telefone: p.tl_cel_pessoa || p.tl_res_pessoa || p.tel_pessoa || null,
+          uf_pessoa: p.uf_pessoa || null,
+          cidade_pessoa: p.cidade_pessoa || null,
+          ref_revenue: Number(r.ref_revenue) || 0,
+          ref_nfs: Number(r.ref_nfs) || 0,
+          ref_first_nf: r.ref_first_nf ? new Date(r.ref_first_nf).toISOString().slice(0, 10) : null,
+          ref_last_nf: r.ref_last_nf ? new Date(r.ref_last_nf).toISOString().slice(0, 10) : null,
+          analysis_revenue: Number(r.analysis_revenue) || 0,
+          analysis_nfs: Number(r.analysis_nfs) || 0,
+          prim_dt_pedido: f.prim_dt_pedido ? new Date(f.prim_dt_pedido).toISOString().slice(0, 10) : null,
+          ult_dt_pedido: f.ult_dt_pedido ? new Date(f.ult_dt_pedido).toISOString().slice(0, 10) : null,
+          ult_dt_enc_ficha: f.ult_dt_enc_ficha ? new Date(f.ult_dt_enc_ficha).toISOString().slice(0, 10) : null,
+          total_contratos: Number(f.total_contratos) || 0,
+          qtd_renovacoes: Number(f.qtd_renovacoes) || 0,
+          total_encerramento: Number(f.total_encerramento) || 0,
+          produtos_locados: m.produtos_locados || null,
+          codigos_equipto: m.codigos_equipto || null,
+          total_qt_locado: Number(m.total_qt) || 0,
+          total_valor_locado: Number(m.total_valor) || 0,
+        };
+      }),
       monthly_churn: monthlyChurnArray,
     });
   } catch (error) {
