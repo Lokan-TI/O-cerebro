@@ -56,44 +56,80 @@ Deno.serve(async (req) => {
       }
     } catch {}
 
-    // Churn: clients who purchased in ref period but NOT in analysis period
+    // Churn (rental-based universe): clients who rented (fich_loc) in the ref period
+    // but did NOT rent again in the analysis period. Revenue is sourced from nf as a
+    // proxy (fich_loc has no invoiced value), so ficha-only clients show revenue 0.
     const churnSql = `WITH ref_clients AS (
       SELECT cd_pessoa,
-             ISNULL(SUM(vl_faturamento),0) AS ref_revenue,
-             COUNT(*) AS ref_nfs,
-             MIN(dt_emi_nf) AS ref_first_nf,
-             MAX(dt_emi_nf) AS ref_last_nf
-      FROM nf WITH (NOLOCK)
-      WHERE dt_emi_nf >= '${refStart}' AND dt_emi_nf < '${refEnd}' ${cancelFilter}
+             COUNT(*) AS ref_fichas,
+             MIN(dt_pedido) AS ref_first_ficha,
+             MAX(dt_pedido) AS ref_last_ficha
+      FROM fich_loc WITH (NOLOCK)
+      WHERE dt_pedido >= '${refStart}' AND dt_pedido < '${refEnd}'
         AND cd_pessoa IS NOT NULL AND cd_pessoa <> ''
       GROUP BY cd_pessoa
     ),
     analysis_clients AS (
-      SELECT cd_pessoa,
-             ISNULL(SUM(vl_faturamento),0) AS analysis_revenue,
-             COUNT(*) AS analysis_nfs,
-             MAX(dt_emi_nf) AS analysis_last_nf
-      FROM nf WITH (NOLOCK)
-      WHERE dt_emi_nf >= '${analysisStart}' AND dt_emi_nf < '${analysisEnd}' ${cancelFilter}
+      SELECT cd_pessoa
+      FROM fich_loc WITH (NOLOCK)
+      WHERE dt_pedido >= '${analysisStart}' AND dt_pedido < '${analysisEnd}'
         AND cd_pessoa IS NOT NULL AND cd_pessoa <> ''
       GROUP BY cd_pessoa
     )
     SELECT
       r.cd_pessoa,
-      r.ref_revenue,
-      r.ref_nfs,
-      r.ref_first_nf,
-      r.ref_last_nf,
-      COALESCE(a.analysis_revenue, 0) AS analysis_revenue,
-      COALESCE(a.analysis_nfs, 0) AS analysis_nfs,
-      a.analysis_last_nf,
+      r.ref_fichas,
+      r.ref_first_ficha,
+      r.ref_last_ficha,
       CASE WHEN a.cd_pessoa IS NULL THEN 1 ELSE 0 END AS is_churned
     FROM ref_clients r
     LEFT JOIN analysis_clients a ON r.cd_pessoa = a.cd_pessoa
-    ORDER BY r.ref_revenue DESC`;
+    ORDER BY r.ref_last_ficha DESC`;
 
     const result = await runQuery(source, wrap(churnSql), 25000);
     const rows = getRows(result);
+
+    // Revenue proxy from nf (batched by cd_pessoa; rental universe includes clients
+    // without invoices, so ref_revenue may be 0 for ficha-only clients).
+    const allCodes = rows.map(r => r.cd_pessoa).filter(v => v != null && v !== '');
+    const buildCodesList = (codes) => codes.map(c => {
+      const n = Number(c);
+      return isNaN(n) ? `'${String(c).replace(/'/g, "''")}'` : String(n);
+    }).join(',');
+    const BATCH = 500;
+    const nfRevMap = {};
+    if (allCodes.length > 0) {
+      try {
+        for (let i = 0; i < allCodes.length; i += BATCH) {
+          const codesList = buildCodesList(allCodes.slice(i, i + BATCH));
+          const nfSql = `SELECT cd_pessoa,
+            ISNULL(SUM(CASE WHEN dt_emi_nf >= '${refStart}' AND dt_emi_nf < '${refEnd}' THEN vl_faturamento ELSE 0 END),0) AS ref_revenue,
+            SUM(CASE WHEN dt_emi_nf >= '${refStart}' AND dt_emi_nf < '${refEnd}' THEN 1 ELSE 0 END) AS ref_nfs,
+            MIN(CASE WHEN dt_emi_nf >= '${refStart}' AND dt_emi_nf < '${refEnd}' THEN dt_emi_nf END) AS ref_first_nf,
+            MAX(CASE WHEN dt_emi_nf >= '${refStart}' AND dt_emi_nf < '${refEnd}' THEN dt_emi_nf END) AS ref_last_nf,
+            ISNULL(SUM(CASE WHEN dt_emi_nf >= '${analysisStart}' AND dt_emi_nf < '${analysisEnd}' THEN vl_faturamento ELSE 0 END),0) AS analysis_revenue,
+            SUM(CASE WHEN dt_emi_nf >= '${analysisStart}' AND dt_emi_nf < '${analysisEnd}' THEN 1 ELSE 0 END) AS analysis_nfs,
+            MAX(CASE WHEN dt_emi_nf >= '${analysisStart}' AND dt_emi_nf < '${analysisEnd}' THEN dt_emi_nf END) AS analysis_last_nf
+            FROM nf WITH (NOLOCK)
+            WHERE cd_pessoa IN (${codesList}) ${cancelFilter}
+              AND dt_emi_nf >= '${refStart}' AND dt_emi_nf < '${analysisEnd}'
+            GROUP BY cd_pessoa`;
+          for (const r of getRows(await runQuery(source, wrap(nfSql), 20000))) {
+            nfRevMap[String(r.cd_pessoa)] = r;
+          }
+        }
+      } catch {}
+    }
+    for (const r of rows) {
+      const nf = nfRevMap[String(r.cd_pessoa)] || {};
+      r.ref_revenue = Number(nf.ref_revenue) || 0;
+      r.ref_nfs = Number(nf.ref_nfs) || 0;
+      r.ref_first_nf = nf.ref_first_nf || null;
+      r.ref_last_nf = nf.ref_last_nf || null;
+      r.analysis_revenue = Number(nf.analysis_revenue) || 0;
+      r.analysis_nfs = Number(nf.analysis_nfs) || 0;
+      r.analysis_last_nf = nf.analysis_last_nf || null;
+    }
 
     const totalRef = rows.length;
     const churnedRows = rows.filter(r => Number(r.is_churned) === 1);
@@ -102,11 +138,11 @@ Deno.serve(async (req) => {
     const activeRevenue = activeRows.reduce((s, r) => s + (Number(r.ref_revenue) || 0), 0);
     const churnRate = totalRef > 0 ? (churnedRows.length / totalRef * 100) : 0;
 
-    // Monthly churn: when did churned clients last purchase?
+    // Monthly churn: when did churned clients last rent (rental-based universe)?
     const monthlyChurn = {};
     for (const r of churnedRows) {
-      if (r.ref_last_nf) {
-        const d = new Date(r.ref_last_nf);
+      if (r.ref_last_ficha) {
+        const d = new Date(r.ref_last_ficha);
         const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
         monthlyChurn[key] = (monthlyChurn[key] || 0) + 1;
       }
@@ -121,11 +157,6 @@ Deno.serve(async (req) => {
     // ---- Detailed enrichment for ALL churned clients (batched to respect DW_API 8000 char limit) ----
     const detailClients = churnedRows;
     const pessoaCodes = detailClients.map(r => r.cd_pessoa).filter(v => v != null && v !== '');
-    const buildCodesList = (codes) => codes.map(c => {
-      const n = Number(c);
-      return isNaN(n) ? `'${String(c).replace(/'/g, "''")}'` : String(n);
-    }).join(',');
-    const BATCH = 500;
 
     const pessoaMap = {};
     const fichlocMap = {};
@@ -247,6 +278,9 @@ Deno.serve(async (req) => {
           ref_nfs: Number(r.ref_nfs) || 0,
           ref_first_nf: r.ref_first_nf ? new Date(r.ref_first_nf).toISOString().slice(0, 10) : null,
           ref_last_nf: r.ref_last_nf ? new Date(r.ref_last_nf).toISOString().slice(0, 10) : null,
+          ref_fichas: Number(r.ref_fichas) || 0,
+          ref_first_ficha: r.ref_first_ficha ? new Date(r.ref_first_ficha).toISOString().slice(0, 10) : null,
+          ref_last_ficha: r.ref_last_ficha ? new Date(r.ref_last_ficha).toISOString().slice(0, 10) : null,
           analysis_revenue: Number(r.analysis_revenue) || 0,
           analysis_nfs: Number(r.analysis_nfs) || 0,
           prim_dt_pedido: f.prim_dt_pedido ? new Date(f.prim_dt_pedido).toISOString().slice(0, 10) : null,
