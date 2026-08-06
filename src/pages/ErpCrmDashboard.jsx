@@ -19,6 +19,7 @@ import { Settings2 } from "lucide-react";
 import { EmpresaFilterProvider } from "@/lib/EmpresaFilterContext";
 import { GlobalFilterProvider } from "@/lib/GlobalFilterContext";
 import TabExecutiva from "@/components/erp/TabExecutiva";
+import TabCliente360 from "@/components/erp/TabCliente360";
 
 const TABS = [
   { id: "executiva", label: "Visão Executiva" },
@@ -27,6 +28,7 @@ const TABS = [
   { id: "locacoes", label: "Locações" },
   { id: "operacional", label: "Operacional" },
   { id: "clientes_pessoa", label: "Clientes" },
+  { id: "cliente360", label: "Cliente 360" },
   { id: "classificacao", label: "Classificação" },
   { id: "comparativo", label: "Comparativo" },
   { id: "kpis", label: "KPIs Snapshot" },
@@ -48,6 +50,7 @@ function ErpCrmDashboardContent() {
       case "locacoes": return <TabLocacoes />;
       case "operacional": return <TabOperacional />;
       case "clientes_pessoa": return <TabClientesPessoa />;
+      case "cliente360": return <TabCliente360 />;
       case "classificacao": return <TabClassificacao />;
       case "comparativo": return <TabComparativo />;
       case "kpis": return <SnapshotKpiGrid />;
