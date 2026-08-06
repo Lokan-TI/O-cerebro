@@ -27,8 +27,16 @@ function saveToLocalStorage(storageId, items) {
   try { localStorage.setItem(`layout_kpi_${storageId}_v1`, JSON.stringify(items)); } catch {}
 }
 
+function sanitizeItems(saved, cards) {
+  if (!Array.isArray(saved)) return null;
+  const valid = saved.filter(it => it && cards[it.id]);
+  if (!valid.length) return null;
+  const missing = cards.map((_, i) => i).filter(i => !valid.some(it => it.id === i));
+  return [...valid, ...missing.map(i => ({ id: i, visible: true }))];
+}
+
 export default function KPICardsDraggable({ cards, storageId = "kpi_layout" }) {
-  const [items, setItems] = useState(() => loadFromLocalStorage(storageId) || buildItems(cards));
+  const [items, setItems] = useState(() => sanitizeItems(loadFromLocalStorage(storageId), cards) || buildItems(cards));
   const [loaded, setLoaded] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const dragFrom = useRef(null);
@@ -44,9 +52,10 @@ export default function KPICardsDraggable({ cards, storageId = "kpi_layout" }) {
       try {
         const user = await base44.auth.me();
         const kpis = user?.layoutPreferences?.kpis || {};
-        if (kpis[storageId]) {
-          setItems(kpis[storageId]);
-          saveToLocalStorage(storageId, kpis[storageId]);
+        const clean = sanitizeItems(kpis[storageId], cards);
+        if (clean) {
+          setItems(clean);
+          saveToLocalStorage(storageId, clean);
         }
       } catch (err) {
         console.error("Erro ao carregar KPI layout:", err);
