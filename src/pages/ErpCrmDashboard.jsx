@@ -71,7 +71,7 @@ function ErpCrmDashboardContent() {
         <RefreshHeader />
 
         <div className="flex items-center justify-between mb-4 gap-3 flex-wrap">
-          <div className="flex gap-1 bg-gray-900 border border-gray-800 rounded-xl p-1 overflow-x-auto">
+          <div className="flex flex-wrap gap-1 bg-gray-900 border border-gray-800 rounded-xl p-1">
             {TABS.map(tab => (
               <button
                 key={tab.id}
