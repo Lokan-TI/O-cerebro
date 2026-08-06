@@ -4,6 +4,7 @@ import { useEmpresaFilter } from "@/lib/EmpresaFilterContext";
 import { useAnalyticsView } from "@/lib/analyticsView";
 import { getEmpresaLabel } from "@/lib/empresaLabels";
 import { fmtCur, fmtNum } from "@/lib/erpFormat";
+import ClientesReceitaChart from "@/components/erp/ClientesReceitaChart";
 import { Users, TrendingUp, Search, Crown, FileText, Repeat, Percent } from "lucide-react";
 
 export default function TabClientesPessoa() {
@@ -100,6 +101,9 @@ export default function TabClientesPessoa() {
           <div className="text-xs text-gray-500 mt-1">Receita ÷ clientes ativos</div>
         </div>
       </div>
+
+      {/* Evolução mensal da receita da base ativa */}
+      <ClientesReceitaChart monthlyRevenue={snapshot.monthly_revenue} selectedEmpresa={selectedEmpresa} />
 
       {/* Lista principal — clientes ativos gerando receita */}
       <div className="bg-gray-900 border border-gray-800 rounded-xl p-5">
