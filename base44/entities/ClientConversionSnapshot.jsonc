@@ -1,0 +1,139 @@
+{
+  "name": "ClientConversionSnapshot",
+  "type": "object",
+  "properties": {
+    "source_id": {
+      "type": "string",
+      "description": "ID da fonte de dados ERP"
+    },
+    "source_name": {
+      "type": "string",
+      "description": "Nome da fonte"
+    },
+    "version": {
+      "type": "string",
+      "description": "Identificador da vers\u00e3o"
+    },
+    "is_current": {
+      "type": "boolean",
+      "default": false,
+      "description": "Vers\u00e3o publicada e ativa"
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "generated_by_name": {
+      "type": "string"
+    },
+    "period_start": {
+      "type": "string",
+      "description": "In\u00edcio do per\u00edodo de cadastro (coorte)"
+    },
+    "period_end": {
+      "type": "string",
+      "description": "Fim do per\u00edodo de cadastro (coorte)"
+    },
+    "duration_ms": {
+      "type": "number",
+      "default": 0
+    },
+    "query_count": {
+      "type": "number",
+      "default": 0
+    },
+    "warnings": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "kpis": {
+      "type": "object",
+      "description": "KPIs do funil, taxas, tempos e faturamento"
+    },
+    "funnel": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      },
+      "description": "Etapas do funil"
+    },
+    "cohorts": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      },
+      "description": "Coorte por m\u00eas de cadastro"
+    },
+    "windows": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      },
+      "description": "Janelas de convers\u00e3o"
+    },
+    "by_vendor": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      }
+    },
+    "by_empresa": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      }
+    },
+    "status_distribution": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      }
+    },
+    "duplicates": {
+      "type": "object",
+      "description": "Taxa bruta x saneada e duplicidades"
+    },
+    "validations": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      },
+      "description": "Consultas de confer\u00eancia"
+    },
+    "clients": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      },
+      "description": "Detalhe por novo cliente (limitado)"
+    },
+    "clients_truncated": {
+      "type": "boolean",
+      "default": false
+    }
+  },
+  "required": [
+    "source_id",
+    "version"
+  ],
+  "rls": {
+    "read": {},
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

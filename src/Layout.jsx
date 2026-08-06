@@ -28,6 +28,14 @@ const MENUS = [
     badge: "PERDIDOS",
   },
   {
+    id: "conversao",
+    label: "Conversão de Novos Clientes",
+    desc: "Cadastro → ficha de locação → nota fiscal",
+    page: "ConversaoNovosClientes",
+    color: "purple",
+    badge: "CONVERSÃO",
+  },
+  {
     id: "erp",
     label: "ERP",
     desc: "KPIs em tempo real do ERP",

@@ -8,6 +8,7 @@ import { AuthProvider, useAuth } from '@/lib/AuthContext';
 import UserNotRegisteredError from '@/components/UserNotRegisteredError';
 import ErpCrmDashboard from './pages/ErpCrmDashboard.jsx';
 import GerenciarFontes from './pages/GerenciarFontes.jsx';
+import ConversaoNovosClientes from './pages/ConversaoNovosClientes.jsx';
 import { ErpSourceProvider } from '@/lib/ErpSourceContext';
 
 const { Pages, Layout, mainPage } = pagesConfig;
@@ -64,6 +65,11 @@ const AuthenticatedApp = () => {
       <Route path="/ErpCrmDashboard" element={
         <LayoutWrapper currentPageName="ErpCrmDashboard">
           <ErpCrmDashboard />
+        </LayoutWrapper>
+      } />
+      <Route path="/ConversaoNovosClientes" element={
+        <LayoutWrapper currentPageName="ConversaoNovosClientes">
+          <ConversaoNovosClientes />
         </LayoutWrapper>
       } />
       <Route path="/GerenciarFontes" element={
