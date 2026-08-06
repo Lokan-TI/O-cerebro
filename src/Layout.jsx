@@ -78,7 +78,7 @@ export default function Layout({ children, currentPageName }) {
   return (
     <div className="min-h-screen bg-gray-950 text-white flex flex-col">
       {/* Top nav */}
-      <nav className={`bg-black border-b ${c.border} px-4 py-0 flex items-center gap-1 shrink-0`}>
+      <nav className={`bg-black border-b ${c.border} px-4 py-0 flex items-center gap-1 shrink-0 overflow-x-auto`}>
         {/* Logo */}
         <div className="flex items-center gap-2 pr-6 py-3 border-r border-gray-800 mr-2">
           <div className={`w-2 h-2 rounded-full ${c.dot}`} />
