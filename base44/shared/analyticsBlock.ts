@@ -205,30 +205,35 @@ export async function computeAnalytics({ source, wrap, startDate, endDate, lastY
     queryCount++;
   } catch (e) { warnings.push('analytics.est_mov_monthly: ' + (e.message || '').slice(0, 80)); }
 
-  // ── Balancete analítico (plano × CAP) ──
+  // ── Balancete analítico (movimentação de caixa: CAR baixado = entradas, CAP baixado = saídas, por data de baixa) ──
   try {
-    const balSql = `SELECT p.cd_planfin, p.nr_planfin, p.ds_planfin, p.fl_cla_planfin, p.fl_resultpatr,
-      ISNULL(SUM(c.vl_pre_cap),0) AS vl_total,
-      ISNULL(SUM(CASE WHEN c.dt_bai_cap IS NULL THEN c.vl_pre_cap ELSE 0 END),0) AS vl_aberto,
-      ISNULL(SUM(CASE WHEN c.dt_bai_cap IS NOT NULL THEN c.vl_pre_cap ELSE 0 END),0) AS vl_baixado,
-      COUNT(c.cd_lan) AS qtd
+    const balSql = `SELECT p.cd_planfin, p.nr_planfin, p.ds_planfin,
+      ISNULL(e.vl,0) AS vl_entradas, ISNULL(e.qtd,0) AS qtd_entradas,
+      ISNULL(s.vl,0) AS vl_saidas, ISNULL(s.qtd,0) AS qtd_saidas
       FROM plano p WITH (NOLOCK)
-      LEFT JOIN cap c WITH (NOLOCK) ON p.cd_planfin = c.cd_conta
-        AND c.dt_emi_cap >= '${startDate}' AND c.dt_emi_cap < '${endDate}'
-      WHERE p.fl_planfin <> 'N' OR p.fl_planfin IS NULL
-      GROUP BY p.cd_planfin, p.nr_planfin, p.ds_planfin, p.fl_cla_planfin, p.fl_resultpatr
-      HAVING COUNT(c.cd_lan) > 0
+      LEFT JOIN (
+        SELECT cd_conta, SUM(ISNULL(vl_pre_car,0)+ISNULL(vl_acr_car,0)-ISNULL(vl_des_car,0)) AS vl, COUNT(*) AS qtd
+        FROM car WITH (NOLOCK)
+        WHERE dt_bai_car >= '${startDate}' AND dt_bai_car < '${endDate}' AND dt_cancelamento IS NULL
+        GROUP BY cd_conta
+      ) e ON e.cd_conta = p.cd_planfin
+      LEFT JOIN (
+        SELECT cd_conta, SUM(ISNULL(vl_pre_cap,0)+ISNULL(vl_acr_cap,0)-ISNULL(vl_des_cap,0)) AS vl, COUNT(*) AS qtd
+        FROM cap WITH (NOLOCK)
+        WHERE dt_bai_cap >= '${startDate}' AND dt_bai_cap < '${endDate}'
+        GROUP BY cd_conta
+      ) s ON s.cd_conta = p.cd_planfin
+      WHERE ISNULL(e.qtd,0) + ISNULL(s.qtd,0) > 0
       ORDER BY p.nr_planfin`;
-    out.plano_balancete = getRows(await runQuery(source, wrap(balSql))).map(r => ({
+    out.plano_balancete = getRows(await runQuery(source, wrap(balSql), 30000)).map(r => ({
       cd_planfin: Number(r.cd_planfin) || 0,
       nr_planfin: String(r.nr_planfin || ''),
       ds_planfin: String(r.ds_planfin || ''),
-      fl_cla_planfin: String(r.fl_cla_planfin || ''),
-      fl_resultpatr: String(r.fl_resultpatr || ''),
-      vl_total: Number(r.vl_total) || 0,
-      vl_aberto: Number(r.vl_aberto) || 0,
-      vl_baixado: Number(r.vl_baixado) || 0,
-      qtd: Number(r.qtd) || 0,
+      vl_entradas: Number(r.vl_entradas) || 0,
+      qtd_entradas: Number(r.qtd_entradas) || 0,
+      vl_saidas: Number(r.vl_saidas) || 0,
+      qtd_saidas: Number(r.qtd_saidas) || 0,
+      saldo: (Number(r.vl_entradas) || 0) - (Number(r.vl_saidas) || 0),
     }));
     queryCount++;
   } catch (e) { warnings.push('analytics.plano_balancete: ' + (e.message || '').slice(0, 80)); }

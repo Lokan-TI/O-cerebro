@@ -223,40 +223,62 @@ export default function TabFinanceiro() {
       )}
 
       {/* Balancete */}
-      {sub === "balancete" && (
-        <div className="bg-gray-900 border border-gray-800 rounded-xl p-5">
-          <h3 className="text-white font-semibold mb-4 text-sm">Balancete financeiro analítico (Plano × CAP)</h3>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="text-gray-500 text-xs uppercase border-b border-gray-800">
-                  <th className="text-left py-2 px-3">Conta</th>
-                  <th className="text-left py-2 px-3">Descrição</th>
-                  <th className="text-left py-2 px-3">Classe</th>
-                  <th className="text-right py-2 px-3">Lançamentos</th>
-                  <th className="text-right py-2 px-3">Total</th>
-                  <th className="text-right py-2 px-3">Em aberto</th>
-                  <th className="text-right py-2 px-3">Baixado</th>
-                </tr>
-              </thead>
-              <tbody>
-                {balancete.map((r, i) => (
-                  <tr key={i} className="border-b border-gray-800/50 hover:bg-gray-800/30">
-                    <td className="py-2 px-3 text-gray-400 font-mono text-xs">{r.nr_planfin}</td>
-                    <td className="py-2 px-3 text-white">{r.ds_planfin}</td>
-                    <td className="py-2 px-3 text-gray-400">{r.fl_cla_planfin || "—"}</td>
-                    <td className="py-2 px-3 text-right text-gray-300">{fmtNum(r.qtd)}</td>
-                    <td className="py-2 px-3 text-right text-white font-medium">{fmtCur(r.vl_total)}</td>
-                    <td className="py-2 px-3 text-right text-amber-400">{fmtCur(r.vl_aberto)}</td>
-                    <td className="py-2 px-3 text-right text-gray-300">{fmtCur(r.vl_baixado)}</td>
-                  </tr>
-                ))}
-                {balancete.length === 0 && <tr><td colSpan={7} className="text-center text-gray-600 py-6">Sem dados de balancete</td></tr>}
-              </tbody>
-            </table>
+      {sub === "balancete" && (() => {
+        const isLegacy = balancete.length > 0 && balancete[0].vl_entradas === undefined;
+        const totEnt = balancete.reduce((s, r) => s + (r.vl_entradas || 0), 0);
+        const totSai = balancete.reduce((s, r) => s + (r.vl_saidas || 0), 0);
+        return (
+          <div className="bg-gray-900 border border-gray-800 rounded-xl p-5">
+            <h3 className="text-white font-semibold mb-1 text-sm">Balancete financeiro — movimentação de caixa</h3>
+            <p className="text-xs text-gray-500 mb-4">Entradas = recebimentos baixados (CAR) · Saídas = pagamentos baixados (CAP) · pela data da baixa no período</p>
+            {isLegacy ? (
+              <div className="bg-amber-950/30 border border-amber-800/40 rounded-lg px-4 py-3 flex items-center gap-2">
+                <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0" />
+                <span className="text-amber-300 text-xs">O balancete foi recalculado com nova lógica de movimentação. Clique em "Atualizar dados" para gerar os novos valores.</span>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="text-gray-500 text-xs uppercase border-b border-gray-800">
+                      <th className="text-left py-2 px-3">Conta</th>
+                      <th className="text-left py-2 px-3">Descrição</th>
+                      <th className="text-right py-2 px-3">Entradas</th>
+                      <th className="text-right py-2 px-3">Saídas</th>
+                      <th className="text-right py-2 px-3">Saldo</th>
+                      <th className="text-right py-2 px-3">Lançamentos</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {balancete.map((r, i) => (
+                      <tr key={i} className="border-b border-gray-800/50 hover:bg-gray-800/30">
+                        <td className="py-2 px-3 text-gray-400 font-mono text-xs">{r.nr_planfin}</td>
+                        <td className="py-2 px-3 text-white">{r.ds_planfin}</td>
+                        <td className="py-2 px-3 text-right text-green-400">{fmtCur(r.vl_entradas)}</td>
+                        <td className="py-2 px-3 text-right text-red-400">{fmtCur(r.vl_saidas)}</td>
+                        <td className={`py-2 px-3 text-right font-medium ${(r.saldo || 0) >= 0 ? "text-white" : "text-red-400"}`}>{fmtCur(r.saldo)}</td>
+                        <td className="py-2 px-3 text-right text-gray-500 text-xs">{fmtNum((r.qtd_entradas || 0) + (r.qtd_saidas || 0))}</td>
+                      </tr>
+                    ))}
+                    {balancete.length === 0 && <tr><td colSpan={6} className="text-center text-gray-600 py-6">Sem dados de balancete</td></tr>}
+                  </tbody>
+                  {balancete.length > 0 && (
+                    <tfoot>
+                      <tr className="border-t border-gray-700 bg-gray-800/40 font-semibold">
+                        <td className="py-2 px-3 text-white" colSpan={2}>Total</td>
+                        <td className="py-2 px-3 text-right text-green-400">{fmtCur(totEnt)}</td>
+                        <td className="py-2 px-3 text-right text-red-400">{fmtCur(totSai)}</td>
+                        <td className={`py-2 px-3 text-right ${totEnt - totSai >= 0 ? "text-white" : "text-red-400"}`}>{fmtCur(totEnt - totSai)}</td>
+                        <td></td>
+                      </tr>
+                    </tfoot>
+                  )}
+                </table>
+              </div>
+            )}
           </div>
-        </div>
-      )}
+        );
+      })()}
     </div>
   );
 }
