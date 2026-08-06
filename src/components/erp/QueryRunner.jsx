@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useErpSource } from "@/lib/ErpSourceContext";
+import DashboardQueryList from "./DashboardQueryList";
 import { Play, Loader2, History, Trash2, Clock, CheckCircle2, XCircle } from "lucide-react";
 
 const PRESETS = [
@@ -150,6 +151,9 @@ export default function QueryRunner() {
           <p className="text-gray-500 text-sm">Query executada — 0 linhas retornadas</p>
         </div>
       )}
+
+      {/* Lista das queries que capturam os dados dos dashboards */}
+      <DashboardQueryList onLoadQuery={(q) => { setSql(q); setRows(null); setError(null); setExecTime(null); }} />
 
       {/* Histórico de queries */}
       <div className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden">
