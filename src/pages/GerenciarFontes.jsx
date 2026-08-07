@@ -5,7 +5,8 @@ import { useErpSource } from "@/lib/ErpSourceContext";
 import SourceStatusBadge from "@/components/erp/SourceStatusBadge";
 import AdicionarFonteModal from "@/components/erp/AdicionarFonteModal";
 import SchemaValidationResult from "@/components/erp/SchemaValidationResult";
-import { Plus, Pencil, Wifi, Loader2, Eye, Power, ChevronLeft, RefreshCw, CheckCircle2, AlertTriangle, Clock, ShieldCheck } from "lucide-react";
+import VerConfigModal from "@/components/erp/VerConfigModal";
+import { Plus, Pencil, Wifi, Loader2, Eye, Power, ChevronLeft, RefreshCw, CheckCircle2, AlertTriangle, Clock, ShieldCheck, FileText } from "lucide-react";
 import { pollRun } from "@/lib/erpSync";
 
 function formatDate(dt) {
@@ -25,6 +26,7 @@ export default function GerenciarFontes() {
   const [refreshingAll, setRefreshingAll] = useState(false);
   const [validatingId, setValidatingId] = useState(null);
   const [validation, setValidation] = useState(null); // { sourceName, result, loading }
+  const [viewingConfig, setViewingConfig] = useState(null);
 
   const openAdd = () => { setEditing(null); setModalOpen(true); };
   const openEdit = (s) => { setEditing(s); setModalOpen(true); };
@@ -207,6 +209,9 @@ export default function GerenciarFontes() {
                         <button onClick={() => selectSource(s.id)} title="Selecionar" className="p-1.5 text-gray-500 hover:text-white hover:bg-gray-800 rounded">
                           <Eye className="w-4 h-4" />
                         </button>
+                        <button onClick={() => setViewingConfig(s)} title="Ver configuração" className="p-1.5 text-gray-500 hover:text-purple-400 hover:bg-gray-800 rounded">
+                          <FileText className="w-4 h-4" />
+                        </button>
                         <button onClick={() => openEdit(s)} title="Editar" className="p-1.5 text-gray-500 hover:text-white hover:bg-gray-800 rounded">
                           <Pencil className="w-4 h-4" />
                         </button>
@@ -252,6 +257,8 @@ export default function GerenciarFontes() {
           </div>
         </div>
       )}
+
+      {viewingConfig && <VerConfigModal source={viewingConfig} onClose={() => setViewingConfig(null)} />}
 
       <AdicionarFonteModal open={modalOpen} onClose={() => setModalOpen(false)} existing={editing} />
     </div>
