@@ -151,6 +151,8 @@ export default function TabExecutiva() {
                 <th className="text-right py-2 px-3">Receita</th>
                 <th className="text-right py-2 px-3">Crescimento</th>
                 <th className="text-right py-2 px-3">Clientes</th>
+                <th className="text-right py-2 px-3">Churn</th>
+                <th className="text-right py-2 px-3">Retenção</th>
                 <th className="text-right py-2 px-3">Ticket médio</th>
                 <th className="text-right py-2 px-3">Receita/cliente</th>
               </tr>
@@ -166,13 +168,18 @@ export default function TabExecutiva() {
                       {e.crescimento_ano == null ? "—" : `${e.crescimento_ano.toFixed(1)}%`}
                     </td>
                     <td className="py-2 px-3 text-right text-purple-400">{fmtNum(e.clientes_ano)}</td>
+                    <td className={`py-2 px-3 text-right ${e.churn_rate == null ? "text-gray-500" : e.churn_rate >= 30 ? "text-red-400" : e.churn_rate >= 15 ? "text-amber-400" : "text-green-400"}`}>
+                      {fmtPct(e.churn_rate)}
+                      {e.churned_clients != null && <span className="text-gray-600 text-xs ml-1">({fmtNum(e.churned_clients)})</span>}
+                    </td>
+                    <td className={`py-2 px-3 text-right ${e.retention_rate == null ? "text-gray-500" : "text-green-400"}`}>{fmtPct(e.retention_rate)}</td>
                     <td className="py-2 px-3 text-right text-blue-400">{fmtCur(e.ticket_ano)}</td>
                     <td className="py-2 px-3 text-right text-gray-300">{fmtCur(e.receita_por_cliente)}</td>
                   </tr>
                 );
               })}
               {byEmp.length === 0 && (
-                <tr><td colSpan={6} className="text-center text-gray-600 py-6">Sem dados por empresa</td></tr>
+                <tr><td colSpan={8} className="text-center text-gray-600 py-6">Sem dados por empresa</td></tr>
               )}
             </tbody>
           </table>
