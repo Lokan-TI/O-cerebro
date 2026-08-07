@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useErpSource } from "@/lib/ErpSourceContext";
 import SchemaValidationResult from "@/components/erp/SchemaValidationResult";
@@ -31,6 +31,16 @@ export default function AdicionarFonteModal({ open, onClose, existing = null }) 
   const [validating, setValidating] = useState(false);
   const [validationResult, setValidationResult] = useState(null);
   const [error, setError] = useState(null);
+
+  // Repopular o formulário sempre que o modal abrir (novo ou edição)
+  useEffect(() => {
+    if (open) {
+      setForm(existing ? { ...EMPTY, ...existing, password: "" } : { ...EMPTY });
+      setTestResult(null);
+      setValidationResult(null);
+      setError(null);
+    }
+  }, [open, existing]);
 
   if (!open) return null;
 
@@ -100,7 +110,7 @@ export default function AdicionarFonteModal({ open, onClose, existing = null }) 
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70" onClick={onClose}>
       <div className="bg-gray-900 border border-gray-700 rounded-2xl w-full max-w-3xl max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
         <div className="sticky top-0 bg-gray-900 border-b border-gray-800 px-6 py-4 flex items-center justify-between z-10">
-          <h2 className="text-white font-bold text-lg">Adicionar fonte de dados do ERP</h2>
+          <h2 className="text-white font-bold text-lg">{existing ? `Editar fonte — ${existing.name}` : "Adicionar fonte de dados do ERP"}</h2>
           <button onClick={onClose} className="text-gray-500 hover:text-white"><X className="w-5 h-5" /></button>
         </div>
 
