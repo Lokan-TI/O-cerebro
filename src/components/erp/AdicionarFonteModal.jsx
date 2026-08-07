@@ -139,6 +139,13 @@ export default function AdicionarFonteModal({ open, onClose, existing = null }) 
           {/* Conexão */}
           <section>
             <h3 className="text-purple-400 text-sm font-semibold uppercase tracking-wider mb-3">Conexão</h3>
+            {form.credential_reference === "env" && (
+              <div className="mb-3 rounded-lg border border-blue-800 bg-blue-950/40 px-3 py-2">
+                <p className="text-blue-300 text-xs">
+                  Esta fonte usa as credenciais das variáveis de ambiente do servidor. Por isso os campos abaixo aparecem em branco — o host, banco, usuário e senha reais ficam protegidos no back-end. Preencha-os apenas se quiser passar a usar uma conexão própria para esta fonte.
+                </p>
+              </div>
+            )}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div><label className={labelCls}>Tipo do banco de dados</label>
                 <select className={inputCls} value={form.database_type} onChange={(e) => set("database_type", e.target.value)}>
