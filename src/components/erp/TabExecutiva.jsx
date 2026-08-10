@@ -1,4 +1,5 @@
 import { useErpSnapshot } from "@/lib/ErpSnapshotContext";
+import AnnualGrowthChart from "@/components/erp/AnnualGrowthChart";
 import { useEmpresaFilter } from "@/lib/EmpresaFilterContext";
 import { getEmpresaLabel } from "@/lib/empresaLabels";
 import { fmtCur, fmtNum } from "@/lib/erpFormat";
@@ -185,6 +186,9 @@ export default function TabExecutiva() {
           </table>
         </div>
       </div>
+
+      {/* Evolução anual de crescimento */}
+      <AnnualGrowthChart />
 
       {/* Série mensal + Top clientes/vendedores — consolidado ou por empresa */}
       <div className="space-y-6">

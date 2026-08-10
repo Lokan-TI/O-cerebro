@@ -672,6 +672,81 @@ async function processRefresh(base44, source, run, version, previousVersion, sta
     }
     await updateStep(8, 84);
 
+    // Etapa: Evolução anual (últimos 5 anos) — faturamento, novos clientes e
+    // decomposição da receita entre clientes novos (1ª NF no ano) e clientes da base.
+    // Janela de 6 anos extraída; o ano mais antigo serve apenas de lookback e é descartado.
+    const evoStart = 'DATEFROMPARTS(YEAR(GETDATE())-5,1,1)';
+    const mapEvoRow = (r) => ({
+      ...(r.cd_empresa != null ? { cd_empresa: Number(r.cd_empresa) } : {}),
+      ano: Number(r.ano),
+      fat_total: Number(r.fat_total) || 0,
+      clientes: Number(r.clientes) || 0,
+      clientes_novos: Number(r.clientes_novos) || 0,
+      fat_novos: Number(r.fat_novos) || 0,
+      fat_base: Number(r.fat_base) || 0,
+    });
+    let annualEvolution = [];
+    let annualEvolutionByEmpresa = [];
+    try {
+      const evoSql = `SELECT y.ano,
+          ISNULL(SUM(y.fat),0) AS fat_total,
+          COUNT(DISTINCT y.cd_pessoa) AS clientes,
+          ISNULL(SUM(CASE WHEN y.ano = f.first_ano THEN y.fat ELSE 0 END),0) AS fat_novos,
+          ISNULL(SUM(CASE WHEN y.ano > f.first_ano THEN y.fat ELSE 0 END),0) AS fat_base,
+          COUNT(DISTINCT CASE WHEN y.ano = f.first_ano THEN y.cd_pessoa END) AS clientes_novos
+        FROM (
+          SELECT cd_pessoa, YEAR(dt_emi_nf) AS ano, ISNULL(SUM(vl_faturamento),0) AS fat
+          FROM nf WITH (NOLOCK)
+          WHERE dt_emi_nf >= ${evoStart} AND dt_emi_nf < ${yearEnd} ${cancelFilter}
+          GROUP BY cd_pessoa, YEAR(dt_emi_nf)
+        ) y
+        JOIN (
+          SELECT cd_pessoa, MIN(YEAR(dt_emi_nf)) AS first_ano
+          FROM nf WITH (NOLOCK)
+          WHERE dt_emi_nf >= ${evoStart} AND dt_emi_nf < ${yearEnd} ${cancelFilter}
+          GROUP BY cd_pessoa
+        ) f ON f.cd_pessoa = y.cd_pessoa
+        GROUP BY y.ano ORDER BY y.ano`;
+      const rows = getRows(await runQuery(source, wrap(evoSql), 30000)).map(mapEvoRow);
+      queryCount++;
+      if (rows.length > 0) {
+        const minYear = Math.min(...rows.map(r => r.ano));
+        annualEvolution = rows.filter(r => r.ano > minYear);
+      }
+    } catch (e) {
+      warnings.push('Falha ao extrair evolução anual: ' + (e.message || String(e)).slice(0, 120));
+    }
+    try {
+      const evoEmpSql = `SELECT y.cd_empresa, y.ano,
+          ISNULL(SUM(y.fat),0) AS fat_total,
+          COUNT(DISTINCT y.cd_pessoa) AS clientes,
+          ISNULL(SUM(CASE WHEN y.ano = f.first_ano THEN y.fat ELSE 0 END),0) AS fat_novos,
+          ISNULL(SUM(CASE WHEN y.ano > f.first_ano THEN y.fat ELSE 0 END),0) AS fat_base,
+          COUNT(DISTINCT CASE WHEN y.ano = f.first_ano THEN y.cd_pessoa END) AS clientes_novos
+        FROM (
+          SELECT cd_empresa, cd_pessoa, YEAR(dt_emi_nf) AS ano, ISNULL(SUM(vl_faturamento),0) AS fat
+          FROM nf WITH (NOLOCK)
+          WHERE dt_emi_nf >= ${evoStart} AND dt_emi_nf < ${yearEnd} ${cancelFilter}
+          GROUP BY cd_empresa, cd_pessoa, YEAR(dt_emi_nf)
+        ) y
+        JOIN (
+          SELECT cd_empresa, cd_pessoa, MIN(YEAR(dt_emi_nf)) AS first_ano
+          FROM nf WITH (NOLOCK)
+          WHERE dt_emi_nf >= ${evoStart} AND dt_emi_nf < ${yearEnd} ${cancelFilter}
+          GROUP BY cd_empresa, cd_pessoa
+        ) f ON f.cd_empresa = y.cd_empresa AND f.cd_pessoa = y.cd_pessoa
+        GROUP BY y.cd_empresa, y.ano ORDER BY y.cd_empresa, y.ano`;
+      const rows = getRows(await runQuery(source, wrap(evoEmpSql), 30000)).map(mapEvoRow);
+      queryCount++;
+      if (rows.length > 0) {
+        const minYear = Math.min(...rows.map(r => r.ano));
+        annualEvolutionByEmpresa = rows.filter(r => r.ano > minYear);
+      }
+    } catch (e) {
+      warnings.push('Falha ao extrair evolução anual por empresa: ' + (e.message || String(e)).slice(0, 120));
+    }
+    await updateStep(8, 85);
+
     // Etapa: Analytics (CAR/CAP/Locações/Operacional) — bloco pré-calculado para as abas
     await updateStep(8, 86, { step_label: 'Extraindo analytics (CAR/CAP/Locações)' });
     let analytics = null;
@@ -745,6 +820,8 @@ async function processRefresh(base44, source, run, version, previousVersion, sta
       monthly_revenue: monthlyRevenue,
       revenue_by_state: revenueByState,
       new_clients_monthly: newClientsMonthly,
+      annual_evolution: annualEvolution,
+      annual_evolution_by_empresa: annualEvolutionByEmpresa,
       alerts,
       by_empresa: byEmpresa,
       analytics,

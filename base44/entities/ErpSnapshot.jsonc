@@ -95,6 +95,20 @@
       },
       "description": "Novos clientes por m\u00eas"
     },
+    "annual_evolution": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      },
+      "description": "Evolu\u00e7\u00e3o anual consolidada: faturamento total, clientes, novos clientes e receita de novos vs. base (\u00faltimos 5 anos)"
+    },
+    "annual_evolution_by_empresa": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      },
+      "description": "Evolu\u00e7\u00e3o anual por empresa \u2014 mesmas m\u00e9tricas com cd_empresa por linha"
+    },
     "alerts": {
       "type": "array",
       "items": {
