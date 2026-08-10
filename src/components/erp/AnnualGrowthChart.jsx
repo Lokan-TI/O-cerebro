@@ -98,7 +98,7 @@ export default function AnnualGrowthChart() {
 
           {mode === "faturamento" && (
             <>
-              <YAxis stroke="#666" fontSize={11} tickFormatter={axisMoney} />
+              <YAxis stroke="#666" fontSize={11} width={80} tickFormatter={axisMoney} />
               <Tooltip contentStyle={tooltipStyle} formatter={(v) => fmtCur(v)} />
               <Bar dataKey="fat_total" name="Faturamento no ano" fill="#a855f7" radius={[4, 4, 0, 0]} />
             </>
@@ -114,7 +114,7 @@ export default function AnnualGrowthChart() {
 
           {mode === "composicao" && (
             <>
-              <YAxis stroke="#666" fontSize={11} tickFormatter={axisMoney} />
+              <YAxis stroke="#666" fontSize={11} width={80} tickFormatter={axisMoney} />
               <Tooltip
                 contentStyle={tooltipStyle}
                 formatter={(v, name, { payload }) => {
