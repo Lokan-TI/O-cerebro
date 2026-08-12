@@ -53,6 +53,7 @@ export const DEPARTMENTS = [
     label: "Configuração de dados",
     items: [
       { label: "Gerenciar fontes", to: "/GerenciarFontes" },
+      { label: "Integrações (CRM / ERP API)", to: "/Integracoes" },
       { label: "Estrutura do banco", to: "/ErpCrmDashboard?tab=estrutura" },
     ],
   },

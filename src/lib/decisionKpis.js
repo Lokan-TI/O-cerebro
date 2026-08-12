@@ -167,12 +167,6 @@ export function buildDecisionKpis(snapshot) {
               market: "Benchmark: churn até 35% ao ano",
               status: status(k.churn_rate, { good: 35, warn: 50, direction: "down" }),
             },
-            {
-              id: "concentracao_growth", label: "Dependência dos maiores clientes", value: pct(k.concentracao_top10),
-              sub: "Receita concentrada no top 10",
-              market: "Acima de 40% o crescimento fica refém de poucas obras",
-              status: status(k.concentracao_top10, { good: 30, warn: 40, direction: "down" }),
-            },
           ],
         },
       ],
@@ -214,19 +208,6 @@ export function buildDecisionKpis(snapshot) {
       label: "Logística",
       kpis: [
         {
-          id: "contratos", label: "Contratos ativos", value: num(a.fichloc_ativas),
-          sub: `${num(a.fichloc_total)} contratos no período`,
-          market: "Utilização de frota do setor: 60–75%",
-          status: status(contratosAtivosPct, { good: 60, warn: 45, direction: "up" }),
-          note: contratosAtivosPct == null ? null : `${pct(contratosAtivosPct)} ativos`,
-        },
-        {
-          id: "remessas", label: "Remessas realizadas", value: num(remessas),
-          sub: `${num(devolucoes)} devoluções requisitadas`,
-          market: "Devoluções muito acima das remessas = contração da frota locada",
-          status: status(remessas - devolucoes, { good: 0, warn: -500, direction: "up" }),
-        },
-        {
           id: "clientes_ativos", label: "Clientes com contrato ativo", value: num(baseAtivos),
           sub: `De ${num(a.pessoa_total)} cadastrados`,
           market: "Foco: converter cadastro parado em contrato ativo",
@@ -245,14 +226,8 @@ export function buildDecisionKpis(snapshot) {
       label: "Manutenção",
       kpis: [
         {
-          id: "inspecoes", label: "Inspeções realizadas", value: num(inspecoes),
-          sub: "Entradas e saídas de equipamento",
-          market: "Toda remessa e retorno deve gerar inspeção registrada",
-          status: "neutral",
-        },
-        {
           id: "insp_remessa", label: "Inspeções por remessa", value: inspPorRemessa == null ? "—" : inspPorRemessa.toFixed(1),
-          sub: `${num(remessas)} remessas no período`,
+          sub: `${num(inspecoes)} inspeções em ${num(remessas)} remessas`,
           market: "Referência: ao menos 2 inspeções por ciclo (saída e retorno)",
           status: status(inspPorRemessa, { good: 2, warn: 1, direction: "up" }),
         },

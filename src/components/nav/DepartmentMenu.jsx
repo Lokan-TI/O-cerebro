@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Link } from "react-router-dom";
 import { DEPARTMENTS } from "@/lib/departmentsMenu";
 import { Menu, X } from "lucide-react";
+import SourceSelector from "./SourceSelector";
 
 export default function DepartmentMenu() {
   const [open, setOpen] = useState(false);
@@ -30,7 +31,10 @@ export default function DepartmentMenu() {
               </button>
             </div>
 
-            <nav className="px-3 py-4 space-y-5">
+            <SourceSelector />
+            <div className="mx-5 my-4 border-t border-gray-800" />
+
+            <nav className="px-3 pb-4 space-y-5">
               {DEPARTMENTS.map((d) => (
                 <div key={d.id}>
                   <p className="px-2 text-[10px] uppercase tracking-widest text-purple-500/80 mb-1.5">{d.label}</p>

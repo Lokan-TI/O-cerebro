@@ -3,6 +3,8 @@ import { base44 } from "@/api/base44Client";
 
 const ErpSourceContext = createContext(null);
 const STORAGE_KEY = "erp_selected_source_id";
+export const ALL_SOURCES_ID = "__all__";
+const ALL_SOURCES = { id: ALL_SOURCES_ID, name: "Todas as bases" };
 
 export function ErpSourceProvider({ children }) {
   const [sources, setSources] = useState([]);
@@ -15,13 +17,17 @@ export function ErpSourceProvider({ children }) {
       const list = res?.data?.sources || [];
       setSources(list);
       const stored = localStorage.getItem(STORAGE_KEY);
-      const target =
-        list.find((s) => s.id === stored) ||
-        list.find((s) => s.credential_reference === "env") ||
-        list[0] ||
-        null;
-      setSelectedSource(target);
-      if (target) localStorage.setItem(STORAGE_KEY, target.id);
+      if (stored === ALL_SOURCES_ID) {
+        setSelectedSource(ALL_SOURCES);
+      } else {
+        const target =
+          list.find((s) => s.id === stored) ||
+          list.find((s) => s.credential_reference === "env") ||
+          list[0] ||
+          null;
+        setSelectedSource(target);
+        if (target) localStorage.setItem(STORAGE_KEY, target.id);
+      }
     } catch {
       setSources([]);
       setSelectedSource(null);
@@ -33,6 +39,11 @@ export function ErpSourceProvider({ children }) {
   useEffect(() => { refreshSources(); }, [refreshSources]);
 
   const selectSource = useCallback((id) => {
+    if (id === ALL_SOURCES_ID) {
+      setSelectedSource(ALL_SOURCES);
+      localStorage.setItem(STORAGE_KEY, ALL_SOURCES_ID);
+      return;
+    }
     const s = sources.find((x) => x.id === id);
     if (s) {
       setSelectedSource(s);

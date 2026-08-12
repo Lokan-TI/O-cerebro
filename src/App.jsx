@@ -8,6 +8,7 @@ import { AuthProvider, useAuth } from '@/lib/AuthContext';
 import UserNotRegisteredError from '@/components/UserNotRegisteredError';
 import ErpCrmDashboard from './pages/ErpCrmDashboard.jsx';
 import GerenciarFontes from './pages/GerenciarFontes.jsx';
+import Integracoes from './pages/Integracoes.jsx';
 import ConversaoNovosClientes from './pages/ConversaoNovosClientes.jsx';
 import BrainHome from './pages/BrainHome.jsx';
 import PainelDecisao from './pages/PainelDecisao.jsx';
@@ -82,6 +83,11 @@ const AuthenticatedApp = () => {
       <Route path="/PainelDecisao" element={
         <LayoutWrapper currentPageName="PainelDecisao">
           <PainelDecisao />
+        </LayoutWrapper>
+      } />
+      <Route path="/Integracoes" element={
+        <LayoutWrapper currentPageName="Integracoes">
+          <Integracoes />
         </LayoutWrapper>
       } />
       <Route path="/GerenciarFontes" element={

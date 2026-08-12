@@ -1,0 +1,98 @@
+{
+  "name": "IntegrationConnection",
+  "type": "object",
+  "properties": {
+    "provider": {
+      "type": "string",
+      "enum": [
+        "rdstation_crm",
+        "rdstation_marketing",
+        "erp_api",
+        "outro"
+      ],
+      "default": "rdstation_crm",
+      "description": "Tipo de integra\u00e7\u00e3o"
+    },
+    "name": {
+      "type": "string",
+      "description": "Nome da conex\u00e3o"
+    },
+    "base_url": {
+      "type": "string",
+      "description": "URL base da API"
+    },
+    "auth_type": {
+      "type": "string",
+      "enum": [
+        "api_key",
+        "bearer_token",
+        "oauth"
+      ],
+      "default": "api_key"
+    },
+    "api_key": {
+      "type": "string",
+      "description": "Credencial \u2014 usada apenas no back-end"
+    },
+    "account_id": {
+      "type": "string",
+      "description": "Identificador da conta no provedor"
+    },
+    "sync_periodicity": {
+      "type": "string",
+      "enum": [
+        "manual",
+        "hourly",
+        "daily",
+        "weekly"
+      ],
+      "default": "manual"
+    },
+    "is_active": {
+      "type": "boolean",
+      "default": true
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "disconnected",
+        "connected",
+        "error"
+      ],
+      "default": "disconnected"
+    },
+    "last_sync": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "notes": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "provider",
+    "name"
+  ],
+  "rls": {
+    "read": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}
