@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useLocation } from "react-router-dom";
 import { ErpSnapshotProvider } from "@/lib/ErpSnapshotContext";
 import RefreshHeader from "@/components/erp/RefreshHeader";
 import QueryRunner from "@/components/erp/QueryRunner";
@@ -32,7 +33,15 @@ const TABS = [
 ];
 
 function ErpCrmDashboardContent() {
-  const [activeTab, setActiveTab] = useState("executiva");
+  const location = useLocation();
+  const [activeTab, setActiveTab] = useState(
+    () => new URLSearchParams(window.location.search).get("tab") || "executiva"
+  );
+
+  useEffect(() => {
+    const tab = new URLSearchParams(location.search).get("tab");
+    if (tab && TABS.some((t) => t.id === tab)) setActiveTab(tab);
+  }, [location.search]);
 
   const renderTab = () => {
     switch (activeTab) {
