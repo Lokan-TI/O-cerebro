@@ -1,6 +1,11 @@
 // Menu de dados organizado por departamento
 export const DEPARTMENTS = [
   {
+    id: "decisao",
+    label: "Painel de Decisão",
+    items: [{ label: "KPIs por departamento", to: "/PainelDecisao" }],
+  },
+  {
     id: "cerebro",
     label: "Cérebro",
     items: [{ label: "Consultor IA", to: "/" }],

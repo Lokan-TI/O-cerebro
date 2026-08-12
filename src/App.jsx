@@ -10,6 +10,7 @@ import ErpCrmDashboard from './pages/ErpCrmDashboard.jsx';
 import GerenciarFontes from './pages/GerenciarFontes.jsx';
 import ConversaoNovosClientes from './pages/ConversaoNovosClientes.jsx';
 import BrainHome from './pages/BrainHome.jsx';
+import PainelDecisao from './pages/PainelDecisao.jsx';
 import { ErpSourceProvider } from '@/lib/ErpSourceContext';
 
 const { Pages, Layout, mainPage } = pagesConfig;
@@ -76,6 +77,11 @@ const AuthenticatedApp = () => {
       <Route path="/ConversaoNovosClientes" element={
         <LayoutWrapper currentPageName="ConversaoNovosClientes">
           <ConversaoNovosClientes />
+        </LayoutWrapper>
+      } />
+      <Route path="/PainelDecisao" element={
+        <LayoutWrapper currentPageName="PainelDecisao">
+          <PainelDecisao />
         </LayoutWrapper>
       } />
       <Route path="/GerenciarFontes" element={
