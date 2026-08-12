@@ -2,6 +2,9 @@ import { useMemo, useState, useEffect } from "react";
 import { useBrainSnapshot } from "@/components/brain/useBrainSnapshot";
 import { buildDecisionKpis } from "@/lib/decisionKpis";
 import DecisionSection from "@/components/decision/DecisionSection";
+import EmpresaSelect from "@/components/decision/EmpresaSelect";
+import EmpresaComparison from "@/components/decision/EmpresaComparison";
+import { scopeSnapshotByEmpresa, empresaOptions } from "@/lib/scopeSnapshot";
 import { Loader2, LayoutDashboard, Pencil, Check, RotateCcw } from "lucide-react";
 
 const STORE_KEY = "painel_decisao_hidden";
@@ -17,7 +20,12 @@ export default function PainelDecisao() {
     localStorage.setItem(STORE_KEY, JSON.stringify(hiddenIds));
   }, [hiddenIds]);
 
-  const departments = useMemo(() => buildDecisionKpis(snapshot), [snapshot]);
+  const [empresa, setEmpresa] = useState(null);
+  const options = useMemo(() => empresaOptions(snapshot), [snapshot]);
+  const departments = useMemo(
+    () => buildDecisionKpis(scopeSnapshotByEmpresa(snapshot, empresa)),
+    [snapshot, empresa]
+  );
 
   const toggle = (key) =>
     setHiddenIds((h) => (h.includes(key) ? h.filter((x) => x !== key) : [...h, key]));
@@ -38,6 +46,7 @@ export default function PainelDecisao() {
             </p>
           </div>
           <div className="flex items-center gap-2 shrink-0">
+            <EmpresaSelect value={empresa} onChange={setEmpresa} options={options} />
             {editing && hiddenIds.length > 0 && (
               <button
                 onClick={() => setHiddenIds([])}
@@ -84,6 +93,8 @@ export default function PainelDecisao() {
             />
           ))
         )}
+
+        {!loading && <EmpresaComparison snapshot={snapshot} />}
       </div>
     </div>
   );

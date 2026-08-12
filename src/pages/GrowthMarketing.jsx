@@ -1,20 +1,26 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useBrainSnapshot } from "@/components/brain/useBrainSnapshot";
 import { buildDecisionKpis } from "@/lib/decisionKpis";
 import DecisionSection from "@/components/decision/DecisionSection";
+import EmpresaSelect from "@/components/decision/EmpresaSelect";
+import EmpresaComparison from "@/components/decision/EmpresaComparison";
+import { scopeSnapshotByEmpresa, empresaOptions } from "@/lib/scopeSnapshot";
 import { Loader2, Rocket } from "lucide-react";
 
 export default function GrowthMarketing() {
   const { snapshot, loading, source } = useBrainSnapshot();
+  const [empresa, setEmpresa] = useState(null);
+  const options = useMemo(() => empresaOptions(snapshot), [snapshot]);
   const dept = useMemo(
-    () => buildDecisionKpis(snapshot).find((d) => d.id === "growth"),
-    [snapshot]
+    () => buildDecisionKpis(scopeSnapshotByEmpresa(snapshot, empresa)).find((d) => d.id === "growth"),
+    [snapshot, empresa]
   );
 
   return (
     <div className="min-h-screen bg-gray-950 px-6 py-8">
       <div className="max-w-7xl mx-auto">
-        <div className="mb-6 pr-14">
+        <div className="mb-6 pr-14 flex items-start justify-between gap-4">
+          <div>
           <div className="flex items-center gap-2">
             <Rocket className="w-5 h-5 text-purple-400" />
             <h1 className="text-2xl font-bold text-white">Growth Marketing</h1>
@@ -24,6 +30,10 @@ export default function GrowthMarketing() {
             {source?.name ? ` · base ${source.name}` : ""}
             {snapshot?.max_date ? ` · dados até ${snapshot.max_date}` : ""}
           </p>
+          </div>
+          <div className="shrink-0">
+            <EmpresaSelect value={empresa} onChange={setEmpresa} options={options} />
+          </div>
         </div>
 
         {loading ? (
@@ -35,7 +45,10 @@ export default function GrowthMarketing() {
             Nenhum dado disponível. Atualize os dados em Configuração de dados.
           </p>
         ) : (
-          <DecisionSection dept={dept} editing={false} hiddenIds={[]} onToggle={() => {}} />
+          <>
+            <DecisionSection dept={dept} editing={false} hiddenIds={[]} onToggle={() => {}} />
+            <EmpresaComparison snapshot={snapshot} />
+          </>
         )}
       </div>
     </div>
