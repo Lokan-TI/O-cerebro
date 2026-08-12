@@ -11,9 +11,12 @@ export const DEPARTMENTS = [
     items: [{ label: "Consultor IA", to: "/" }],
   },
   {
-    id: "marketing",
-    label: "Marketing",
-    items: [{ label: "Conversão de Novos Clientes", to: "/ConversaoNovosClientes" }],
+    id: "growth",
+    label: "Growth Marketing",
+    items: [
+      { label: "KPIs de Growth", to: "/PainelDecisao#growth" },
+      { label: "Conversão de Novos Clientes", to: "/ConversaoNovosClientes" },
+    ],
   },
   {
     id: "comercial",
