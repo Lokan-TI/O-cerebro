@@ -1,14 +1,10 @@
 import { useState } from "react";
 import { ErpSnapshotProvider } from "@/lib/ErpSnapshotContext";
 import RefreshHeader from "@/components/erp/RefreshHeader";
-import SnapshotKpiGrid from "@/components/erp/SnapshotKpiGrid";
-import TabComparativo from "@/components/erp/TabComparativo";
-import SnapshotTables from "@/components/erp/SnapshotTables";
 import QueryRunner from "@/components/erp/QueryRunner";
 import SchemaExplorer from "@/components/erp/SchemaExplorer";
 import TabChurn from "@/components/erp/TabChurn";
 import TabClientesCar from "@/components/erp/TabClientesCar";
-import TabVisaoGeral from "@/components/erp/TabVisaoGeral";
 import TabFinanceiro from "@/components/erp/TabFinanceiro";
 import TabLocacoes from "@/components/erp/TabLocacoes";
 import TabOperacional from "@/components/erp/TabOperacional";
@@ -23,16 +19,12 @@ import TabCliente360 from "@/components/erp/TabCliente360";
 
 const TABS = [
   { id: "executiva", label: "Visão Executiva" },
-  { id: "visao_geral", label: "Visão Geral" },
   { id: "financeiro", label: "Financeiro" },
   { id: "locacoes", label: "Locações" },
   { id: "operacional", label: "Operacional" },
   { id: "clientes_pessoa", label: "Clientes" },
   { id: "cliente360", label: "Cliente 360" },
   { id: "classificacao", label: "Classificação" },
-  { id: "comparativo", label: "Comparativo" },
-  { id: "kpis", label: "KPIs Snapshot" },
-  { id: "clientes_snapshot", label: "Clientes Snapshot" },
   { id: "churn", label: "Retenção & Churn" },
   { id: "car", label: "Clientes CAR" },
   { id: "estrutura", label: "Estrutura" },
@@ -45,16 +37,12 @@ function ErpCrmDashboardContent() {
   const renderTab = () => {
     switch (activeTab) {
       case "executiva": return <TabExecutiva />;
-      case "visao_geral": return <TabVisaoGeral />;
       case "financeiro": return <TabFinanceiro />;
       case "locacoes": return <TabLocacoes />;
       case "operacional": return <TabOperacional />;
       case "clientes_pessoa": return <TabClientesPessoa />;
       case "cliente360": return <TabCliente360 />;
       case "classificacao": return <TabClassificacao />;
-      case "comparativo": return <TabComparativo />;
-      case "kpis": return <SnapshotKpiGrid />;
-      case "clientes_snapshot": return <SnapshotTables />;
       case "churn": return <TabChurn />;
       case "car": return <TabClientesCar />;
       case "estrutura": return <SchemaExplorer />;

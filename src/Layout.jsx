@@ -1,32 +1,7 @@
 import { Link } from "react-router-dom";
 import { createPageUrl } from "@/utils";
-import { Settings } from "lucide-react";
 
 const MENUS = [
-  {
-    id: "google-leads",
-    label: "Google · First-Touch",
-    desc: "Conversão, recompra e receita retida",
-    page: "GoogleDashboard",
-    color: "blue",
-    badge: "GOOGLE ADS",
-  },
-  {
-    id: "funil",
-    label: "Funil de Conversão",
-    desc: "Análise detalhada do funil por vendedor",
-    page: "FunilConversao",
-    color: "green",
-    badge: "FUNIL",
-  },
-  {
-    id: "leads-perdidos",
-    label: "Leads Perdidos",
-    desc: "Análise completa de oportunidades não convertidas",
-    page: "Dashboard",
-    color: "red",
-    badge: "PERDIDOS",
-  },
   {
     id: "conversao",
     label: "Conversão de Novos Clientes",
@@ -69,11 +44,7 @@ const COLOR_MAP = {
 };
 
 export default function Layout({ children, currentPageName }) {
-  const isFunil = currentPageName === "FunilConversao";
-  const isErpCrm = currentPageName === "ErpCrmDashboard";
-  const accentColor = isFunil ? "green" : isErpCrm ? "purple" : "blue";
-  const c = COLOR_MAP[accentColor];
-  const isGoogleDashboard = currentPageName === "GoogleDashboard";
+  const c = COLOR_MAP["purple"];
 
   return (
     <div className="min-h-screen bg-gray-950 text-white flex flex-col">
@@ -111,16 +82,6 @@ export default function Layout({ children, currentPageName }) {
           );
         })}
 
-        {/* Botão Importar Dados — só no Google Dashboard */}
-        {isGoogleDashboard && (
-          <button
-            onClick={() => window.dispatchEvent(new CustomEvent("open-import-modal"))}
-            className="ml-auto flex items-center gap-2 px-3 py-1.5 bg-gray-800 hover:bg-gray-700 border border-gray-700 hover:border-gray-500 text-gray-300 hover:text-white rounded-lg text-xs font-medium transition-colors"
-          >
-            <Settings className="w-3.5 h-3.5" />
-            Importar Dados
-          </button>
-        )}
       </nav>
 
       {/* Page content */}

@@ -47,8 +47,8 @@ const AuthenticatedApp = () => {
     <ErpSourceProvider>
     <Routes>
       <Route path="/" element={
-        <LayoutWrapper currentPageName={mainPageKey}>
-          <MainPage />
+        <LayoutWrapper currentPageName="ErpCrmDashboard">
+          <ErpCrmDashboard />
         </LayoutWrapper>
       } />
       {Object.entries(Pages).map(([path, Page]) => (
