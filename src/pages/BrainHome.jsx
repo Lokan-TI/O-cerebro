@@ -23,9 +23,9 @@ export default function BrainHome() {
           </div>
 
           <h1 className="text-4xl md:text-5xl font-bold text-white text-center tracking-tight leading-[1.1]">
-            Sua frota fala.
+            Os dados já sabem.
             <br />
-            <span className="text-purple-400">Aqui você escuta.</span>
+            <span className="text-purple-400">A decisão é sua.</span>
           </h1>
           <p className="text-gray-500 text-sm text-center mt-4 mb-8">
             {source?.name ? `Base ${source.name}` : "Base conectada"}
