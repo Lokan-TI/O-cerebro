@@ -3,7 +3,9 @@ export const DEPARTMENTS = [
   {
     id: "decisao",
     label: "Painel de Decisão",
-    items: [{ label: "KPIs por departamento", to: "/PainelDecisao" }],
+    items: [
+      { label: "KPIs por departamento (inclui Growth)", to: "/PainelDecisao" },
+    ],
   },
   {
     id: "cerebro",
@@ -14,7 +16,7 @@ export const DEPARTMENTS = [
     id: "growth",
     label: "Growth Marketing",
     items: [
-      { label: "KPIs de Growth", to: "/PainelDecisao#growth" },
+      { label: "Painel de Growth", to: "/GrowthMarketing" },
       { label: "Conversão de Novos Clientes", to: "/ConversaoNovosClientes" },
     ],
   },
