@@ -1,7 +1,6 @@
 import { useBrainSnapshot } from "@/components/brain/useBrainSnapshot";
 import AskConsultant from "@/components/brain/AskConsultant";
-import BrainPulse from "@/components/brain/BrainPulse";
-import DataQualityPanel from "@/components/brain/DataQualityPanel";
+import BrainShortcuts from "@/components/brain/BrainShortcuts";
 import { BrainCircuit, Loader2 } from "lucide-react";
 
 export default function BrainHome() {
@@ -39,14 +38,9 @@ export default function BrainHome() {
           <AskConsultant snapshot={snapshot} sourceName={source?.name} />
         )}
 
-        {/* Pulso + atalhos */}
+        {/* Atalhos discretos */}
         <div className="w-full mt-12">
-          {!loading && <BrainPulse snapshot={snapshot} />}
-        </div>
-
-        {/* Diagnóstico de dados e benchmark de mercado */}
-        <div className="w-full mt-6">
-          {!loading && <DataQualityPanel snapshot={snapshot} />}
+          <BrainShortcuts />
         </div>
       </div>
     </div>

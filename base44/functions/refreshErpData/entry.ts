@@ -468,19 +468,19 @@ async function processRefresh(base44, source, run, version, previousVersion, sta
     }
     await updateStep(6, 65);
 
-    // Etapa 7: Coorte de clientes (universo de locação fich_loc; receita proxy do nf)
+    // Etapa 7: Coorte de clientes — MESMO universo de "clientes ativos" (tabela nf),
+    // comparando janelas equivalentes (jan→hoje deste ano vs. jan→hoje do ano anterior).
+    // Garante novos + recorrentes = clientes_ano e churn sem distorção de sazonalidade.
     let cohortKpis = {};
     let cohortByEmpresa = {};
     try {
-      // Classificação pelo universo de remessas aprovadas (fl_remessa) — por empresa e consolidado.
-      // Substitui a contagem bruta de fich_loc para excluir orçamentos não aprovados e remessas canceladas.
-      // Classificação em duas consultas separadas (ano passado / ano atual) — cada query
-      // sargable sobre um intervalo de 1 ano. A versão 2-anos em query única estourava o
-      // timeout do wrapper (JOIN fl_remessa × fich_loc é mais custoso que fich_loc isolada).
-      const lastYrSql = `SELECT DISTINCT f.cd_empresa, f.cd_pessoa ${approvedRemessaFrom}
-        AND r.dt_saida >= ${lastYearStart} AND r.dt_saida < ${yearStart}`;
-      const thisYrSql = `SELECT DISTINCT f.cd_empresa, f.cd_pessoa ${approvedRemessaFrom}
-        AND r.dt_saida >= ${yearStart} AND r.dt_saida < ${yearEnd}`;
+      // Duas consultas sargáveis sobre nf — mesma origem dos KPIs de clientes ativos.
+      const lastYrSql = `SELECT DISTINCT cd_empresa, cd_pessoa FROM nf WITH (NOLOCK)
+        WHERE dt_emi_nf >= ${lastYearStart} AND dt_emi_nf < ${lastYearEnd} ${cancelFilter}
+          AND cd_pessoa IS NOT NULL`;
+      const thisYrSql = `SELECT DISTINCT cd_empresa, cd_pessoa FROM nf WITH (NOLOCK)
+        WHERE dt_emi_nf >= ${yearStart} AND dt_emi_nf < ${yearEnd} ${cancelFilter}
+          AND cd_pessoa IS NOT NULL`;
       const lastRows = getRows(await runQuery(source, wrap(lastYrSql), 30000));
       queryCount++;
       const thisRows = getRows(await runQuery(source, wrap(thisYrSql), 30000));
@@ -517,10 +517,11 @@ async function processRefresh(base44, source, run, version, previousVersion, sta
       let newRevenue = 0, retainedRevenue = 0;
       const perEmpRev = {};
       try {
-        const revSql = `SELECT f.cd_empresa, f.cd_pessoa, ISNULL(SUM(fat.vl_fatura),0) AS rev
-          ${faturaFrom}
-            AND fat.dt_geracao >= ${yearStart} AND fat.dt_geracao < ${yearEnd}
-          GROUP BY f.cd_empresa, f.cd_pessoa`;
+        const revSql = `SELECT cd_empresa, cd_pessoa, ISNULL(SUM(vl_faturamento),0) AS rev
+          FROM nf WITH (NOLOCK)
+          WHERE dt_emi_nf >= ${yearStart} AND dt_emi_nf < ${yearEnd} ${cancelFilter}
+            AND cd_pessoa IS NOT NULL
+          GROUP BY cd_empresa, cd_pessoa`;
         for (const r of getRows(await runQuery(source, wrap(revSql), 30000))) {
           const emp = Number(r.cd_empresa);
           const code = String(r.cd_pessoa);
@@ -639,7 +640,7 @@ async function processRefresh(base44, source, run, version, previousVersion, sta
         const fatMesAnt = Number(r.fat_mes_ant) || 0;
         const nfsAno = Number(r.nfs_ano) || 0;
         const nfsMes = Number(r.nfs_mes) || 0;
-        const clientesAno = fichEmpClients[Number(r.cd_empresa)]?.ano || 0;
+        const clientesAno = Number(r.clientes_ano) || 0;
         const ce = cohortByEmpresa[Number(r.cd_empresa)];
         return {
           cd_empresa: Number(r.cd_empresa),
@@ -651,7 +652,7 @@ async function processRefresh(base44, source, run, version, previousVersion, sta
           nfs_ano: nfsAno,
           nfs_mes: nfsMes,
           clientes_ano: clientesAno,
-          clientes_mes: fichEmpClients[Number(r.cd_empresa)]?.mes || 0,
+          clientes_mes: Number(r.clientes_mes) || 0,
           ticket_ano: nfsAno > 0 ? fatAno / nfsAno : 0,
           ticket_mes: nfsMes > 0 ? fatMes / nfsMes : 0,
           crescimento_ano: fatAnoAnt > 0 ? ((fatAno - fatAnoAnt) / fatAnoAnt * 100) : null,
@@ -772,8 +773,8 @@ async function processRefresh(base44, source, run, version, previousVersion, sta
       fat_mes_ant: Number(kpiRow.fat_mes_ant) || 0,
       nfs_mes: Number(kpiRow.nfs_mes) || 0,
       nfs_ano: Number(kpiRow.nfs_ano) || 0,
-      clientes_mes: fichClients.mes,
-      clientes_ano: fichClients.ano,
+      clientes_mes: Number(kpiRow.clientes_mes) || 0,
+      clientes_ano: Number(kpiRow.clientes_ano) || 0,
       ticket_ano: Number(kpiRow.ticket_ano) || 0,
       ticket_mes: Number(kpiRow.ticket_mes) || 0,
       crescimento_ano: Number(kpiRow.fat_ano_ant) > 0 ? ((Number(kpiRow.fat_ano) - Number(kpiRow.fat_ano_ant)) / Number(kpiRow.fat_ano_ant) * 100) : null,
