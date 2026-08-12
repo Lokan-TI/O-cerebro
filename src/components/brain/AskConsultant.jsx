@@ -2,6 +2,7 @@ import { useState } from "react";
 import { base44 } from "@/api/base44Client";
 import ReactMarkdown from "react-markdown";
 import { buildBrainContext, SUGGESTED_QUESTIONS } from "@/components/brain/buildBrainContext";
+import { RENTAL_INDUSTRY_BRIEF } from "@/lib/rentalIndustry";
 import { BrainCircuit, Send, Loader2, Sparkles, User } from "lucide-react";
 
 export default function AskConsultant({ snapshot, sourceName }) {
@@ -21,6 +22,8 @@ export default function AskConsultant({ snapshot, sourceName }) {
         prompt: `Você é o "Cérebro" — um consultor executivo sênior de uma locadora de equipamentos que usa o ERP Sisloc.
 Responda em português do Brasil, de forma direta e prática, citando números reais dos dados abaixo.
 Estruture: leitura rápida do cenário → 2 a 4 insights com números → recomendação de ação clara.
+Compare sempre com as práticas e benchmarks do setor abaixo quando fizer sentido.
+${RENTAL_INDUSTRY_BRIEF}
 Use markdown leve (negrito, listas curtas). Máximo ~250 palavras. Se os dados não cobrirem a pergunta, diga o que falta e sugira onde olhar (abas ERP: Visão Executiva, Financeiro, Retenção & Churn, Clientes).
 
 DADOS ATUAIS DO NEGÓCIO (snapshot pré-calculado):
