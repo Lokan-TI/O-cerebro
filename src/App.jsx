@@ -9,6 +9,7 @@ import UserNotRegisteredError from '@/components/UserNotRegisteredError';
 import ErpCrmDashboard from './pages/ErpCrmDashboard.jsx';
 import GerenciarFontes from './pages/GerenciarFontes.jsx';
 import ConversaoNovosClientes from './pages/ConversaoNovosClientes.jsx';
+import BrainHome from './pages/BrainHome.jsx';
 import { ErpSourceProvider } from '@/lib/ErpSourceContext';
 
 const { Pages, Layout, mainPage } = pagesConfig;
@@ -47,8 +48,13 @@ const AuthenticatedApp = () => {
     <ErpSourceProvider>
     <Routes>
       <Route path="/" element={
-        <LayoutWrapper currentPageName="ErpCrmDashboard">
-          <ErpCrmDashboard />
+        <LayoutWrapper currentPageName="BrainHome">
+          <BrainHome />
+        </LayoutWrapper>
+      } />
+      <Route path="/BrainHome" element={
+        <LayoutWrapper currentPageName="BrainHome">
+          <BrainHome />
         </LayoutWrapper>
       } />
       {Object.entries(Pages).map(([path, Page]) => (

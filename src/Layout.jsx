@@ -3,6 +3,14 @@ import { createPageUrl } from "@/utils";
 
 const MENUS = [
   {
+    id: "cerebro",
+    label: "Cérebro",
+    desc: "Consultor de decisões com dados reais",
+    page: "BrainHome",
+    color: "purple",
+    badge: "IA",
+  },
+  {
     id: "conversao",
     label: "Conversão de Novos Clientes",
     desc: "Cadastro → ficha de locação → nota fiscal",
