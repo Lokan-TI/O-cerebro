@@ -74,32 +74,106 @@ export function buildDecisionKpis(snapshot) {
       ],
     },
     {
-      id: "marketing",
-      label: "Marketing & Retenção",
-      kpis: [
+      id: "growth",
+      label: "Growth Marketing",
+      groups: [
         {
-          id: "retencao", label: "Taxa de retenção", value: pct(k.retention_rate),
-          sub: `${num(k.retained_clients)} de ${num(k.clients_last_year)} clientes`,
-          market: "Locadoras maduras retêm 55–70% da base anual",
-          status: status(k.retention_rate, { good: 55, warn: 40, direction: "up" }),
+          label: "North Star — ocupação da frota",
+          kpis: [
+            {
+              id: "north_star", label: "Taxa de ocupação da frota", value: contratosAtivosPct == null ? "—" : pct(contratosAtivosPct),
+              sub: `${num(a.fichloc_ativas)} contratos ativos de ${num(a.fichloc_total)}`,
+              market: "North Star do setor: ocupação 60–75% com margem saudável",
+              status: status(contratosAtivosPct, { good: 60, warn: 45, direction: "up" }),
+            },
+            {
+              id: "revpae", label: "Receita por contrato locado (RevPAE)", value: a.fichloc_total ? brl(fatTotal / a.fichloc_total) : "—",
+              sub: `${brl(fatTotal)} sobre ${num(a.fichloc_total)} contratos`,
+              market: "RevPAE deve subir junto com a ocupação, não com desconto de preço",
+              status: "neutral",
+            },
+          ],
         },
         {
-          id: "churn", label: "Churn de clientes", value: pct(k.churn_rate),
-          sub: `${num(k.churned_clients)} clientes sem faturar`,
-          market: "Benchmark: churn até 35% ao ano",
-          status: status(k.churn_rate, { good: 35, warn: 50, direction: "down" }),
+          label: "1. Geração de demanda comercial",
+          kpis: [
+            {
+              id: "novos", label: "Novos clientes (ativação)", value: num(k.new_clients),
+              sub: `Receita nova ${brl(k.new_client_revenue)}`,
+              market: "Aquisição saudável repõe o churn do período",
+              status: status(k.new_clients - (k.churned_clients || 0), { good: 0, warn: -200, direction: "up" }),
+            },
+            {
+              id: "mix_receita", label: "Peso da receita nova", value: novosPct == null ? "—" : pct(novosPct),
+              sub: `Base recorrente ${brl(k.retained_revenue)}`,
+              market: "Ideal B2B: 20–35% de receita nova, o restante recorrente",
+              status: status(novosPct, { good: 20, warn: 10, direction: "up" }),
+            },
+            {
+              id: "conv_orcamento", label: "Conversão de orçamento", value: "—",
+              sub: "MQL/SQL e propostas fechadas",
+              market: "Benchmark: 25–40% dos orçamentos viram contrato · requer base de orçamentos conectada",
+              status: "neutral",
+            },
+            {
+              id: "cac", label: "CPL qualificado e CAC", value: "—",
+              sub: "Custo de mídia por categoria de equipamento",
+              market: "Exige integração com investimento de mídia/CRM para calcular CPL e CAC",
+              status: "neutral",
+            },
+          ],
         },
         {
-          id: "novos", label: "Novos clientes", value: num(k.new_clients),
-          sub: `Receita nova ${brl(k.new_client_revenue)}`,
-          market: "Aquisição saudável repõe o churn do período",
-          status: status(k.new_clients - (k.churned_clients || 0), { good: 0, warn: -200, direction: "up" }),
+          label: "2. Eficiência da frota",
+          kpis: [
+            {
+              id: "giro", label: "Contratos encerrados no período", value: num(a.fichloc_encerradas),
+              sub: `${num(a.fichloc_ativas)} seguem ativos`,
+              market: "Encerramentos acima das aberturas indicam frota voltando ao pátio",
+              status: status((a.fichloc_ativas || 0) - (a.fichloc_encerradas || 0), { good: 0, warn: -500, direction: "up" }),
+            },
+            {
+              id: "ciclo", label: "Remessas x devoluções", value: `${num(remessas)} / ${num(devolucoes)}`,
+              sub: "Saídas e retornos de equipamento",
+              market: "Devoluções acima das remessas antecipam queda de ocupação",
+              status: status(remessas - devolucoes, { good: 0, warn: -500, direction: "up" }),
+            },
+            {
+              id: "idle", label: "Tempo de pátio (idle time)", value: "—",
+              sub: "Dias parados por equipamento",
+              market: "Requer datas de retorno x nova saída por patrimônio · meta: abaixo de 20 dias",
+              status: "neutral",
+            },
+          ],
         },
         {
-          id: "mix_receita", label: "Receita de novos clientes", value: novosPct == null ? "—" : pct(novosPct),
-          sub: `Base recorrente ${brl(k.retained_revenue)}`,
-          market: "Ideal: 20–35% da receita vindo de novos, resto recorrente",
-          status: status(novosPct, { good: 20, warn: 10, direction: "up" }),
+          label: "3. Receita e retenção de contas",
+          kpis: [
+            {
+              id: "ltv", label: "LTV médio por cliente", value: brl(k.receita_por_cliente),
+              sub: `${num(k.clientes_ano)} clientes faturando`,
+              market: "Em locação pesada o lucro vem do cliente que realoca obra após obra",
+              status: "neutral",
+            },
+            {
+              id: "rerental", label: "Taxa de recontratação", value: pct(k.retention_rate),
+              sub: `${num(k.retained_clients)} de ${num(k.clients_last_year)} clientes voltaram`,
+              market: "Locadoras maduras recontratam 55–70% das contas ao ano",
+              status: status(k.retention_rate, { good: 55, warn: 40, direction: "up" }),
+            },
+            {
+              id: "churn", label: "Churn de contas", value: pct(k.churn_rate),
+              sub: `${num(k.churned_clients)} construtoras sem faturar`,
+              market: "Benchmark: churn até 35% ao ano",
+              status: status(k.churn_rate, { good: 35, warn: 50, direction: "down" }),
+            },
+            {
+              id: "concentracao_growth", label: "Dependência dos maiores clientes", value: pct(k.concentracao_top10),
+              sub: "Receita concentrada no top 10",
+              market: "Acima de 40% o crescimento fica refém de poucas obras",
+              status: status(k.concentracao_top10, { good: 30, warn: 40, direction: "down" }),
+            },
+          ],
         },
       ],
     },
