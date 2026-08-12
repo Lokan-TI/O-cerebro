@@ -2,10 +2,13 @@ import { useBrainSnapshot } from "@/components/brain/useBrainSnapshot";
 import AskConsultant from "@/components/brain/AskConsultant";
 import BrainShortcuts from "@/components/brain/BrainShortcuts";
 import BrainInsights from "@/components/brain/BrainInsights";
+import { pickHeroPhrase } from "@/lib/heroPhrases";
+import { useState } from "react";
 import { BrainCircuit, Loader2, ChevronDown } from "lucide-react";
 
 export default function BrainHome() {
   const { snapshot, loading, source } = useBrainSnapshot();
+  const [phrase] = useState(pickHeroPhrase);
 
   return (
     <div className="min-h-screen bg-gray-950 relative">
@@ -23,9 +26,9 @@ export default function BrainHome() {
           </div>
 
           <h1 className="text-4xl md:text-5xl font-bold text-white text-center tracking-tight leading-[1.1]">
-            Os dados já sabem.
+            {phrase.top}
             <br />
-            <span className="text-purple-400">A decisão é sua.</span>
+            <span className="text-purple-400">{phrase.accent}</span>
           </h1>
           <p className="text-gray-500 text-sm text-center mt-4 mb-8">
             {source?.name ? `Base ${source.name}` : "Base conectada"}
