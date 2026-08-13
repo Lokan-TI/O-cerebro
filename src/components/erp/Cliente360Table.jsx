@@ -1,6 +1,7 @@
 import { useState, useMemo } from "react";
-import { Search } from "lucide-react";
+import { Search, Download } from "lucide-react";
 import { fmtDoc, onlyDigits } from "@/lib/erpFormat";
+import { exportClientesCsv } from "@/components/erp/clientesExport";
 
 const brl = (v) => (Number(v) || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 });
 
@@ -57,6 +58,14 @@ export default function Cliente360Table({ clients = [], truncated }) {
           <option value="todos">Todos os status</option>
           {statuses.map((s) => <option key={s} value={s}>{s}</option>)}
         </select>
+        <button
+          onClick={() => exportClientesCsv(filtered)}
+          disabled={filtered.length === 0}
+          className="flex items-center gap-1.5 px-3 py-1.5 bg-green-700 hover:bg-green-600 disabled:opacity-40 disabled:cursor-not-allowed text-white rounded-lg text-sm font-medium transition-colors"
+          title="Baixar todos os dados dos clientes em planilha (Excel)"
+        >
+          <Download className="w-4 h-4" /> Exportar Excel
+        </button>
       </div>
 
       <div className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden">
