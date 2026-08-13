@@ -112,4 +112,16 @@ Universo compartilhado (idêntico ao da reconciliação): `fl_ent_sai='S' AND IS
 
 **MTR-017 · Clientes faturados no período** (novo): `count(distinct nf.cd_pessoa)` com Receita > 0. Métrica de atividade, distinta de MTR-016 (Cadastros). Contagem por cliente do ERP, não por Party canônico.
 
+### Reconciliação legado × canônico (2025, Matriz consolidado)
+Função `reconcileMetrics` · entidade `MetricReconciliation` (uma linha por métrica/janela, com linhagem SQL, status e aceite). Tolerância: match ≤ 0,5% · atenção ≤ 2% · divergente > 2%.
+
+| Métrica | Legado (snapshot) | Canônico | Δ | Status |
+|---|---|---|---|---|
+| MTR-001 Receita | R$ 50.036.361 | R$ 50.036.361 | 0% | ADERENTE |
+| MTR-006 Ticket médio | R$ 20.927 | R$ 21.401 | +2,27% | DIVERGENTE — justificado |
+| MTR-017 Clientes faturados | 2.391 | ~2.338 | −2,2% | DIVERGENTE — justificado |
+| MTR-007 Concentração top 10 | — | 21,0% | — | SEM LEGADO |
+
+**Causa das divergências (mesma raiz):** o snapshot legado conta clientes com qualquer NF válida no período; o canônico exige Receita > 0. Divergência esperada, registrada com justificativa e aceite no próprio registro de reconciliação — não é erro de cálculo.
+
 Todas as quatro seguem **NÃO OFICIAL**: dependem da decisão do CFO sobre o candidato de receita e do tratamento das NFs de valor zerado.

@@ -24,7 +24,8 @@ Saída: contagem de clientes e receita reproduzíveis a partir do canônico.
 
 ## Phase 4 — Semantic Layer *(em execução)*
 Entregue: registry executável + `computeMetric` (AnalysisContext obrigatório, selo de confiança e linhagem SQL por resultado) cobrindo MTR-001, 006, 007 e 017 · aba admin "Camada Semântica".
-Pendente: reconciliação legado × canônico persistida (`MetricReconciliation`), demais métricas da ordem sugerida e `DatasetRelease` atômico.
+Entregue: reconciliação legado × canônico persistida (`reconcileMetrics` + `MetricReconciliation`, aba admin "Recon. Métricas") — Receita aderente a 0%, divergências de contagem de clientes justificadas e aceitas.
+Pendente: demais métricas da ordem sugerida, ADR de aprovação do CFO e `DatasetRelease` atômico.
 
 Metric Layer no backend, métrica por métrica, com reconciliação obrigatória:
 ```

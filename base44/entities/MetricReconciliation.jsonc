@@ -1,0 +1,130 @@
+{
+  "name": "MetricReconciliation",
+  "type": "object",
+  "properties": {
+    "source_id": {
+      "type": "string",
+      "description": "ID da fonte de dados ERP"
+    },
+    "source_name": {
+      "type": "string"
+    },
+    "metric_id": {
+      "type": "string",
+      "description": "ID da m\u00e9trica no registry (ex.: MTR-001)"
+    },
+    "business_name": {
+      "type": "string"
+    },
+    "registry_version": {
+      "type": "string"
+    },
+    "period_start": {
+      "type": "string"
+    },
+    "period_end": {
+      "type": "string"
+    },
+    "cd_empresa": {
+      "type": "string",
+      "description": "Escopo de empresa; vazio = consolidado"
+    },
+    "unit": {
+      "type": "string",
+      "enum": [
+        "BRL",
+        "count",
+        "percent"
+      ],
+      "default": "BRL"
+    },
+    "legacy_value": {
+      "type": "number",
+      "description": "Valor do caminho legado (snapshot / dashboards atuais)"
+    },
+    "legacy_source": {
+      "type": "string",
+      "description": "Origem do valor legado (entidade e campo)"
+    },
+    "canonical_value": {
+      "type": "number",
+      "description": "Valor calculado pela camada sem\u00e2ntica (computeMetric)"
+    },
+    "diff": {
+      "type": "number"
+    },
+    "diff_pct": {
+      "type": "number",
+      "description": "Percentual assinado de diverg\u00eancia"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "match",
+        "warn",
+        "fail",
+        "no_legacy"
+      ],
+      "default": "match",
+      "description": "match <= 0,5% \u00b7 warn <= 2% \u00b7 fail > 2% \u00b7 no_legacy sem contraparte legada"
+    },
+    "justification": {
+      "type": "string",
+      "description": "Justificativa documentada da diverg\u00eancia aceita"
+    },
+    "approved": {
+      "type": "boolean",
+      "default": false,
+      "description": "Diverg\u00eancia revisada e aceita pelo dono de neg\u00f3cio"
+    },
+    "queries": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Linhagem SQL da apura\u00e7\u00e3o can\u00f4nica"
+    },
+    "snapshot_version": {
+      "type": "string"
+    },
+    "run_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "generated_by_name": {
+      "type": "string"
+    },
+    "duration_ms": {
+      "type": "number",
+      "default": 0
+    }
+  },
+  "required": [
+    "source_id",
+    "metric_id",
+    "period_start",
+    "period_end"
+  ],
+  "rls": {
+    "read": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

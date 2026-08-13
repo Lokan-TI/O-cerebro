@@ -24,6 +24,7 @@ import TabOnboardingFonte from "@/components/erp/TabOnboardingFonte";
 import TabReconciliacaoReceita from "@/components/erp/TabReconciliacaoReceita";
 import TabIdentidadeParty from "@/components/erp/TabIdentidadeParty";
 import TabCamadaSemantica from "@/components/erp/TabCamadaSemantica";
+import TabReconciliacaoMetricas from "@/components/erp/TabReconciliacaoMetricas";
 
 const TABS = [
   { id: "executiva", label: "Visão Executiva" },
@@ -42,6 +43,7 @@ const TABS = [
   { id: "reconciliacao", label: "Reconciliação Receita", adminOnly: true },
   { id: "identidade", label: "Identidade (Party)", adminOnly: true },
   { id: "semantica", label: "Camada Semântica", adminOnly: true },
+  { id: "recon_metricas", label: "Recon. Métricas", adminOnly: true },
   { id: "query", label: "Query SQL", adminOnly: true },
 ];
 
@@ -77,6 +79,7 @@ function ErpCrmDashboardContent() {
       case "reconciliacao": return isAdmin ? <TabReconciliacaoReceita /> : null;
       case "identidade": return isAdmin ? <TabIdentidadeParty /> : null;
       case "semantica": return isAdmin ? <TabCamadaSemantica /> : null;
+      case "recon_metricas": return isAdmin ? <TabReconciliacaoMetricas /> : null;
       case "query": return isAdmin ? <QueryRunner /> : null;
       default: return null;
     }
