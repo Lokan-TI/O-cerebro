@@ -10,7 +10,13 @@ export default function PeriodMismatchNotice() {
   const loaded = snapshot?.analytics_period;
 
   if (!loaded || !period) return null;
-  if (loaded.start === period.start && loaded.end === period.end) return null;
+  // A janela carregada pode ser maior que a aplicada (ex.: histórico completo) — nesse caso
+  // os dados já cobrem o período pedido. O fim aplicado é limitado à data de hoje.
+  const hoje = new Date().toISOString().slice(0, 10);
+  const fimPedido = period.end > hoje ? hoje : period.end;
+  // O fim carregado é a última data com movimento; usa também a data máxima da base.
+  const fimCarregado = snapshot?.max_date && snapshot.max_date > loaded.end ? snapshot.max_date : loaded.end;
+  if (loaded.start <= period.start && fimCarregado >= fimPedido) return null;
 
   return (
     <div className="bg-amber-950 border border-amber-800 rounded-lg px-4 py-3 flex flex-wrap items-center gap-3">
