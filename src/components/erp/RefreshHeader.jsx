@@ -5,6 +5,7 @@ import { useGlobalFilter } from "@/lib/GlobalFilterContext";
 import GlobalFilterBar from "./GlobalFilterBar";
 import SyncConfirmDialog from "./SyncConfirmDialog";
 import SyncHistoryPanel from "./SyncHistoryPanel";
+import PeriodMismatchNotice from "./PeriodMismatchNotice";
 import { RefreshCw, History, AlertTriangle, CheckCircle2, Loader2, Clock, Database } from "lucide-react";
 import { formatDateTime, formatDuration, daysSince } from "@/lib/erpSync";
 
@@ -84,6 +85,8 @@ export default function RefreshHeader() {
           <span className="text-gray-500 text-xs">Versão: {snapshot.version}</span>
         )}
       </div>
+
+      <PeriodMismatchNotice />
 
       {/* Barra de progresso durante atualização */}
       {refreshing && latestRun && (

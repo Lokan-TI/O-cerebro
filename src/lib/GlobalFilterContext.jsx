@@ -12,6 +12,7 @@ const GlobalFilterContext = createContext(null);
 const STORAGE_KEY = "erp_global_filter_period";
 
 export const PERIOD_PRESETS = [
+  { id: "tudo", label: "Todo o período" },
   { id: "ano_atual", label: "Ano atual" },
   { id: "ultimos_12", label: "Últimos 12 meses" },
   { id: "ano_anterior", label: "Ano anterior" },
@@ -23,6 +24,8 @@ function isoDate(d) { return d.toISOString().slice(0, 10); }
 function presetRange(preset, customStart, customEnd) {
   const now = new Date();
   const y = now.getFullYear();
+  // "Todo o período": cobre todo o histórico operacional da base
+  if (preset === "tudo") return { start: "2000-01-01", end: `${y + 1}-01-01` };
   if (preset === "ano_atual") return { start: `${y}-01-01`, end: `${y + 1}-01-01` };
   if (preset === "ano_anterior") return { start: `${y - 1}-01-01`, end: `${y}-01-01` };
   if (preset === "ultimos_12") {
