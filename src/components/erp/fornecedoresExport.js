@@ -46,6 +46,8 @@ export function exportFornecedoresCsv(suppliers) {
     COLS.map(([key]) => {
       if (DOC_COLS.has(key)) return esc(fmtDoc(r[key]));
       if (key === "inscricao_estadual") return esc(asExcelText(fmtIe(r[key])));
+      // Número da residência vai como texto: evita que "12-34" ou "0045" virem data/número no Excel
+      if (key === "numero") return esc(asExcelText(String(r[key] ?? "").trim()));
       return esc(r[key]);
     }).join(";")
   );
