@@ -60,7 +60,7 @@ Supplier (PartyRole) · Purchase · SupplierInvoice · SupplierPayment (`cap`).
 ## Cobertura atual (honesta)
 | Domínio | Cobertura canônica | Bloqueio |
 |---|---|---|
-| Party & Customer | parcial | entity resolution ausente |
+| Party & Customer | parcial | resolution determinística por documento ativa (ver 09); probabilística e cross-source pendentes |
 | Finance | parcial | fonte da verdade de receita não reconciliada |
 | Rental | parcial | evento de ativação indefinido |
 | Fleet | inicial | profiling pendente |

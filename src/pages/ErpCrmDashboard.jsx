@@ -22,6 +22,7 @@ import TabExecutiva from "@/components/erp/TabExecutiva";
 import TabCliente360 from "@/components/erp/TabCliente360";
 import TabOnboardingFonte from "@/components/erp/TabOnboardingFonte";
 import TabReconciliacaoReceita from "@/components/erp/TabReconciliacaoReceita";
+import TabIdentidadeParty from "@/components/erp/TabIdentidadeParty";
 
 const TABS = [
   { id: "executiva", label: "Visão Executiva" },
@@ -38,6 +39,7 @@ const TABS = [
   { id: "estrutura", label: "Estrutura" },
   { id: "onboarding", label: "Onboarding da Fonte", adminOnly: true },
   { id: "reconciliacao", label: "Reconciliação Receita", adminOnly: true },
+  { id: "identidade", label: "Identidade (Party)", adminOnly: true },
   { id: "query", label: "Query SQL", adminOnly: true },
 ];
 
@@ -71,6 +73,7 @@ function ErpCrmDashboardContent() {
       case "estrutura": return <SchemaExplorer />;
       case "onboarding": return isAdmin ? <TabOnboardingFonte /> : null;
       case "reconciliacao": return isAdmin ? <TabReconciliacaoReceita /> : null;
+      case "identidade": return isAdmin ? <TabIdentidadeParty /> : null;
       case "query": return isAdmin ? <QueryRunner /> : null;
       default: return null;
     }

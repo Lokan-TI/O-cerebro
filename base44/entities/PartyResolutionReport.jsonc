@@ -1,0 +1,157 @@
+{
+  "name": "PartyResolutionReport",
+  "type": "object",
+  "properties": {
+    "source_id": {
+      "type": "string",
+      "description": "ID da fonte de dados ERP"
+    },
+    "source_name": {
+      "type": "string"
+    },
+    "source_slug": {
+      "type": "string"
+    },
+    "version": {
+      "type": "string"
+    },
+    "is_current": {
+      "type": "boolean",
+      "default": false
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "generated_by_name": {
+      "type": "string"
+    },
+    "match_method": {
+      "type": "string",
+      "default": "deterministic_document",
+      "description": "M\u00e9todo de matching aplicado (determin\u00edstico por CNPJ/CPF normalizado)"
+    },
+    "source_records": {
+      "type": "number",
+      "default": 0,
+      "description": "Registros brutos em pessoa"
+    },
+    "role_customer": {
+      "type": "number",
+      "default": 0
+    },
+    "role_supplier": {
+      "type": "number",
+      "default": 0
+    },
+    "role_employee": {
+      "type": "number",
+      "default": 0
+    },
+    "role_multiple": {
+      "type": "number",
+      "default": 0,
+      "description": "Registros que exercem mais de um papel"
+    },
+    "role_none": {
+      "type": "number",
+      "default": 0
+    },
+    "valid_document": {
+      "type": "number",
+      "default": 0,
+      "description": "Registros com CNPJ/CPF de 11 ou 14 d\u00edgitos"
+    },
+    "invalid_document": {
+      "type": "number",
+      "default": 0
+    },
+    "document_coverage": {
+      "type": "number",
+      "default": 0,
+      "description": "Percentual 0-100"
+    },
+    "duplicate_groups": {
+      "type": "number",
+      "default": 0
+    },
+    "duplicate_records": {
+      "type": "number",
+      "default": 0
+    },
+    "duplicate_rate": {
+      "type": "number",
+      "default": 0,
+      "description": "Percentual 0-100 de registros em duplicidade"
+    },
+    "canonical_parties": {
+      "type": "number",
+      "default": 0,
+      "description": "Party can\u00f4nicos = documentos distintos v\u00e1lidos + registros sem documento v\u00e1lido"
+    },
+    "canonical_customers": {
+      "type": "number",
+      "default": 0
+    },
+    "legacy_customer_count": {
+      "type": "number",
+      "default": 0,
+      "description": "Contagem legada (registros com papel de cliente)"
+    },
+    "reconciliation_diff": {
+      "type": "number",
+      "default": 0
+    },
+    "reconciliation_diff_pct": {
+      "type": "number",
+      "default": 0
+    },
+    "top_duplicates": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      },
+      "description": "Maiores grupos de duplicidade (documento, quantidade, nome exemplo)"
+    },
+    "warnings": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "query_count": {
+      "type": "number",
+      "default": 0
+    },
+    "duration_ms": {
+      "type": "number",
+      "default": 0
+    }
+  },
+  "required": [
+    "source_id",
+    "version"
+  ],
+  "rls": {
+    "read": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}
