@@ -4,6 +4,7 @@
 - **Tipo:** SQL Server (leitura), acesso via `sqlServerQuery` / `SqlGuard`
 - **Versão do contrato:** v1.0 (2026-08-13)
 - **Status:** Draft — pendente de validação com donos de negócio
+- **Nomes físicos confirmados (2026-08-13, via `v_Dicionario_Dados`):** `pessoa` (não `cliente`), `car` (não `financas_car`), `cap` (não `financas_cap`). Descoberta automatizada: Trust Score **86/100**, 800 tabelas, 15.435 colunas (76,8% documentadas), 199 colunas com dado pessoal.
 - **Dicionário oficial da fonte:** view `v_Dicionario_Dados`
   (colunas: `Tabela`, `Coluna`, `Caption`, `Options`, `Tipo`, `Tam_Maximo`, `Nulo`, `Chave_estrangeira`).
   Linhas com `Coluna = ''` descrevem a **tabela**; as demais descrevem **colunas**.
@@ -22,10 +23,10 @@
 | Objeto | Grão (uma linha = ) | Uso canônico |
 |---|---|---|
 | `nf` | Uma nota fiscal emitida | Documento fiscal / receita faturada |
-| `cliente` | Um cadastro de cliente | Entidade Customer |
-| `financas_car` | Um título a receber | Receita realizada / atribuição de vendedor |
+| `pessoa` | Um cadastro de pessoa (cliente/fornecedor) | Entidade Customer |
+| `car` | Um título a receber | Receita realizada / atribuição de vendedor |
 | `financas_car_comissao` | Comissão por título | **Única** fonte válida de vendedor |
-| `financas_cap` | Um título a pagar | Consumo por fornecedor |
+| `cap` | Um título a pagar | Consumo por fornecedor |
 | `est_mov` / `est_movitem` | Movimento / item de movimento | Locações e operação |
 | `fl_remessa` | Uma remessa | Ciclo logístico (usar `dt_saida`) |
 | `mkt_orcamento` | Um orçamento | Topo do funil comercial |

@@ -1,7 +1,9 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.40';
 import { execRead } from '../../shared/erpConnection.ts';
 
-const CORE_TABLES = ['nf', 'cliente', 'financas_car', 'financas_car_comissao', 'financas_cap', 'est_mov', 'est_movitem', 'fl_remessa', 'mkt_orcamento'];
+// Nomes reais confirmados no dicionário do SISLOC (v_Dicionario_Dados):
+// cliente → pessoa, financas_car → car, financas_cap → cap.
+const CORE_TABLES = ['nf', 'pessoa', 'car', 'cap', 'financas_car_comissao', 'est_mov', 'est_movitem', 'fl_remessa', 'mkt_orcamento'];
 
 const PII_PATTERNS = [
   { like: '%cpf%', category: 'documento' },
