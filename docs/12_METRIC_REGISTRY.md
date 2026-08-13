@@ -95,3 +95,21 @@ Dependem da definição do evento de ativação do contrato (ver doc 03).
 | Não implementáveis (fonte ausente) | MTR-002, 014, 015, 031–034, 040–052 |
 
 Nenhuma métrica desta lista está TRUSTED hoje. Todas as telas atuais que as exibem devem receber selo de confiança até a conclusão da Phase 4.
+
+---
+
+## Metric Layer executável (Phase 4 · registry v0.1)
+Registry em código: `base44/shared/metricRegistry.ts`. Porta única de cálculo: função `computeMetric` (AnalysisContext obrigatório: `period_start`, `period_end`, `source_id`, `cd_empresa`, `comparison_mode`). Toda resposta devolve valor, selo de confiança, perguntas bloqueadoras e a **linhagem** (SQL executada). Aba admin "Camada Semântica" consome apenas essa função.
+
+Universo compartilhado (idêntico ao da reconciliação): `fl_ent_sai='S' AND ISNULL(fl_can_nf,'N')<>'S' AND dt_cancelamento IS NULL AND dt_anul_nf IS NULL`, data de referência `dt_emi_nf`, cliente da nota = `nf.cd_pessoa`.
+
+| Métrica | Implementada | Valor 2025 (Matriz, todas as empresas) | vs. 2024 |
+|---|---|---|---|
+| MTR-001 Receita | sim | R$ 50.036.361 | +24,6% |
+| MTR-006 Ticket médio por cliente faturado | sim | R$ 21.401 | +14,6% |
+| MTR-007 Concentração top 10 | sim | 21,0% | — |
+| MTR-017 Clientes faturados no período | sim | — (calculado on demand) | — |
+
+**MTR-017 · Clientes faturados no período** (novo): `count(distinct nf.cd_pessoa)` com Receita > 0. Métrica de atividade, distinta de MTR-016 (Cadastros). Contagem por cliente do ERP, não por Party canônico.
+
+Todas as quatro seguem **NÃO OFICIAL**: dependem da decisão do CFO sobre o candidato de receita e do tratamento das NFs de valor zerado.

@@ -22,7 +22,10 @@ Saída: Source Onboarding Report com Trust Score.
 Raw plane com lineage por registro; Party/PartyRole; Invoice/Receivable/Payable; RentalContract/Dispatch; identity resolution determinística; eventos de cliente.
 Saída: contagem de clientes e receita reproduzíveis a partir do canônico.
 
-## Phase 4 — Semantic Layer
+## Phase 4 — Semantic Layer *(em execução)*
+Entregue: registry executável + `computeMetric` (AnalysisContext obrigatório, selo de confiança e linhagem SQL por resultado) cobrindo MTR-001, 006, 007 e 017 · aba admin "Camada Semântica".
+Pendente: reconciliação legado × canônico persistida (`MetricReconciliation`), demais métricas da ordem sugerida e `DatasetRelease` atômico.
+
 Metric Layer no backend, métrica por métrica, com reconciliação obrigatória:
 ```
 legacy_metric · canonical_metric · absolute_difference · percentage_difference · reason · approved
