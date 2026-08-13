@@ -1,0 +1,7 @@
+{
+  "type": "googlebigquery",
+  "scopes": [
+    "https://www.googleapis.com/auth/bigquery.readonly",
+    "email"
+  ]
+}
