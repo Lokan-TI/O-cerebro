@@ -1,7 +1,7 @@
 import { useState, useMemo } from "react";
 import { base44 } from "@/api/base44Client";
 import { useErpSource, ALL_SOURCES_ID } from "@/lib/ErpSourceContext";
-import { fmtCur, fmtNum } from "@/lib/erpFormat";
+import { fmtCur, fmtNum, fmtDoc, onlyDigits } from "@/lib/erpFormat";
 import { exportFornecedoresCsv } from "@/components/erp/fornecedoresExport";
 import QueryInspector from "@/components/erp/QueryInspector";
 import { Truck, Download, RefreshCw, Search } from "lucide-react";
@@ -34,12 +34,12 @@ export default function TabFornecedores() {
     if (onlyComCap) list = list.filter((r) => r.cap_qtd > 0);
     if (search.trim()) {
       const q = search.trim().toLowerCase();
+      const qd = onlyDigits(search);
       list = list.filter(
         (r) =>
           r.nm_pessoa.toLowerCase().includes(q) ||
           r.nm_fan_pessoa.toLowerCase().includes(q) ||
-          r.cnpj.includes(q) ||
-          r.cpf.includes(q)
+          (qd && (onlyDigits(r.cnpj).includes(qd) || onlyDigits(r.cpf).includes(qd)))
       );
     }
     return [...list].sort((a, b) => b.cap_total - a.cap_total);
@@ -156,7 +156,7 @@ export default function TabFornecedores() {
                       <div className="text-white">{r.nm_fan_pessoa || r.nm_pessoa}</div>
                       {r.nm_fan_pessoa && <div className="text-xs text-gray-600">{r.nm_pessoa}</div>}
                     </td>
-                    <td className="py-2 px-3 text-gray-400 font-mono text-xs">{r.cnpj || r.cpf || "—"}</td>
+                    <td className="py-2 px-3 text-gray-400 font-mono text-xs">{fmtDoc(r.cnpj) || fmtDoc(r.cpf) || "—"}</td>
                     <td className="py-2 px-3 text-gray-400 text-xs">{r.cidade ? `${r.cidade}/${r.uf}` : "—"}</td>
                     <td className="py-2 px-3 text-right text-gray-300">{fmtNum(r.cap_qtd)}</td>
                     <td className="py-2 px-3 text-right text-red-400 font-medium">{fmtCur(r.cap_total)}</td>

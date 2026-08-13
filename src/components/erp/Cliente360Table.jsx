@@ -1,5 +1,6 @@
 import { useState, useMemo } from "react";
 import { Search } from "lucide-react";
+import { fmtDoc, onlyDigits } from "@/lib/erpFormat";
 
 const brl = (v) => (Number(v) || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 });
 
@@ -28,7 +29,7 @@ export default function Cliente360Table({ clients = [], truncated }) {
         String(c.cd_pessoa).includes(q) ||
         (c.nm_pessoa || "").toLowerCase().includes(q) ||
         (c.global_id || "").toLowerCase().includes(q) ||
-        (c.documento || "").includes(q)
+        (onlyDigits(search) ? onlyDigits(c.documento).includes(onlyDigits(search)) : false)
       );
     });
   }, [clients, search, status]);
@@ -65,6 +66,7 @@ export default function Cliente360Table({ clients = [], truncated }) {
               <tr className="bg-gray-800/50 text-gray-400 text-xs uppercase tracking-wide">
                 <th className="text-left px-4 py-3">ID global</th>
                 <th className="text-left px-4 py-3">Cliente</th>
+                <th className="text-left px-4 py-3">CNPJ/CPF</th>
                 <th className="text-left px-4 py-3">Empresa</th>
                 <th className="text-center px-4 py-3">Status</th>
                 <th className="text-center px-4 py-3">Fichas</th>
@@ -77,11 +79,12 @@ export default function Cliente360Table({ clients = [], truncated }) {
             </thead>
             <tbody>
               {pageRows.length === 0 ? (
-                <tr><td colSpan={10} className="text-center py-12 text-gray-500 text-sm">Nenhum cliente encontrado.</td></tr>
+                <tr><td colSpan={11} className="text-center py-12 text-gray-500 text-sm">Nenhum cliente encontrado.</td></tr>
               ) : pageRows.map((c, i) => (
                 <tr key={c.global_id} className={`border-t border-gray-800 hover:bg-gray-800/30 ${i % 2 ? "bg-gray-800/20" : ""}`}>
                   <td className="px-4 py-2.5 text-gray-400 font-mono text-xs">{c.global_id}</td>
                   <td className="px-4 py-2.5 text-white font-medium">{c.nm_pessoa || "—"}</td>
+                  <td className="px-4 py-2.5 text-gray-400 font-mono text-xs whitespace-nowrap">{fmtDoc(c.documento) || "—"}</td>
                   <td className="px-4 py-2.5 text-gray-400 text-xs">{c.empresa_nome || "—"}</td>
                   <td className="px-4 py-2.5 text-center">
                     <span className={`px-2 py-0.5 rounded text-xs font-medium ${STATUS_STYLE[c.status] || "bg-gray-800 text-gray-400"}`}>{c.status}</span>
