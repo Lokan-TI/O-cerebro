@@ -1,0 +1,83 @@
+# 12 — METRIC REGISTRY (v0.1)
+
+Versão 0.1 · 2026-08-13 · Status: DRAFT
+Regra: nenhum dashboard cria KPI. Toda métrica exibida deve constar aqui com versão, grain, data de referência e requisitos de qualidade. Métrica sem `source_of_truth` TRUSTED é exibida com selo **NÃO OFICIAL**.
+
+## Campos obrigatórios
+`metric_id · business_name · description · business_owner · technical_owner · version · formula · numerator · denominator · grain · dimensions[] · time_dimension · aggregation_method · unit · currency · source_of_truth · dependencies[] · valid_from · valid_until · quality_requirements · benchmark_eligibility`
+
+---
+
+## MTR-001 · Revenue (Receita)
+- business_name: Receita
+- description: valor bruto faturado por notas fiscais válidas (não canceladas) no período.
+- business_owner: **A DEFINIR (CFO)** · technical_owner: Data Platform
+- version: 0.1 · valid_from: pendente
+- formula: `Σ Invoice.gross_amount` onde `Invoice.status ≠ CANCELLED`
+- grain: invoice · time_dimension: `invoice_date` · unit: BRL
+- source_of_truth: `Invoice` (canônico) — **hoje indisponível**; substituto atual `SourceMetric.erp_invoice_synthetic_amount` (`nf.vl_faturamento`), TRUSTED = false
+- quality_requirements: completeness ≥ 99%, validade de cancelamento ≥ 99,5%, mapping de cliente ≥ 98%, freshness ≤ 24h, reconciliação com relatório "Total" do ERP ≤ 0,5%
+- perguntas abertas que bloqueiam TRUSTED: inclui impostos? frete? serviços extras? devolução altera o campo? estorno é negativo?
+- status: **BLOQUEADA** para uso oficial
+
+## MTR-002 · Net Revenue
+Receita menos devoluções, cancelamentos e descontos. Depende de eventos de devolução ainda não modelados. status: **NÃO IMPLEMENTÁVEL**.
+
+## MTR-003 · Revenue Growth (MoM / YoY / YTD)
+- formula: `(Revenue[P] / Revenue[P-1]) - 1`, com `comparison_mode` explícito do AnalysisContext
+- regra: MoM ≠ YoY ≠ YTD vs Prior YTD; o rótulo exibido deve nomear a comparação exata. status: depende de MTR-001.
+
+## MTR-004 · New Customer Revenue / MTR-005 · Existing Customer Revenue
+- definição de "novo": primeira NF dentro do período analisado (coorte por primeira atividade).
+- conflito atual: `clientConversion.ts` usa data de cadastro; `refreshErpData` usa primeira NF → **duas definições**. Decisão v1: primeira NF; coorte de cadastro passa a chamar-se "Cadastros do período" (métrica distinta, MTR-016).
+
+## MTR-006 · Average Ticket
+- formula: `Revenue / count(distinct customers com Revenue > 0)`
+- conflito atual: uma tela divide pela base total de clientes. Aquela variante torna-se MTR-006b `Revenue per Registered Customer`.
+
+## MTR-007 · Top Customer Concentration
+- formula: `Σ Revenue dos top N / Revenue total`, N declarado (padrão 10). dimensions: branch, período.
+
+## MTR-008 · Customer Retention / MTR-009 · Revenue Retention
+Base = clientes ACTIVE no período anterior; retidos = com atividade no período atual. Exige lifecycle v1 aprovado.
+
+## MTR-010 · Churn Rate / MTR-011 · Revenue Churn
+- formula: `churned no período / base elegível no início do período`, `as_of_date` obrigatório, `lifecycle_version` declarada.
+- status: **BLOQUEADA** até doc 10 aprovado (hoje há 3 definições concorrentes).
+
+## MTR-012 · Reactivation Rate · MTR-013 · Repeat Rental Rate
+Derivadas de eventos de lifecycle.
+
+## MTR-014 · Quote Conversion · MTR-015 · Lead Conversion · Sales Cycle
+Depende de `mkt_orcamento`/CRM (fonte indisponível). status: **NÃO IMPLEMENTÁVEL**.
+
+## MTR-016 · Cadastros do período
+`count(Party criado no período com PartyRole=Customer)` — métrica de cadastro, não de receita.
+
+## MTR-020 · Accounts Receivable (CAR em aberto)
+`Σ Receivable.open_amount` em `as_of_date`. Métrica de estoque (point-in-time), nunca somada ao longo de períodos.
+
+## MTR-021 · Overdue Receivables · MTR-022 · DSO · MTR-023 · Default Rate
+DSO = `(AR médio / Revenue do período) × dias do período` — exige MTR-001.
+
+## MTR-030 · Cash Flow View (CAR − CAP)
+- **Renomeação obrigatória:** o indicador hoje apresentado como margem/resultado é uma **visão de caixa** entre recebíveis e pagáveis.
+- proibido rotular como Operating Margin, Gross Margin ou EBITDA.
+- Gross Margin (MTR-031), Contribution Margin (MTR-032), Operating Margin (MTR-033) e Markup (MTR-034) permanecem **NÃO IMPLEMENTÁVEIS** enquanto não houver custo por evento (`CostEvent`) e custo de manutenção.
+
+## MTR-040..049 · Frota
+Asset Utilization (física e financeira), Idle Days, Yield per Day, Revenue per Asset, Availability, Downtime, Maintenance Cost per Asset — dependem de `Asset`/`MaintenanceEvent`. status: **NÃO IMPLEMENTÁVEIS**.
+
+## MTR-050 · Rental Duration · MTR-051 · Extension Rate · MTR-052 · Cancellation Rate
+Dependem da definição do evento de ativação do contrato (ver doc 03).
+
+---
+
+## Resumo de prontidão
+| Faixa | Situação |
+|---|---|
+| Implementáveis após reconciliação de receita | MTR-001, 003, 004, 005, 006, 007, 016, 020–023, 030 |
+| Bloqueadas por lifecycle | MTR-008 a MTR-013 |
+| Não implementáveis (fonte ausente) | MTR-002, 014, 015, 031–034, 040–052 |
+
+Nenhuma métrica desta lista está TRUSTED hoje. Todas as telas atuais que as exibem devem receber selo de confiança até a conclusão da Phase 4.
