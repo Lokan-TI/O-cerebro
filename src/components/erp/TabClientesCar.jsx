@@ -3,6 +3,7 @@ import { base44 } from "@/api/base44Client";
 import { useErpSource } from "@/lib/ErpSourceContext";
 import QueryInspector from "@/components/erp/QueryInspector";
 import { Download, RefreshCw, Search, FileSpreadsheet } from "lucide-react";
+import { fmtDoc, onlyDigits } from "@/lib/erpFormat";
 
 export default function TabClientesCar() {
   const { selectedSource } = useErpSource();
@@ -53,9 +54,11 @@ export default function TabClientesCar() {
   const filtered = (clients || []).filter(c => {
     if (!search) return true;
     const q = search.toLowerCase();
+    const qd = onlyDigits(search);
     return (
       String(c.cd_pessoa).includes(q) ||
-      (c.nm_pessoa || "").toLowerCase().includes(q)
+      (c.nm_pessoa || "").toLowerCase().includes(q) ||
+      (!!qd && onlyDigits(c.documento).includes(qd))
     );
   });
 
@@ -66,6 +69,7 @@ export default function TabClientesCar() {
     const headers = [
       "Código",
       "Nome do Cliente",
+      "CNPJ/CPF",
       "Empresa",
       "Qtd. CAR",
       "Qtd. em Aberto",
@@ -81,6 +85,7 @@ export default function TabClientesCar() {
     const rows = filtered.map(c => [
       c.cd_pessoa,
       c.nm_pessoa,
+      fmtDoc(c.documento),
       c.cd_empresa || "",
       c.qtd_car,
       c.qtd_em_aberto,
@@ -206,6 +211,7 @@ export default function TabClientesCar() {
               <tr className="bg-gray-800/50 text-gray-400 text-xs uppercase tracking-wide">
                 <th className="text-left px-4 py-3">Código</th>
                 <th className="text-left px-4 py-3">Nome do Cliente</th>
+                <th className="text-left px-4 py-3">CNPJ/CPF</th>
                 <th className="text-center px-4 py-3">Qtd CAR</th>
                 <th className="text-center px-4 py-3">Em Aberto</th>
                 <th className="text-right px-4 py-3">Valor Total</th>
@@ -218,14 +224,14 @@ export default function TabClientesCar() {
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan={9} className="text-center py-12">
+                  <td colSpan={10} className="text-center py-12">
                     <div className="w-8 h-8 border-4 border-gray-700 border-t-purple-500 rounded-full animate-spin mx-auto mb-3" />
                     <p className="text-gray-400 text-sm">Carregando clientes ativos...</p>
                   </td>
                 </tr>
               ) : filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={9} className="text-center py-12 text-gray-500 text-sm">
+                  <td colSpan={10} className="text-center py-12 text-gray-500 text-sm">
                     Nenhum cliente encontrado.
                   </td>
                 </tr>
@@ -237,6 +243,7 @@ export default function TabClientesCar() {
                   >
                     <td className="px-4 py-2.5 text-gray-300 font-mono text-xs">{c.cd_pessoa}</td>
                     <td className="px-4 py-2.5 text-white font-medium">{c.nm_pessoa}</td>
+                    <td className="px-4 py-2.5 text-gray-400 font-mono text-xs whitespace-nowrap">{fmtDoc(c.documento) || "—"}</td>
                     <td className="px-4 py-2.5 text-center text-gray-300">{c.qtd_car}</td>
                     <td className="px-4 py-2.5 text-center">
                       {c.qtd_em_aberto > 0 ? (

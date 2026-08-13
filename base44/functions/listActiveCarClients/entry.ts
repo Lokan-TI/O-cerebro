@@ -75,15 +75,17 @@ Deno.serve(async (req) => {
     // Get client names (batch query)
     const clientCodes = [...new Set(carRows.map(r => Number(r.cd_pessoa_cli)))].filter(Boolean);
     let nameMap = {};
+    const docMap = {};
     if (clientCodes.length > 0) {
       try {
         // Batch in groups of 200 to avoid query length limits
         for (let i = 0; i < clientCodes.length; i += 200) {
           const batch = clientCodes.slice(i, i + 200);
-          const namesSql = `SELECT cd_pessoa, nm_pessoa FROM pessoa WITH (NOLOCK) WHERE cd_pessoa IN (${batch.join(',')})`;
+          const namesSql = `SELECT cd_pessoa, nm_pessoa, nr_cnpj_pessoa, nr_cpf_pessoa FROM pessoa WITH (NOLOCK) WHERE cd_pessoa IN (${batch.join(',')})`;
           const namesRes = await runQuery(source, wrap(namesSql));
           for (const r of getRows(namesRes)) {
             nameMap[Number(r.cd_pessoa)] = String(r.nm_pessoa || '');
+            docMap[Number(r.cd_pessoa)] = String(r.nr_cnpj_pessoa || r.nr_cpf_pessoa || '');
           }
         }
       } catch (e) {
@@ -99,6 +101,7 @@ Deno.serve(async (req) => {
       return {
         cd_pessoa: Number(r.cd_pessoa_cli),
         nm_pessoa: nameMap[Number(r.cd_pessoa_cli)] || `Cliente ${r.cd_pessoa_cli}`,
+        documento: docMap[Number(r.cd_pessoa_cli)] || '',
         cd_empresa: Number(r.cd_empresa_gestora) || null,
         qtd_car: Number(r.qtd_car) || 0,
         qtd_em_aberto: Number(r.qtd_em_aberto) || 0,
@@ -129,7 +132,7 @@ Deno.serve(async (req) => {
       date_range: { start: startDate, end: endDate },
       queries: [
         { label: 'CAR agregado por cliente', description: 'car — período e empresa gestora', sql: carSql },
-        { label: 'Nomes dos clientes', description: 'pessoa — resolvido em lotes de 200 códigos', sql: `SELECT cd_pessoa, nm_pessoa FROM pessoa WITH (NOLOCK) WHERE cd_pessoa IN (...)` },
+        { label: 'Nomes e documentos dos clientes', description: 'pessoa — resolvido em lotes de 200 códigos', sql: `SELECT cd_pessoa, nm_pessoa, nr_cnpj_pessoa, nr_cpf_pessoa FROM pessoa WITH (NOLOCK) WHERE cd_pessoa IN (...)` },
       ],
     });
   } catch (error) {

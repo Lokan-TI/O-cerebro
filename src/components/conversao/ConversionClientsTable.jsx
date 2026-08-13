@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { fmtCur, fmtNum } from "@/lib/erpFormat";
+import { fmtCur, fmtNum, fmtDoc, onlyDigits } from "@/lib/erpFormat";
 import { Search, AlertTriangle, Copy } from "lucide-react";
 
 const PAGE_SIZE = 50;
@@ -49,8 +49,10 @@ export default function ConversionClientsTable({ clients, truncated, statusList,
       if (coorte && c.coorte !== coorte) return false;
       if (!rangeTest(c.dias_nf)) return false;
       if (q) {
-        const hay = [c.nome, c.cd_pessoa, c.doc, c.nr_ficha, c.nr_nf].map((x) => String(x ?? "").toLowerCase());
-        if (!hay.some((h) => h.includes(q))) return false;
+        const hay = [c.nome, c.cd_pessoa, c.nr_ficha, c.nr_nf].map((x) => String(x ?? "").toLowerCase());
+        const qd = onlyDigits(search);
+        const docHit = !!qd && onlyDigits(c.doc).includes(qd);
+        if (!hay.some((h) => h.includes(q)) && !docHit) return false;
       }
       return true;
     });
@@ -135,7 +137,7 @@ export default function ConversionClientsTable({ clients, truncated, statusList,
                   {c.duplicidade && <Copy className="w-3 h-3 text-orange-400 inline ml-1" />}
                   {c.inconsistencias?.length > 0 && <AlertTriangle className="w-3 h-3 text-purple-400 inline ml-1" />}
                 </td>
-                <td className="py-2 px-2 text-gray-400">{c.doc || "—"} <span className="text-gray-600">{c.doc_tipo}</span></td>
+                <td className="py-2 px-2 text-gray-400">{fmtDoc(c.doc) || "—"} <span className="text-gray-600">{c.doc_tipo}</span></td>
                 <td className="py-2 px-2 text-gray-300">{c.dt_cad || "—"}</td>
                 <td className="py-2 px-2 text-gray-400">{c.coorte || "—"}</td>
                 <td className="py-2 px-2 text-gray-400 max-w-[140px] truncate">{c.nm_empresa || "—"}</td>
