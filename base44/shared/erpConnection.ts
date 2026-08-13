@@ -117,6 +117,15 @@ export async function runQuery(source, execSql, timeoutMs) {
   });
 }
 
+// Runs a read query respecting the DW_API wrapper when the source has a client id (SISLOC).
+export async function execRead(source, querySql, timeoutMs) {
+  const built = buildConfig(source);
+  if (!built) throw new Error('Configuração de conexão incompleta para a fonte selecionada.');
+  const escaped = querySql.replace(/'/g, "''");
+  const execSql = built.clientId ? `EXEC DW_API '${built.clientId}', '${escaped}'` : querySql;
+  return await runQuery(source, execSql, timeoutMs);
+}
+
 export async function closePool(source) {
   const key = poolKeyFor(source);
   const entry = pools.get(key);

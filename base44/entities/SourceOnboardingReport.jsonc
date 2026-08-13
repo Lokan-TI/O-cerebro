@@ -1,0 +1,123 @@
+{
+  "name": "SourceOnboardingReport",
+  "type": "object",
+  "properties": {
+    "source_id": {
+      "type": "string",
+      "description": "ID da fonte de dados"
+    },
+    "source_name": {
+      "type": "string"
+    },
+    "version": {
+      "type": "string",
+      "description": "Vers\u00e3o do relat\u00f3rio de onboarding"
+    },
+    "is_current": {
+      "type": "boolean",
+      "default": false
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "generated_by_name": {
+      "type": "string"
+    },
+    "dictionary_available": {
+      "type": "boolean",
+      "default": false,
+      "description": "Fonte exp\u00f5e v_Dicionario_Dados"
+    },
+    "table_count": {
+      "type": "number",
+      "default": 0
+    },
+    "column_count": {
+      "type": "number",
+      "default": 0
+    },
+    "documented_columns": {
+      "type": "number",
+      "default": 0,
+      "description": "Colunas com Caption preenchido"
+    },
+    "documentation_coverage": {
+      "type": "number",
+      "default": 0,
+      "description": "Percentual 0-100 de colunas documentadas"
+    },
+    "fk_declared": {
+      "type": "number",
+      "default": 0,
+      "description": "Colunas com chave estrangeira declarada"
+    },
+    "pii_columns": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      },
+      "description": "Colunas classificadas como dado pessoal (tabela, coluna, caption, categoria)"
+    },
+    "pii_count": {
+      "type": "number",
+      "default": 0
+    },
+    "core_tables": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      },
+      "description": "Tabelas de neg\u00f3cio cr\u00edticas: presen\u00e7a, contagem de colunas e caption"
+    },
+    "trust_score": {
+      "type": "number",
+      "default": 0,
+      "description": "Score 0-100 de confiabilidade da fonte"
+    },
+    "trust_breakdown": {
+      "type": "object",
+      "description": "Componentes do score com peso e nota"
+    },
+    "warnings": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "duration_ms": {
+      "type": "number",
+      "default": 0
+    },
+    "query_count": {
+      "type": "number",
+      "default": 0
+    }
+  },
+  "required": [
+    "source_id",
+    "version"
+  ],
+  "rls": {
+    "read": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}
