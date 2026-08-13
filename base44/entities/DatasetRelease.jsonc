@@ -1,0 +1,133 @@
+{
+  "name": "DatasetRelease",
+  "type": "object",
+  "properties": {
+    "source_id": {
+      "type": "string",
+      "description": "ID da fonte de dados ERP"
+    },
+    "source_name": {
+      "type": "string"
+    },
+    "version": {
+      "type": "string",
+      "description": "Identificador da release (imut\u00e1vel)"
+    },
+    "is_current": {
+      "type": "boolean",
+      "default": false,
+      "description": "Release publicada e ativa"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "blocked",
+        "published",
+        "superseded"
+      ],
+      "default": "blocked",
+      "description": "blocked = gates reprovados \u00b7 published = publicada \u00b7 superseded = substitu\u00edda por release mais nova"
+    },
+    "published_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "published_by_name": {
+      "type": "string"
+    },
+    "snapshot_version": {
+      "type": "string",
+      "description": "Vers\u00e3o do ErpSnapshot congelada nesta release"
+    },
+    "snapshot_max_date": {
+      "type": "string"
+    },
+    "reconciliation_period_start": {
+      "type": "string"
+    },
+    "reconciliation_period_end": {
+      "type": "string"
+    },
+    "registry_versions": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      },
+      "description": "M\u00e9tricas e vers\u00f5es do registry vigentes na release"
+    },
+    "gates": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      },
+      "description": "Port\u00f5es de qualidade avaliados (id, label, passed, detail)"
+    },
+    "gates_passed": {
+      "type": "boolean",
+      "default": false
+    },
+    "blocking_reasons": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "metrics_total": {
+      "type": "number",
+      "default": 0
+    },
+    "metrics_match": {
+      "type": "number",
+      "default": 0
+    },
+    "metrics_warn": {
+      "type": "number",
+      "default": 0
+    },
+    "metrics_fail": {
+      "type": "number",
+      "default": 0
+    },
+    "metrics_unjustified": {
+      "type": "number",
+      "default": 0,
+      "description": "Diverg\u00eancias fail sem justificativa aceita"
+    },
+    "party_report_version": {
+      "type": "string"
+    },
+    "party_document_coverage": {
+      "type": "number",
+      "default": 0
+    },
+    "onboarding_trust_score": {
+      "type": "number",
+      "default": 0
+    },
+    "notes": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "source_id",
+    "version"
+  ],
+  "rls": {
+    "read": {},
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

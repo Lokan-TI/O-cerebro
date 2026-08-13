@@ -42,6 +42,7 @@ export default async function (req: Request): Promise<Response> {
     const legacyMap: Record<string, { value: number | null; source: string }> = {
       'MTR-001': { value: legacyRow ? Number(legacyRow.fat_total) : null, source: 'ErpSnapshot.annual_evolution.fat_total' },
       'MTR-017': { value: legacyRow ? Number(legacyRow.clientes) : null, source: 'ErpSnapshot.annual_evolution.clientes' },
+      'MTR-019': { value: legacyRow ? Number(legacyRow.novos_clientes) : null, source: 'ErpSnapshot.annual_evolution.novos_clientes' },
       'MTR-006': {
         value: legacyRow && Number(legacyRow.clientes) ? Number(legacyRow.fat_total) / Number(legacyRow.clientes) : null,
         source: 'ErpSnapshot.annual_evolution.fat_total / .clientes',

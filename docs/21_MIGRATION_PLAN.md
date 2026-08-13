@@ -25,7 +25,11 @@ Saída: contagem de clientes e receita reproduzíveis a partir do canônico.
 ## Phase 4 — Semantic Layer *(em execução)*
 Entregue: registry executável + `computeMetric` (AnalysisContext obrigatório, selo de confiança e linhagem SQL por resultado) cobrindo MTR-001, 006, 007 e 017 · aba admin "Camada Semântica".
 Entregue: reconciliação legado × canônico persistida (`reconcileMetrics` + `MetricReconciliation`, aba admin "Recon. Métricas") — Receita aderente a 0%, divergências de contagem de clientes justificadas e aceitas.
-Pendente: demais métricas da ordem sugerida, ADR de aprovação do CFO e `DatasetRelease` atômico.
+Entregue: `DatasetRelease` atômico (`publishDatasetRelease` + entidade `DatasetRelease`, aba admin "Publicação (Release)"). A release congela snapshot, versões do registry e a reconciliação, e **só publica** com todos os portões aprovados:
+1. snapshot vigente publicado · 2. reconciliação apurada no ano · 3. divergências > 2% justificadas e aceitas · 4. cobertura de documento do Party ≥ 95% · 5. trust score da fonte ≥ 60.
+A troca é atômica: a release anterior só é rebaixada a `superseded` quando a nova passa em todos os portões; reprovada, grava-se `blocked` com os motivos e a vigente permanece.
+Entregue: registry ampliado com MTR-018 (NFs faturadas) e MTR-019 (novos clientes faturados).
+Pendente: demais métricas da ordem sugerida e ADR de aprovação do CFO — único item que ainda impede o status OFICIAL das métricas.
 
 Metric Layer no backend, métrica por métrica, com reconciliação obrigatória:
 ```

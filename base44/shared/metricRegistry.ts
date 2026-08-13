@@ -140,6 +140,49 @@ export const METRICS: MetricDef[] = [
       reduce: ([r]) => Number(r?.[0]?.c || 0),
     }),
   },
+  {
+    metric_id: 'MTR-018',
+    business_name: 'Notas fiscais faturadas no período',
+    version: '0.1',
+    formula: 'count(*) de NF de saída válida com valor > 0 no período',
+    grain: 'invoice',
+    unit: 'count',
+    time_dimension: INVOICE_DATE_FIELD,
+    business_owner: PENDING_OWNER,
+    technical_owner: 'Data Platform',
+    source_of_truth: 'nf (universo canônico de nota fiscal)',
+    trusted: false,
+    blocking_questions: ['Definir tratamento das NFs válidas com valor zerado (mesma questão de MTR-001).'],
+    build: (ctx) => ({
+      queries: [
+        `SELECT COUNT(*) AS c FROM nf WHERE ${windowClause(ctx, ctx.period_start, ctx.period_end)} AND ISNULL(vl_faturamento,0) > 0`,
+      ],
+      reduce: ([r]) => Number(r?.[0]?.c || 0),
+    }),
+  },
+  {
+    metric_id: 'MTR-019',
+    business_name: 'Novos clientes faturados no período',
+    version: '0.1',
+    formula: 'clientes com Receita > 0 na janela e nenhuma NF faturada anterior ao início da janela',
+    grain: 'customer',
+    unit: 'count',
+    time_dimension: INVOICE_DATE_FIELD,
+    business_owner: PENDING_OWNER,
+    technical_owner: 'Data Platform',
+    source_of_truth: 'nf.cd_pessoa (primeira nota faturada)',
+    trusted: false,
+    blocking_questions: [
+      'Novo = primeira NF faturada de todos os tempos; o legado usa data de cadastro (ver doc 10).',
+      'Contagem por cliente do ERP, não por Party canônico (ver doc 09).',
+    ],
+    build: (ctx) => ({
+      queries: [
+        `SELECT COUNT(*) AS c FROM (SELECT DISTINCT a.cd_pessoa FROM nf a WHERE a.${INVOICE_DATE_FIELD} >= '${ctx.period_start}' AND a.${INVOICE_DATE_FIELD} < '${ctx.period_end}' AND a.fl_ent_sai = 'S' AND ISNULL(a.fl_can_nf, 'N') <> 'S' AND a.dt_cancelamento IS NULL AND a.dt_anul_nf IS NULL AND ISNULL(a.vl_faturamento,0) > 0${ctx.cd_empresa ? ` AND a.cd_empresa = '${String(ctx.cd_empresa).replace(/'/g, '')}'` : ''} AND NOT EXISTS (SELECT 1 FROM nf b WHERE b.cd_pessoa = a.cd_pessoa AND b.${INVOICE_DATE_FIELD} < '${ctx.period_start}' AND b.fl_ent_sai = 'S' AND ISNULL(b.fl_can_nf, 'N') <> 'S' AND b.dt_cancelamento IS NULL AND b.dt_anul_nf IS NULL AND ISNULL(b.vl_faturamento,0) > 0)) t`,
+      ],
+      reduce: ([r]) => Number(r?.[0]?.c || 0),
+    }),
+  },
 ];
 
 export function getMetric(metricId: string) {
