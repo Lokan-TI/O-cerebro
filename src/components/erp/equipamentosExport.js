@@ -1,16 +1,36 @@
-// Exporta produtos/equipamentos e seus patrimônios em CSV compatível com Excel
-const HEADERS = ["Código produto", "Descrição (nm_equipto)", "Qtd patrimônios", "Nº patrimônio", "Nº série"];
+// Exporta produtos/equipamentos (cadastro completo) e seus patrimônios em CSV compatível com Excel
+const HEADERS = [
+  "Código", "Código referencial", "Descrição", "Ativo", "Grupo", "Marca", "Modelo",
+  "Unidade", "NCM", "Última compra", "Valor de compra/Produção", "Valor fabricante",
+  "Dt. valor fabricante", "Valor indenização", "Valor venda usado", "Valor teto compra",
+  "Valor base locação", "Peso líquido", "Peso bruto", "Observações",
+  "Qtd patrimônios", "Nº patrimônio", "Nº série",
+];
 
 const esc = (v) => `"${String(v ?? "").replace(/"/g, '""')}"`;
+const money = (v) => (v === null || v === undefined ? "" : Number(v).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
+const dateBr = (v) => (v ? v.split("-").reverse().join("/") : "");
+
+function baseCols(e) {
+  return [
+    e.cd_equipto, e.codigo, e.nm_equipto, e.ativo, e.grupo, e.marca, e.modelo,
+    e.unidade, e.ncm, dateBr(e.dt_ult_compra), money(e.vl_compra), money(e.vl_fabricante),
+    dateBr(e.dt_vl_fabricante), money(e.vl_indenizacao), money(e.vl_venda_usado), money(e.vl_teto_compra),
+    money(e.vl_base_locacao), money(e.peso_liquido), money(e.peso_bruto),
+    String(e.observacao || "").replace(/\r?\n/g, " | "),
+    e.qtd_patrimonios,
+  ];
+}
 
 export function exportEquipamentosCsv(rows) {
   const lines = [HEADERS.join(";")];
   for (const e of rows) {
+    const base = baseCols(e);
     if (e.patrimonios.length === 0) {
-      lines.push([e.cd_equipto, e.nm_equipto, 0, "", ""].map(esc).join(";"));
+      lines.push([...base, "", ""].map(esc).join(";"));
     } else {
       for (const p of e.patrimonios) {
-        lines.push([e.cd_equipto, e.nm_equipto, e.qtd_patrimonios, p.nr_patrimonio, p.nr_serie].map(esc).join(";"));
+        lines.push([...base, p.nr_patrimonio, p.nr_serie].map(esc).join(";"));
       }
     }
   }
