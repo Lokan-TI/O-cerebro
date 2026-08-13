@@ -7,6 +7,7 @@ import SchemaExplorer from "@/components/erp/SchemaExplorer";
 import TabChurn from "@/components/erp/TabChurn";
 import TabClientesCar from "@/components/erp/TabClientesCar";
 import TabFinanceiro from "@/components/erp/TabFinanceiro";
+import TabFornecedores from "@/components/erp/TabFornecedores";
 import TabLocacoes from "@/components/erp/TabLocacoes";
 import TabOperacional from "@/components/erp/TabOperacional";
 import TabClientesPessoa from "@/components/erp/TabClientesPessoa";
@@ -21,6 +22,7 @@ import TabCliente360 from "@/components/erp/TabCliente360";
 const TABS = [
   { id: "executiva", label: "Visão Executiva" },
   { id: "financeiro", label: "Financeiro" },
+  { id: "fornecedores", label: "Fornecedores" },
   { id: "locacoes", label: "Locações" },
   { id: "operacional", label: "Operacional" },
   { id: "clientes_pessoa", label: "Clientes" },
@@ -47,6 +49,7 @@ function ErpCrmDashboardContent() {
     switch (activeTab) {
       case "executiva": return <TabExecutiva />;
       case "financeiro": return <TabFinanceiro />;
+      case "fornecedores": return <TabFornecedores />;
       case "locacoes": return <TabLocacoes />;
       case "operacional": return <TabOperacional />;
       case "clientes_pessoa": return <TabClientesPessoa />;
