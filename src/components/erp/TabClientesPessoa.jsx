@@ -5,6 +5,7 @@ import { useAnalyticsView } from "@/lib/analyticsView";
 import { getEmpresaLabel } from "@/lib/empresaLabels";
 import { fmtCur, fmtNum } from "@/lib/erpFormat";
 import ClientesReceitaChart from "@/components/erp/ClientesReceitaChart";
+import ClientePatrimoniosModal from "@/components/erp/ClientePatrimoniosModal";
 import { Users, TrendingUp, Search, Crown, FileText, Repeat, Percent } from "lucide-react";
 
 export default function TabClientesPessoa() {
@@ -12,6 +13,7 @@ export default function TabClientesPessoa() {
   const { selectedEmpresa, empresaList } = useEmpresaFilter();
   const { analytics } = useAnalyticsView();
   const [search, setSearch] = useState("");
+  const [selectedClient, setSelectedClient] = useState(null);
 
   const isAll = selectedEmpresa == null;
   const byEmp = snapshot?.by_empresa || [];
@@ -136,7 +138,11 @@ export default function TabClientesPessoa() {
             </thead>
             <tbody>
               {filtered.map((c, i) => (
-                <tr key={`${c.cd_pessoa}-${i}`} className="border-b border-gray-800/50 hover:bg-gray-800/30">
+                <tr
+                  key={`${c.cd_pessoa}-${i}`}
+                  onClick={() => setSelectedClient(c)}
+                  className="border-b border-gray-800/50 hover:bg-gray-800/30 cursor-pointer"
+                >
                   <td className="py-2 px-3 text-gray-500">{i + 1}</td>
                   <td className="py-2 px-3 text-white">
                     <div className="truncate max-w-[220px]">{c.nm_pessoa}</div>
@@ -167,9 +173,13 @@ export default function TabClientesPessoa() {
         </div>
         <div className="mt-3 text-xs text-gray-600 flex items-center gap-1.5">
           <Search className="w-3 h-3" />
-          Receita = faturamento (nf) no período. Contratos ativos cruzados com fich_loc (top 20) — clientes fora desse topo aparecem como "—".
+          Receita = faturamento (nf) no período. Contratos ativos cruzados com fich_loc (top 20) — clientes fora desse topo aparecem como "—". Clique em um cliente para ver os patrimônios em posse e o histórico completo.
         </div>
       </div>
+
+      {selectedClient && (
+        <ClientePatrimoniosModal client={selectedClient} onClose={() => setSelectedClient(null)} />
+      )}
 
       {/* Distribuição por faixa de receita */}
       <div className="bg-gray-900 border border-gray-800 rounded-xl p-5">
