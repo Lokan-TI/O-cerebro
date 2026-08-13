@@ -20,6 +20,20 @@ Regra: nenhum dashboard cria KPI. Toda métrica exibida deve constar aqui com ve
 - perguntas abertas que bloqueiam TRUSTED: inclui impostos? frete? serviços extras? devolução altera o campo? estorno é negativo?
 - status: **BLOQUEADA** para uso oficial
 
+### Reconciliação executada (2026-08-13 · `reconcileRevenue`)
+Universo: NF de saída, não cancelada e não anulada (`fl_ent_sai='S'`, `fl_can_nf<>'S'`, `dt_cancelamento IS NULL`, `dt_anul_nf IS NULL`), data de referência `dt_emi_nf`, ano 2025 · 19.367 NFs.
+
+| Candidato | Total 2025 | Δ vs. referência |
+|---|---|---|
+| A · `Σ vl_faturamento` (referência atual) | R$ 50.036.361 | — |
+| B · `Σ vl_total_nf` | R$ 767.234.577 | +1.433% |
+| C · `Σ (vl_merc_nf + vl_serv_nf)` | R$ 767.255.546 | +1.433% |
+| D · `Σ vl_liquido_nf` | R$ 767.234.577 | +1.433% |
+
+**Fatos observados:** B, C e D convergem entre si e divergem de A em ~15×, indício forte de que o valor total da NF inclui documentos sem receita (remessa/retorno de equipamento de locação), enquanto `vl_faturamento` já é o campo restrito ao faturamento. Fora do universo há 1.945 NFs canceladas/anuladas (R$ 9,4 M em `vl_faturamento`) e, dentro do universo, 1.751 NFs válidas com `vl_faturamento` = 0.
+
+**Decisão pendente (bloqueia TRUSTED):** confirmar com o CFO se a Receita oficial é o candidato A e qual o tratamento das 1.751 NFs de valor zerado. Registrar em ADR antes de promover a métrica.
+
 ## MTR-002 · Net Revenue
 Receita menos devoluções, cancelamentos e descontos. Depende de eventos de devolução ainda não modelados. status: **NÃO IMPLEMENTÁVEL**.
 

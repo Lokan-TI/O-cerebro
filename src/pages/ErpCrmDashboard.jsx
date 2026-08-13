@@ -21,6 +21,7 @@ import { GlobalFilterProvider } from "@/lib/GlobalFilterContext";
 import TabExecutiva from "@/components/erp/TabExecutiva";
 import TabCliente360 from "@/components/erp/TabCliente360";
 import TabOnboardingFonte from "@/components/erp/TabOnboardingFonte";
+import TabReconciliacaoReceita from "@/components/erp/TabReconciliacaoReceita";
 
 const TABS = [
   { id: "executiva", label: "Visão Executiva" },
@@ -36,6 +37,7 @@ const TABS = [
   { id: "dicionario", label: "Dicionário" },
   { id: "estrutura", label: "Estrutura" },
   { id: "onboarding", label: "Onboarding da Fonte", adminOnly: true },
+  { id: "reconciliacao", label: "Reconciliação Receita", adminOnly: true },
   { id: "query", label: "Query SQL", adminOnly: true },
 ];
 
@@ -68,6 +70,7 @@ function ErpCrmDashboardContent() {
       case "dicionario": return <TabDicionario />;
       case "estrutura": return <SchemaExplorer />;
       case "onboarding": return isAdmin ? <TabOnboardingFonte /> : null;
+      case "reconciliacao": return isAdmin ? <TabReconciliacaoReceita /> : null;
       case "query": return isAdmin ? <QueryRunner /> : null;
       default: return null;
     }
