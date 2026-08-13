@@ -99,6 +99,10 @@ Deno.serve(async (req) => {
       period_start: start,
       period_label: start ? `desde ${start}` : 'histórico completo',
       total_fornecedores: suppliers.length,
+      queries: [
+        { label: 'Cadastro de fornecedores', description: 'pessoa (fl_fornec_pessoa = 1)', sql: cadSql },
+        { label: 'Consumo em Contas a Pagar', description: 'cap agrupado por credor (cd_pessoa_cre)', sql: capSql },
+      ],
     });
   } catch (error) {
     try {

@@ -3,6 +3,7 @@ import { base44 } from "@/api/base44Client";
 import { useErpSource } from "@/lib/ErpSourceContext";
 import { useGlobalFilter } from "@/lib/GlobalFilterContext";
 import { fmtCur, fmtNum } from "@/lib/erpFormat";
+import QueryInspector from "@/components/erp/QueryInspector";
 import { Users, Loader2, Sparkles, Search } from "lucide-react";
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Cell } from "recharts";
 
@@ -71,6 +72,8 @@ export default function TabClassificacao() {
           Classificação de clientes (9 status de ciclo de vida) · período {period?.start} → {period?.end}
           <span className="text-gray-600"> · referência {refStart}</span>
         </div>
+        <div className="flex items-center gap-2">
+        <QueryInspector queries={result?.queries} title="Queries — Classificação de clientes" />
         <button
           onClick={handleClassify}
           disabled={loading || !selectedSource}
@@ -79,6 +82,7 @@ export default function TabClassificacao() {
           {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
           {loading ? "Classificando..." : "Classificar clientes"}
         </button>
+        </div>
       </div>
 
       {error && <div className="bg-red-950/40 border border-red-800/40 rounded-lg px-4 py-3 text-red-300 text-sm">{error}</div>}

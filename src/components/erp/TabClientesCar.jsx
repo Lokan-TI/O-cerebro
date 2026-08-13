@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { base44 } from "@/api/base44Client";
 import { useErpSource } from "@/lib/ErpSourceContext";
+import QueryInspector from "@/components/erp/QueryInspector";
 import { Download, RefreshCw, Search, FileSpreadsheet } from "lucide-react";
 
 export default function TabClientesCar() {
@@ -12,6 +13,7 @@ export default function TabClientesCar() {
   const [onlyOpen, setOnlyOpen] = useState(false);
   const [year, setYear] = useState(new Date().getFullYear());
   const [summary, setSummary] = useState({ total_clients: 0, total_value: 0, total_open: 0 });
+  const [queries, setQueries] = useState(null);
 
   const fetchClients = useCallback(async () => {
     if (!selectedSource) return;
@@ -27,6 +29,7 @@ export default function TabClientesCar() {
       const result = res?.data || res;
       if (result?.success) {
         setClients(result.clients || []);
+        setQueries(result.queries || null);
         setSummary({
           total_clients: result.total_clients || 0,
           total_value: result.total_value || 0,
@@ -151,6 +154,8 @@ export default function TabClientesCar() {
             className="w-full bg-gray-800 border border-gray-700 rounded-lg pl-9 pr-3 py-1.5 text-sm text-white placeholder-gray-500"
           />
         </div>
+
+        <QueryInspector queries={queries} title="Queries — Clientes CAR" />
 
         <button
           onClick={fetchClients}

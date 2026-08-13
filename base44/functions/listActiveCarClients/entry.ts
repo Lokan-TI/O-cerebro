@@ -126,7 +126,11 @@ Deno.serve(async (req) => {
       total_clients: clients.length,
       total_value: totalValue,
       total_open: totalOpen,
-      date_range: { start: startDate, end: endDate }
+      date_range: { start: startDate, end: endDate },
+      queries: [
+        { label: 'CAR agregado por cliente', description: 'car — período e empresa gestora', sql: carSql },
+        { label: 'Nomes dos clientes', description: 'pessoa — resolvido em lotes de 200 códigos', sql: `SELECT cd_pessoa, nm_pessoa FROM pessoa WITH (NOLOCK) WHERE cd_pessoa IN (...)` },
+      ],
     });
   } catch (error) {
     return Response.json({ success: false, error: error.message || String(error) }, { status: 500 });

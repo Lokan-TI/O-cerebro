@@ -100,6 +100,7 @@ Deno.serve(async (req) => {
     };
 
     const warnings = [];
+    const queries: any[] = [];
     let queryCount = 0;
     const t0 = Date.now();
 
@@ -114,6 +115,7 @@ Deno.serve(async (req) => {
         ${approvedRemessaFrom}
           AND r.dt_saida >= '${isoDate(remessaLowerD)}'
         GROUP BY f.cd_pessoa`;
+      queries.push({ label: 'Remessas realizadas por cliente', description: 'fl_remessa aprovada — contagem nas janelas de análise e referência', sql });
       for (const r of getRows(await runQuery(source, wrap(sql), 60000))) {
         const code = String(r.cd_pessoa);
         clients[code] = {
@@ -135,6 +137,7 @@ Deno.serve(async (req) => {
         WHERE cd_pessoa IS NOT NULL AND cd_pessoa <> ''
           AND dt_pedido >= '${isoDate(fichaLowerD)}'
         GROUP BY cd_pessoa`;
+      queries.push({ label: 'Fichas de locação por cliente', description: 'fich_loc — base de Prospector / Novo cadastro', sql });
       for (const r of getRows(await runQuery(source, wrap(sql), 30000))) {
         const code = String(r.cd_pessoa);
         if (!clients[code]) {
@@ -151,6 +154,7 @@ Deno.serve(async (req) => {
         ${faturaFrom}
           AND fat.dt_geracao >= '${aStart}' AND fat.dt_geracao < '${aEnd}'
         GROUP BY f.cd_pessoa`;
+      queries.push({ label: 'Receita por cliente na janela de análise', description: 'fl_fatura — soma de vl_fatura', sql });
       for (const r of getRows(await runQuery(source, wrap(sql), 30000))) {
         revenue[String(r.cd_pessoa)] = Number(r.rev) || 0;
       }
@@ -206,6 +210,10 @@ Deno.serve(async (req) => {
       query_count: queryCount,
       duration_ms: Date.now() - t0,
       warnings,
+      queries: [
+        ...queries,
+        { label: 'Nomes dos clientes', description: 'pessoa — resolvido em lotes de 200 códigos', sql: `SELECT cd_pessoa, COALESCE(NULLIF(nm_fan_pessoa,''), nm_pessoa) AS nome FROM pessoa WITH (NOLOCK) WHERE cd_pessoa IN (...)` },
+      ],
     });
   } catch (error) {
     return Response.json({ success: false, error: error.message || String(error) }, { status: 500 });

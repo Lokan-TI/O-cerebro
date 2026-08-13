@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useErpSource, ALL_SOURCES_ID } from "@/lib/ErpSourceContext";
 import { fmtNum } from "@/lib/erpFormat";
+import QueryInspector from "@/components/erp/QueryInspector";
 import { History, Boxes } from "lucide-react";
 
 export default function ClientePatrimoniosPanel({ cdPessoa }) {
@@ -57,6 +58,7 @@ export default function ClientePatrimoniosPanel({ cdPessoa }) {
         </div>
       </div>
 
+      <div className="flex items-center gap-2 flex-wrap">
       <div className="flex gap-1 bg-gray-950 border border-gray-800 rounded-lg p-1 w-fit">
         <button
           onClick={() => setView("current")}
@@ -70,6 +72,8 @@ export default function ClientePatrimoniosPanel({ cdPessoa }) {
         >
           <History className="w-3.5 h-3.5" /> Histórico completo
         </button>
+      </div>
+      <QueryInspector queries={data?.queries} title="Queries — Patrimônios do cliente" />
       </div>
 
       <div className="border border-gray-800 rounded-lg overflow-x-auto max-h-[420px] overflow-y-auto">

@@ -120,6 +120,9 @@ Deno.serve(async (req) => {
         locacoes: movements.length,
         dias_total: history.reduce((s: number, h: any) => s + h.dias_total, 0),
       },
+      queries: [
+        { label: 'Patrimônios do cliente', description: 'fich_loc → fl_remessa → fl_rem_equ → patrimon/equipto + devoluções', sql },
+      ],
     });
   } catch (error) {
     try {

@@ -3,6 +3,7 @@ import { base44 } from "@/api/base44Client";
 import { useErpSource, ALL_SOURCES_ID } from "@/lib/ErpSourceContext";
 import { fmtNum } from "@/lib/erpFormat";
 import { exportEquipamentosCsv } from "@/components/erp/equipamentosExport";
+import QueryInspector from "@/components/erp/QueryInspector";
 import { Wrench, RefreshCw, Download, Search, ChevronRight, ChevronDown } from "lucide-react";
 
 export default function TabProdutosEquipamentos() {
@@ -57,6 +58,7 @@ export default function TabProdutosEquipamentos() {
           )}
         </div>
         <div className="flex items-center gap-2">
+          <QueryInspector queries={data?.queries} title="Queries — Produtos & Equipamentos" />
           <button
             onClick={load}
             disabled={loading}

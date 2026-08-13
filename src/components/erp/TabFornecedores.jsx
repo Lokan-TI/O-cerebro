@@ -3,6 +3,7 @@ import { base44 } from "@/api/base44Client";
 import { useErpSource, ALL_SOURCES_ID } from "@/lib/ErpSourceContext";
 import { fmtCur, fmtNum } from "@/lib/erpFormat";
 import { exportFornecedoresCsv } from "@/components/erp/fornecedoresExport";
+import QueryInspector from "@/components/erp/QueryInspector";
 import { Truck, Download, RefreshCw, Search } from "lucide-react";
 
 export default function TabFornecedores() {
@@ -67,6 +68,7 @@ export default function TabFornecedores() {
           {data && <span className="text-gray-600">· {data.period_label} · {fmtNum(data.total_fornecedores)} fornecedores</span>}
         </div>
         <div className="flex items-center gap-2">
+          <QueryInspector queries={data?.queries} title="Queries — Fornecedores" />
           <button
             onClick={load}
             disabled={loading}

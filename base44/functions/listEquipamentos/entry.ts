@@ -96,6 +96,10 @@ Deno.serve(async (req) => {
       total_patrimonios: patRows.length,
       patrimonios_sem_produto: (byEquipto['0'] || []).length,
       equipamentos,
+      queries: [
+        { label: 'Cadastro de produtos/equipamentos', description: 'equipto + grupo, unidade e classificação fiscal', sql: sqlEquip },
+        { label: 'Patrimônios', description: 'patrimon — vinculados aos produtos por cd_equipto', sql: sqlPat },
+      ],
     });
   } catch (error) {
     try {
