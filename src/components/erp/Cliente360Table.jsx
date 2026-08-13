@@ -1,7 +1,8 @@
 import { useState, useMemo } from "react";
-import { Search, Download } from "lucide-react";
+import { Search, Download, Loader2 } from "lucide-react";
 import { fmtDoc, onlyDigits } from "@/lib/erpFormat";
-import { exportClientesCsv } from "@/components/erp/clientesExport";
+import { fetchAllClientesCadastro, exportClientesCadastroCsv } from "@/components/erp/clientesCadastroExport";
+import { useErpSource } from "@/lib/ErpSourceContext";
 
 const brl = (v) => (Number(v) || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 });
 
@@ -20,6 +21,24 @@ export default function Cliente360Table({ clients = [], truncated }) {
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState("todos");
   const [page, setPage] = useState(0);
+  const { selectedSource } = useErpSource() || {};
+  const [exporting, setExporting] = useState(null);
+  const [exportError, setExportError] = useState(null);
+
+  const handleExport = async () => {
+    if (!selectedSource?.id) return;
+    setExportError(null);
+    setExporting(0);
+    try {
+      const cadastro = await fetchAllClientesCadastro(selectedSource.id, (n) => setExporting(n));
+      const metricsByCd = Object.fromEntries(clients.map((c) => [String(c.cd_pessoa), c]));
+      exportClientesCadastroCsv(cadastro, metricsByCd);
+    } catch (e) {
+      setExportError(e.message || "Falha ao exportar a base de clientes.");
+    } finally {
+      setExporting(null);
+    }
+  };
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -59,14 +78,20 @@ export default function Cliente360Table({ clients = [], truncated }) {
           {statuses.map((s) => <option key={s} value={s}>{s}</option>)}
         </select>
         <button
-          onClick={() => exportClientesCsv(filtered)}
-          disabled={filtered.length === 0}
+          onClick={handleExport}
+          disabled={exporting !== null || !selectedSource?.id}
           className="flex items-center gap-1.5 px-3 py-1.5 bg-green-700 hover:bg-green-600 disabled:opacity-40 disabled:cursor-not-allowed text-white rounded-lg text-sm font-medium transition-colors"
-          title="Baixar todos os dados dos clientes em planilha (Excel)"
+          title="Baixar toda a base de clientes com relacionamento e dados cadastrais completos"
         >
-          <Download className="w-4 h-4" /> Exportar Excel
+          {exporting !== null
+            ? <><Loader2 className="w-4 h-4 animate-spin" /> {exporting} registros...</>
+            : <><Download className="w-4 h-4" /> Exportar Excel</>}
         </button>
       </div>
+
+      {exportError && (
+        <div className="bg-red-950/50 border border-red-900 text-red-300 rounded-lg px-4 py-2 text-sm">{exportError}</div>
+      )}
 
       <div className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden">
         <div className="overflow-x-auto">
