@@ -27,9 +27,11 @@ const COLS = [
   ["cap_ultimo", "Último Lançamento"],
 ];
 
-import { fmtDoc } from "@/lib/erpFormat";
+import { fmtDoc, fmtIe } from "@/lib/erpFormat";
 
 const DOC_COLS = new Set(["cnpj", "cpf"]);
+// Inscrição estadual precisa ir como texto para o Excel não descartar zeros à esquerda
+const asExcelText = (v) => (v ? `="${v}"` : "");
 
 export function exportFornecedoresCsv(suppliers) {
   const esc = (v) => {
@@ -41,7 +43,11 @@ export function exportFornecedoresCsv(suppliers) {
   };
   const header = COLS.map(([, label]) => label).join(";");
   const lines = suppliers.map((r) =>
-    COLS.map(([key]) => esc(DOC_COLS.has(key) ? fmtDoc(r[key]) : r[key])).join(";")
+    COLS.map(([key]) => {
+      if (DOC_COLS.has(key)) return esc(fmtDoc(r[key]));
+      if (key === "inscricao_estadual") return esc(asExcelText(fmtIe(r[key])));
+      return esc(r[key]);
+    }).join(";")
   );
   const csv = "\uFEFF" + [header, ...lines].join("\r\n");
 

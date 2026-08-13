@@ -21,6 +21,14 @@ export function fmtDoc(v) {
   const c = d.padStart(14, "0").slice(0, 14);
   return `${c.slice(0, 2)}.${c.slice(2, 5)}.${c.slice(5, 8)}/${c.slice(8, 12)}-${c.slice(12)}`;
 }
+// Padroniza inscrição estadual: sem espaços/pontuação, maiúsculas, "ISENTO" quando não houver
+export function fmtIe(v) {
+  const s = String(v ?? "").trim().toUpperCase();
+  if (!s) return "";
+  if (/^(ISENT|ISENTO|NAO CONTRIBUINTE|N\/?A)$/.test(s)) return "ISENTO";
+  const clean = s.replace(/[^0-9A-Z]/g, "");
+  return clean || "";
+}
 export function fmtMonthLabel(mes, ano) {
   const months = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
   return `${months[(mes - 1) % 12]}/${String(ano).slice(2)}`;
