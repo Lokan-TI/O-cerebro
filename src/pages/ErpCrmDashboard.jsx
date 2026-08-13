@@ -12,6 +12,7 @@ import TabLocacoes from "@/components/erp/TabLocacoes";
 import TabOperacional from "@/components/erp/TabOperacional";
 import TabClientesSubTabs from "@/components/erp/TabClientesSubTabs";
 import TabClassificacao from "@/components/erp/TabClassificacao";
+import TabDicionario from "@/components/erp/TabDicionario";
 import { Link } from "react-router-dom";
 import { Settings2 } from "lucide-react";
 import { EmpresaFilterProvider } from "@/lib/EmpresaFilterContext";
@@ -30,6 +31,7 @@ const TABS = [
   { id: "classificacao", label: "Classificação" },
   { id: "churn", label: "Retenção & Churn" },
   { id: "car", label: "Clientes CAR" },
+  { id: "dicionario", label: "Dicionário" },
   { id: "estrutura", label: "Estrutura" },
   { id: "query", label: "Query SQL" },
 ];
@@ -57,6 +59,7 @@ function ErpCrmDashboardContent() {
       case "classificacao": return <TabClassificacao />;
       case "churn": return <TabChurn />;
       case "car": return <TabClientesCar />;
+      case "dicionario": return <TabDicionario />;
       case "estrutura": return <SchemaExplorer />;
       case "query": return <QueryRunner />;
       default: return null;
