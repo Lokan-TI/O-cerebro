@@ -64,7 +64,7 @@ export default function TabFornecedores() {
         <div className="text-sm text-gray-400 flex items-center gap-2">
           <Truck className="w-4 h-4 text-purple-400" />
           Fornecedores cadastrados (relacionamento fornecedor) — consumo em Contas a Pagar
-          {data && <span className="text-gray-600">· desde {data.period_start} · {fmtNum(data.total_fornecedores)} fornecedores</span>}
+          {data && <span className="text-gray-600">· {data.period_label} · {fmtNum(data.total_fornecedores)} fornecedores</span>}
         </div>
         <div className="flex items-center gap-2">
           <button
@@ -77,7 +77,7 @@ export default function TabFornecedores() {
           </button>
           {data && (
             <button
-              onClick={() => exportFornecedoresCsv(rows, data.period_start)}
+              onClick={() => exportFornecedoresCsv(rows)}
               className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-700 hover:bg-emerald-600 rounded-lg text-white text-xs font-medium"
             >
               <Download className="w-3.5 h-3.5" /> Exportar Excel
@@ -99,7 +99,7 @@ export default function TabFornecedores() {
         <>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             <div className="bg-gray-900 border border-gray-800 rounded-xl p-3">
-              <div className="text-xs text-gray-500 uppercase">Títulos no período</div>
+              <div className="text-xs text-gray-500 uppercase">Títulos (total)</div>
               <div className="text-xl font-bold text-white">{fmtNum(totals.qtd)}</div>
             </div>
             <div className="bg-gray-900 border border-red-800/40 rounded-xl p-3">
@@ -128,7 +128,7 @@ export default function TabFornecedores() {
             </div>
             <label className="flex items-center gap-2 text-sm text-gray-400 cursor-pointer">
               <input type="checkbox" checked={onlyComCap} onChange={(e) => setOnlyComCap(e.target.checked)} className="accent-purple-600" />
-              Somente com consumo no período
+              Somente com consumo registrado
             </label>
             <span className="text-xs text-gray-600">{fmtNum(rows.length)} exibidos</span>
           </div>

@@ -18,15 +18,16 @@ const COLS = [
   ["email", "E-mail"],
   ["ativo", "Ativo"],
   ["dt_cadastro", "Data de Cadastro"],
-  ["cap_qtd", "Títulos CAP (período)"],
+  ["cap_qtd", "Títulos CAP (total)"],
   ["cap_total", "CAP Total (R$)"],
   ["cap_aberto", "CAP em Aberto (R$)"],
   ["cap_baixado", "CAP Baixado (R$)"],
   ["cap_vencido", "CAP Vencido (R$)"],
+  ["cap_primeiro", "Primeiro Lançamento"],
   ["cap_ultimo", "Último Lançamento"],
 ];
 
-export function exportFornecedoresCsv(suppliers, periodStart) {
+export function exportFornecedoresCsv(suppliers) {
   const esc = (v) => {
     if (v === true) return "Sim";
     if (v === false) return "Não";
@@ -42,7 +43,7 @@ export function exportFornecedoresCsv(suppliers, periodStart) {
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
-  a.download = `fornecedores_cap_desde_${periodStart}.csv`;
+  a.download = `fornecedores_historico_completo.csv`;
   a.click();
   URL.revokeObjectURL(url);
 }

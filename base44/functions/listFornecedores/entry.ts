@@ -11,12 +11,9 @@ Deno.serve(async (req) => {
 
     const body = await req.json().catch(() => ({}));
     const sourceId = body?.source_id;
+    // Sem filtro de período: considera todo o histórico do sistema.
+    // Um 'start' opcional pode ser informado para restringir a janela.
     const start = /^\d{4}-\d{2}-\d{2}$/.test(body?.start || '') ? body.start : null;
-
-    // Período padrão: últimos 12 meses
-    const now = new Date();
-    const defStart = `${now.getFullYear() - 1}-${String(now.getMonth() + 1).padStart(2, '0')}-01`;
-    const periodStart = start || defStart;
 
     let source = null;
     if (sourceId) {
@@ -51,9 +48,10 @@ Deno.serve(async (req) => {
       ISNULL(SUM(CASE WHEN dt_bai_cap IS NULL THEN vl_pre_cap ELSE 0 END),0) AS vl_aberto,
       ISNULL(SUM(CASE WHEN dt_bai_cap IS NOT NULL THEN vl_pre_cap ELSE 0 END),0) AS vl_baixado,
       ISNULL(SUM(CASE WHEN dt_ven_cap < GETDATE() AND dt_bai_cap IS NULL THEN vl_pre_cap ELSE 0 END),0) AS vl_vencido,
-      MAX(dt_emi_cap) AS dt_ultimo
+      MAX(dt_emi_cap) AS dt_ultimo,
+      MIN(dt_emi_cap) AS dt_primeiro
       FROM cap WITH (NOLOCK)
-      WHERE dt_emi_cap >= '${periodStart}' AND cd_pessoa_cre IS NOT NULL
+      WHERE cd_pessoa_cre IS NOT NULL${start ? ` AND dt_emi_cap >= '${start}'` : ''}
       GROUP BY cd_pessoa_cre`;
     const capRows = getRows(await runQuery(source, wrap(capSql), 30000));
 
@@ -91,13 +89,15 @@ Deno.serve(async (req) => {
         cap_aberto: Number(c.vl_aberto) || 0,
         cap_baixado: Number(c.vl_baixado) || 0,
         cap_vencido: Number(c.vl_vencido) || 0,
+        cap_primeiro: toDate(c.dt_primeiro),
         cap_ultimo: toDate(c.dt_ultimo),
       };
     });
 
     return Response.json({
       suppliers,
-      period_start: periodStart,
+      period_start: start,
+      period_label: start ? `desde ${start}` : 'histórico completo',
       total_fornecedores: suppliers.length,
     });
   } catch (error) {
