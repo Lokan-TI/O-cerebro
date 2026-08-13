@@ -63,14 +63,13 @@
       "type": "string",
       "description": "Usu\u00e1rio do banco"
     },
+    "password_secret_name": {
+      "type": "string",
+      "description": "Nome do secret da plataforma que guarda a senha (forma correta e recomendada). Ex.: ERP_PWD_PIRACICABA"
+    },
     "password": {
       "type": "string",
-      "description": "Credencial \u2014 processada exclusivamente pelo back-end, nunca exibida na interface"
-    },
-    "credential_reference": {
-      "type": "string",
-      "default": "entity",
-      "description": "Origem da credencial: env (vari\u00e1veis de ambiente) ou entity (configura\u00e7\u00e3o pr\u00f3pria)"
+      "description": "DEPRECIADO (P0-01) \u2014 senha em texto no banco de dados. Usar password_secret_name. Mantido apenas para as fontes ainda n\u00e3o migradas."
     },
     "auth_type": {
       "type": "string",
@@ -94,6 +93,11 @@
       "type": "boolean",
       "default": true,
       "description": "Conex\u00e3o somente leitura"
+    },
+    "credential_reference": {
+      "type": "string",
+      "default": "entity",
+      "description": "Origem da credencial: env (vari\u00e1veis de ambiente), secret (secret nomeado) ou entity (senha armazenada \u2014 depreciado)"
     },
     "sync_periodicity": {
       "type": "string",

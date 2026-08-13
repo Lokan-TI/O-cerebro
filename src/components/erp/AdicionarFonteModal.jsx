@@ -14,7 +14,7 @@ const EMPTY = {
   name: "", branch_name: "", branch_code: "", description: "",
   environment: "producao", is_active: true,
   database_type: "sqlserver", host: "", port: "1433", database_name: "",
-  instance_name: "", default_schema: "", username: "", password: "",
+  instance_name: "", default_schema: "", username: "", password: "", password_secret_name: "",
   auth_type: "sql", use_ssl: false, extra_params: "",
   is_read_only: true, sync_periodicity: "manual", sync_mode: "manual",
   connection_timeout: 25, row_limit: 10000, import_start_date: "",
@@ -158,8 +158,17 @@ export default function AdicionarFonteModal({ open, onClose, existing = null }) 
               <div><label className={labelCls}>Instância</label><input className={inputCls} value={form.instance_name} onChange={(e) => set("instance_name", e.target.value)} /></div>
               <div><label className={labelCls}>Schema padrão</label><input className={inputCls} value={form.default_schema} onChange={(e) => set("default_schema", e.target.value)} /></div>
               <div><label className={labelCls}>Usuário</label><input className={inputCls} value={form.username} onChange={(e) => set("username", e.target.value)} /></div>
-              <div><label className={labelCls}>{existing ? "Senha (deixe em branco para manter)" : "Senha"}</label>
-                <input type="password" className={inputCls} value={form.password || ""} onChange={(e) => set("password", e.target.value)} placeholder={existing?.has_password ? "Senha configurada" : ""} />
+              <div><label className={labelCls}>Nome do secret da senha (recomendado)</label>
+                <input className={inputCls} value={form.password_secret_name || ""} onChange={(e) => set("password_secret_name", e.target.value)} placeholder="Ex: ERP_PWD_PIRACICABA" />
+              </div>
+              <div><label className={labelCls}>{existing ? "Senha — legado (deixe em branco para manter)" : "Senha — legado"}</label>
+                <input type="password" className={inputCls} value={form.password || ""} onChange={(e) => set("password", e.target.value)} placeholder={existing?.has_password ? "Senha armazenada" : "Prefira o secret"} />
+              </div>
+              <div className="sm:col-span-2 rounded-lg border border-amber-800 bg-amber-950/40 px-3 py-2">
+                <p className="text-amber-300 text-xs">
+                  A senha deve ficar em um secret da plataforma, não no banco de dados da aplicação. Informe o nome do secret acima — quando ele existe, o campo de senha legado é ignorado.
+                  {existing?.has_password && !form.password_secret_name && " Esta fonte ainda usa senha armazenada e precisa ser migrada."}
+                </p>
               </div>
               <div><label className={labelCls}>Tipo de autenticação</label>
                 <select className={inputCls} value={form.auth_type} onChange={(e) => set("auth_type", e.target.value)}>

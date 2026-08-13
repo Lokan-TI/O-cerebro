@@ -16,6 +16,7 @@ import TabDicionario from "@/components/erp/TabDicionario";
 import { Link } from "react-router-dom";
 import { Settings2 } from "lucide-react";
 import { EmpresaFilterProvider } from "@/lib/EmpresaFilterContext";
+import { useAuth } from "@/lib/AuthContext";
 import { GlobalFilterProvider } from "@/lib/GlobalFilterContext";
 import TabExecutiva from "@/components/erp/TabExecutiva";
 import TabCliente360 from "@/components/erp/TabCliente360";
@@ -33,11 +34,14 @@ const TABS = [
   { id: "car", label: "Clientes CAR" },
   { id: "dicionario", label: "Dicionário" },
   { id: "estrutura", label: "Estrutura" },
-  { id: "query", label: "Query SQL" },
+  { id: "query", label: "Query SQL", adminOnly: true },
 ];
 
 function ErpCrmDashboardContent() {
   const location = useLocation();
+  const { user } = useAuth();
+  const isAdmin = user?.role === "admin";
+  const visibleTabs = TABS.filter((t) => !t.adminOnly || isAdmin);
   const [activeTab, setActiveTab] = useState(
     () => new URLSearchParams(window.location.search).get("tab") || "executiva"
   );
@@ -61,7 +65,7 @@ function ErpCrmDashboardContent() {
       case "car": return <TabClientesCar />;
       case "dicionario": return <TabDicionario />;
       case "estrutura": return <SchemaExplorer />;
-      case "query": return <QueryRunner />;
+      case "query": return isAdmin ? <QueryRunner /> : null;
       default: return null;
     }
   };
@@ -75,7 +79,7 @@ function ErpCrmDashboardContent() {
 
         <div className="flex items-center justify-between mb-4 gap-3 flex-wrap">
           <div className="flex flex-wrap gap-1 bg-gray-900 border border-gray-800 rounded-xl p-1">
-            {TABS.map(tab => (
+            {visibleTabs.map(tab => (
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}

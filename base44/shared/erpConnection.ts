@@ -12,6 +12,34 @@ function serialize(task) {
   return next;
 }
 
+// P0-01 — credential resolution order:
+//   1. password_secret_name → platform secret (correct form)
+//   2. source.password      → DEPRECATED plaintext column, kept only for sources
+//                             not yet migrated. Logged so the migration is visible.
+export function resolvePassword(source) {
+  const secretName = (source?.password_secret_name || '').trim();
+  if (secretName) {
+    const fromSecret = Deno.env.get(secretName);
+    if (!fromSecret) {
+      throw new Error(`O secret "${secretName}" não está configurado na plataforma para esta fonte.`);
+    }
+    return fromSecret;
+  }
+  if (source?.password) {
+    console.warn(`[P0-01] Fonte "${source?.name || source?.id}" ainda usa senha armazenada na entidade. Migrar para password_secret_name.`);
+    return source.password;
+  }
+  return null;
+}
+
+// Reports how a source's credential is resolved — used by the UI, never exposes the value.
+export function credentialOrigin(source) {
+  if (source?.credential_reference === 'env') return 'env';
+  if ((source?.password_secret_name || '').trim()) return 'secret';
+  if (source?.password) return 'entity_legacy';
+  return 'missing';
+}
+
 // Build a mssql connection config + DW_API client id from a source record.
 // credential_reference "env" → uses platform environment variables (Matriz).
 // Otherwise → uses the entity-stored connection fields.
@@ -35,13 +63,15 @@ export function buildConfig(source) {
     };
   }
   if (!source.host || !source.database_name) return null;
+  const password = resolvePassword(source);
+  if (password == null) return null;
   return {
     config: {
       server: source.host,
       port: parseInt(source.port) || 1433,
       database: source.database_name,
       user: source.username,
-      password: source.password,
+      password,
       options: { encrypt: !!source.use_ssl, trustServerCertificate: true },
       requestTimeout: (source.connection_timeout || 25) * 1000,
     },

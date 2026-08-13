@@ -36,6 +36,7 @@ export default function QueryRunner() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [execTime, setExecTime] = useState(null);
+  const [truncated, setTruncated] = useState(false);
   const [history, setHistory] = useState(() => loadHistory());
 
   const recordQuery = (entry) => {
@@ -56,6 +57,7 @@ export default function QueryRunner() {
     setLoading(true);
     setError(null);
     setRows(null);
+    setTruncated(false);
     const start = Date.now();
     const query = sql.trim();
     let result;
@@ -64,6 +66,7 @@ export default function QueryRunner() {
       const r = res?.data?.rows || [];
       const ms = Date.now() - start;
       setRows(r);
+      setTruncated(!!res?.data?.truncated);
       setExecTime(ms);
       result = { success: true, rowCount: r.length };
     } catch (err) {
@@ -90,6 +93,12 @@ export default function QueryRunner() {
 
   return (
     <div className="space-y-4">
+      <div className="rounded-xl border border-amber-800 bg-amber-950/40 px-4 py-2.5">
+        <p className="text-amber-300 text-xs">
+          Área administrativa: somente uma consulta de leitura por execução, sem comandos de escrita, e toda execução é registrada em auditoria com usuário, fonte e resultado.
+        </p>
+      </div>
+
       <div className="flex flex-wrap gap-2">
         {PRESETS.map(p => (
           <button key={p.label} onClick={() => setSql(p.sql)} className="px-3 py-1.5 bg-gray-800 hover:bg-gray-700 border border-gray-700 rounded-lg text-xs text-gray-400 hover:text-white transition-colors">
@@ -144,6 +153,7 @@ export default function QueryRunner() {
             </table>
           </div>
           {rows.length > 200 && <p className="text-gray-500 text-xs p-2 text-center">Mostrando 200 de {rows.length} linhas</p>}
+          {truncated && <p className="text-amber-400 text-xs p-2 text-center">Resultado limitado a 5.000 linhas por segurança — refine a consulta.</p>}
         </div>
       )}
       {rows != null && rows.length === 0 && !error && (

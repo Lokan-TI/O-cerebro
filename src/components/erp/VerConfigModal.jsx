@@ -53,7 +53,15 @@ export default function VerConfigModal({ source, onClose }) {
               <Field label="Schema padrão" value={source.default_schema} />
               <Field label="Usuário" value={fromEnv ? "Definido via ambiente" : source.username} />
               <Field label="Senha" value="••••••••" />
-              <Field label="Origem das credenciais" value={fromEnv ? "Variáveis de ambiente" : "Configuração própria"} />
+              <Field
+                label="Origem das credenciais"
+                value={
+                  fromEnv ? "Variáveis de ambiente"
+                    : source.password_secret_name ? `Secret: ${source.password_secret_name}`
+                    : source.has_password ? "Senha armazenada (legado — migrar)"
+                    : "Não configurada"
+                }
+              />
               <Field label="Autenticação" value={source.auth_type === "windows" ? "Windows" : "SQL"} />
               <Field label="SSL" value={source.use_ssl ? "Sim" : "Não"} />
               <Field label="Somente leitura" value={source.is_read_only === false ? "Não" : "Sim"} />
