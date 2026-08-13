@@ -10,7 +10,7 @@ import TabFinanceiro from "@/components/erp/TabFinanceiro";
 import TabFornecedores from "@/components/erp/TabFornecedores";
 import TabLocacoes from "@/components/erp/TabLocacoes";
 import TabOperacional from "@/components/erp/TabOperacional";
-import TabClientesPessoa from "@/components/erp/TabClientesPessoa";
+import TabClientesSubTabs from "@/components/erp/TabClientesSubTabs";
 import TabClassificacao from "@/components/erp/TabClassificacao";
 import { Link } from "react-router-dom";
 import { Settings2 } from "lucide-react";
@@ -52,7 +52,7 @@ function ErpCrmDashboardContent() {
       case "fornecedores": return <TabFornecedores />;
       case "locacoes": return <TabLocacoes />;
       case "operacional": return <TabOperacional />;
-      case "clientes_pessoa": return <TabClientesPessoa />;
+      case "clientes_pessoa": return <TabClientesSubTabs />;
       case "cliente360": return <TabCliente360 />;
       case "classificacao": return <TabClassificacao />;
       case "churn": return <TabChurn />;
