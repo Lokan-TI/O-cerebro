@@ -124,6 +124,10 @@ Função `reconcileMetrics` · entidade `MetricReconciliation` (uma linha por m�
 | MTR-018 NFs faturadas | — | executável | — | SEM LEGADO |
 | MTR-019 Novos clientes faturados | annual_evolution.novos_clientes | executável | — | comparado a cada execução |
 
+| MTR-020 Recebíveis em aberto | — | executável | — | SEM LEGADO (janela do analytics difere) |
+| MTR-021 Recebíveis vencidos | — | executável | — | SEM LEGADO (depende da data corrente) |
+| MTR-022 DSO | — | executável | — | SEM LEGADO |
+
 MTR-018 e MTR-019 entraram no registry executável (v0.1). MTR-019 define "novo" pela **primeira NF faturada de todos os tempos**, enquanto o legado usa data de cadastro (doc 10) — divergência estrutural esperada.
 
 **Causa das divergências (mesma raiz):** o snapshot legado conta clientes com qualquer NF válida no período; o canônico exige Receita > 0. Divergência esperada, registrada com justificativa e aceite no próprio registro de reconciliação — não é erro de cálculo.

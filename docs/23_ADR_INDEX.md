@@ -14,6 +14,7 @@ Formato: contexto · decisão · alternativas · consequências · status.
 | ADR-007 | Secret Management para fontes de dados | PROPOSED |
 | ADR-008 | Isolamento de concorrência por fonte | PROPOSED |
 | ADR-009 | `pessoa` mapeia Party, não Customer | PROPOSED |
+| ADR-010 | Aprovação de métricas do registry (CFO) | AWAITING_APPROVAL |
 
 ---
 
@@ -48,3 +49,10 @@ Formato: contexto · decisão · alternativas · consequências · status.
 
 ## ADR-009 · `pessoa` → Party
 **Decisão:** preservar a semântica ampla da tabela; papéis derivam dos flags; `Customer` é um papel, não a entidade.
+
+## ADR-010 · Aprovação de métricas do registry (CFO)
+**Contexto:** o registry executável (v0.1) cobre MTR-001, 006, 007, 017, 018, 019, 020, 021 e 022, todas com `trusted = false`. A reconciliação legado × canônico está persistida (Receita aderente a 0%; divergências de contagem justificadas). Falta a aprovação do dono de negócio para o selo OFICIAL.
+**Decisão (proposta para assinatura):** o CFO aprova, métrica a métrica, respondendo às `blocking_questions` registradas — em especial: (a) `vl_faturamento` como Receita oficial; (b) tratamento de NFs válidas com valor zerado; (c) denominador do ticket médio por cliente faturado; (d) inclusão de acréscimos/descontos no saldo de recebíveis; (e) convenção de DSO. Após assinatura, o campo `trusted` da métrica vira `true` na versão seguinte do registry e o selo NÃO OFICIAL sai dos dashboards que a exibem.
+**Alternativas:** aprovação em bloco sem responder às questões (rejeitada: repete o problema das definições implícitas); aprovação técnica pelo Data Platform (rejeitada: dono de negócio é obrigatório pelo doc 12).
+**Consequências:** até a assinatura, nenhuma métrica pode ser exibida como oficial; a release (`DatasetRelease`) segue publicável, mas carrega métricas v0.1 não confiáveis.
+**Status:** AWAITING_APPROVAL — pendente exclusivamente da assinatura do CFO.

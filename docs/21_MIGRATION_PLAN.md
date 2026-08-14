@@ -29,7 +29,9 @@ Entregue: `DatasetRelease` atômico (`publishDatasetRelease` + entidade `Dataset
 1. snapshot vigente publicado · 2. reconciliação apurada no ano · 3. divergências > 2% justificadas e aceitas · 4. cobertura de documento do Party ≥ 95% · 5. trust score da fonte ≥ 60.
 A troca é atômica: a release anterior só é rebaixada a `superseded` quando a nova passa em todos os portões; reprovada, grava-se `blocked` com os motivos e a vigente permanece.
 Entregue: registry ampliado com MTR-018 (NFs faturadas) e MTR-019 (novos clientes faturados).
-Pendente: demais métricas da ordem sugerida e ADR de aprovação do CFO — único item que ainda impede o status OFICIAL das métricas.
+Entregue: métricas de Recebíveis/DSO no registry (MTR-020 em aberto, MTR-021 vencidos, MTR-022 DSO) — sem contraparte legada direta (janelas distintas), reconciliadas como SEM LEGADO.
+Entregue: ADR-010 (aprovação de métricas pelo CFO) redigido e em AWAITING_APPROVAL — lista as questões bloqueantes por métrica; a assinatura vira `trusted = true` e remove o selo NÃO OFICIAL.
+Pendente: assinatura do CFO no ADR-010 e métricas de Retenção/Churn canônicas (aguardam a máquina de estados única do doc 10 / ADR-002).
 
 Metric Layer no backend, métrica por métrica, com reconciliação obrigatória:
 ```

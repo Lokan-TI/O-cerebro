@@ -185,6 +185,91 @@ export const METRICS: MetricDef[] = [
   },
 ];
 
+// Universo canônico de recebíveis (mesmo usado no bloco analytics · CAR)
+function carWindowClause(ctx: AnalysisContext, start: string, end: string) {
+  const emp = ctx.cd_empresa ? ` AND cd_empresa_gestora = '${String(ctx.cd_empresa).replace(/'/g, '')}'` : '';
+  return `dt_emi_car >= '${start}' AND dt_emi_car < '${end}' AND dt_cancelamento IS NULL${emp}`;
+}
+
+function periodDays(ctx: AnalysisContext) {
+  const ms = new Date(ctx.period_end + 'T00:00:00Z').getTime() - new Date(ctx.period_start + 'T00:00:00Z').getTime();
+  return Math.max(1, Math.round(ms / 86400000));
+}
+
+METRICS.push(
+  {
+    metric_id: 'MTR-020',
+    business_name: 'Recebíveis em aberto (emitidos no período)',
+    version: '0.1',
+    formula: 'Σ vl_pre_car de títulos emitidos no período, não baixados e não cancelados',
+    grain: 'receivable',
+    unit: 'BRL',
+    time_dimension: 'dt_emi_car',
+    business_owner: PENDING_OWNER,
+    technical_owner: 'Data Platform',
+    source_of_truth: 'car.vl_pre_car (substituto do canônico Receivable)',
+    trusted: false,
+    blocking_questions: [
+      'Confirmar se o saldo em aberto deve incluir acréscimos/descontos (vl_acr_car / vl_des_car).',
+      'Recorte por emissão no período difere de posição de carteira (saldo em uma data).',
+    ],
+    build: (ctx) => ({
+      queries: [
+        `SELECT ISNULL(SUM(vl_pre_car),0) AS v FROM car WHERE ${carWindowClause(ctx, ctx.period_start, ctx.period_end)} AND dt_bai_car IS NULL`,
+      ],
+      reduce: ([r]) => Number(r?.[0]?.v || 0),
+    }),
+  },
+  {
+    metric_id: 'MTR-021',
+    business_name: 'Recebíveis vencidos (emitidos no período)',
+    version: '0.1',
+    formula: 'Σ vl_pre_car de títulos emitidos no período, em aberto e com vencimento anterior a hoje',
+    grain: 'receivable',
+    unit: 'BRL',
+    time_dimension: 'dt_emi_car',
+    business_owner: PENDING_OWNER,
+    technical_owner: 'Data Platform',
+    source_of_truth: 'car.vl_pre_car + dt_ven_car',
+    trusted: false,
+    blocking_questions: ['Vencido depende da data corrente — resultado muda a cada execução (documentado por design).'],
+    build: (ctx) => ({
+      queries: [
+        `SELECT ISNULL(SUM(vl_pre_car),0) AS v FROM car WHERE ${carWindowClause(ctx, ctx.period_start, ctx.period_end)} AND dt_bai_car IS NULL AND dt_ven_car < GETDATE()`,
+      ],
+      reduce: ([r]) => Number(r?.[0]?.v || 0),
+    }),
+  },
+  {
+    metric_id: 'MTR-022',
+    business_name: 'DSO (prazo médio de recebimento)',
+    version: '0.1',
+    formula: '(Recebíveis em aberto emitidos no período / Receita do período) × dias da janela',
+    grain: 'period',
+    unit: 'count',
+    time_dimension: 'dt_emi_car / dt_emi_nf',
+    business_owner: PENDING_OWNER,
+    technical_owner: 'Data Platform',
+    source_of_truth: 'derivada de MTR-020 e MTR-001',
+    trusted: false,
+    blocking_questions: [
+      ...REVENUE_BLOCKERS,
+      'Método simples (não countback); confirmar convenção oficial com o financeiro.',
+    ],
+    build: (ctx) => ({
+      queries: [
+        `SELECT ISNULL(SUM(vl_pre_car),0) AS v FROM car WHERE ${carWindowClause(ctx, ctx.period_start, ctx.period_end)} AND dt_bai_car IS NULL`,
+        `SELECT ${REVENUE_EXPR} AS v FROM nf WHERE ${windowClause(ctx, ctx.period_start, ctx.period_end)}`,
+      ],
+      reduce: ([open, rev]) => {
+        const receita = Number(rev?.[0]?.v || 0);
+        if (!receita) return null;
+        return Math.round((Number(open?.[0]?.v || 0) / receita) * periodDays(ctx) * 10) / 10;
+      },
+    }),
+  },
+);
+
 export function getMetric(metricId: string) {
   return METRICS.find((m) => m.metric_id === metricId) || null;
 }
