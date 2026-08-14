@@ -5,6 +5,7 @@ import ChurnDateRangeFilter from "./ChurnDateRangeFilter";
 import ChurnSummaryCards from "./ChurnSummaryCards";
 import ChurnClientTable from "./ChurnClientTable";
 import ChurnTimeline from "./ChurnTimeline";
+import RetentionCanonicalPanel from "./RetentionCanonicalPanel";
 import { AlertTriangle, UserMinus } from "lucide-react";
 
 function getDefaultDates() {
@@ -53,6 +54,12 @@ export default function TabChurn() {
 
   return (
     <div className="space-y-4">
+      <RetentionCanonicalPanel
+        periodStart={dates.analysis_start}
+        periodEnd={dates.analysis_end}
+        legacyRunning={loading}
+      />
+
       <ChurnDateRangeFilter
         dates={dates}
         onChange={setDates}
