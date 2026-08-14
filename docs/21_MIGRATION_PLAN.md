@@ -43,8 +43,10 @@ legacy_metric · canonical_metric · absolute_difference · percentage_differenc
 Ordem sugerida: Revenue → Cadastros/Novos clientes → Ticket médio → Concentração → Recebíveis/DSO → Retenção/Churn.
 `DatasetRelease` com publicação atômica substitui os três snapshots.
 
-## Phase 5 — Customer Journey
+## Phase 5 — Customer Journey *(iniciada)*
 Ligar comercial (CRM/orçamentos) ao operacional e financeiro sobre o modelo de eventos.
+Entregue: `11_CUSTOMER_JOURNEY` (v1.0-draft, AWAITING_APPROVAL) — evento canônico `CustomerEvent` com grão, `party_id` canônico e linhagem obrigatórios; escopo fechado de 10 tipos de evento nos três estágios; métricas que a jornada habilita; 4 questões bloqueantes de negócio; sequência de entrega em 5 passos.
+Pendente: aprovação do documento (grão + tipos + questões) antes de qualquer implementação — passo 2 (contratos de leitura por evento) só começa depois.
 
 ## Phase 6 — Executive Cockpit
 Nova navegação por decisão, somente sobre métricas oficiais; ferramentas técnicas movidas para a área Admin.
