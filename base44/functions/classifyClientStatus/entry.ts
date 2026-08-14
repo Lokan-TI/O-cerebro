@@ -1,6 +1,11 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.40';
 import { buildConfig, runQuery } from '../../shared/erpConnection.ts';
-import { approvedRemessaFrom, faturaFrom } from '../../shared/churnUniverse.ts';
+import { faturaFrom } from '../../shared/churnUniverse.ts';
+import {
+  CLIENT_STATUSES, isoDate, deriveLegacyContext, buildLegacyRemessaSql, buildLegacyFichaSql, classifyLegacy,
+} from '../../shared/legacyClientStatus.ts';
+
+export { CLIENT_STATUSES };
 
 // Motor de classificação de clientes em 9 status de ciclo de vida.
 // Universo = clientes com remessa realizada (fl_remessa.dt_saida) OU ficha de locação (fich_loc).
@@ -27,34 +32,6 @@ function getRows(result) {
   }
   if (Array.isArray(result)) return result;
   return [];
-}
-
-function isoDate(d) { return d.toISOString().slice(0, 10); }
-
-export const CLIENT_STATUSES = [
-  'Novo ativo', 'Recorrente', 'Reativado', 'Em risco', 'Em churn',
-  'Dormente', 'Churn confirmado', 'Prospector', 'Novo cadastro',
-];
-
-function classify(c, ctx) {
-  const { aStart, riskCutoff, dormantStart } = ctx;
-  const cntA = c.cnt_a || 0;
-  const cntR = c.cnt_r || 0;
-  const first = c.first_remessa ? new Date(c.first_remessa) : null;
-  const last = c.last_remessa ? new Date(c.last_remessa) : null;
-
-  if (c.has_remessa) {
-    if (cntA > 0 && first && isoDate(first) >= aStart) return 'Novo ativo';
-    if (cntA > 0 && cntR > 0) return 'Recorrente';
-    if (cntA > 0 && cntR === 0) return 'Reativado';
-    if (cntA === 0 && cntR > 0 && last && isoDate(last) >= riskCutoff) return 'Em risco';
-    if (cntA === 0 && cntR > 0) return 'Em churn';
-    if (cntA === 0 && cntR === 0 && last && isoDate(last) >= dormantStart) return 'Dormente';
-    return 'Churn confirmado';
-  }
-  // ficha sem remessa realizada
-  if (c.min_ficha && isoDate(new Date(c.min_ficha)) >= ctx.novoCadastroCutoff) return 'Novo cadastro';
-  return 'Prospector';
 }
 
 Deno.serve(async (req) => {
@@ -86,18 +63,8 @@ Deno.serve(async (req) => {
     const aEnd = body?.analysis_end || `${y + 1}-01-01`;
     const rStart = body?.ref_start || `${y - 1}-01-01`;
 
-    // Cortes derivados
-    const riskCutoffD = new Date(aStart); riskCutoffD.setMonth(riskCutoffD.getMonth() - 3);
-    const dormantStartD = new Date(aEnd); dormantStartD.setMonth(dormantStartD.getMonth() - 24);
-    const novoCadastroD = new Date(aEnd); novoCadastroD.setMonth(novoCadastroD.getMonth() - 3);
-    const fichaLowerD = new Date(aEnd); fichaLowerD.setFullYear(fichaLowerD.getFullYear() - 3);
-    const remessaLowerD = new Date(aEnd); remessaLowerD.setFullYear(remessaLowerD.getFullYear() - 5);
-    const ctx = {
-      aStart, rStart,
-      riskCutoff: isoDate(riskCutoffD),
-      dormantStart: isoDate(dormantStartD),
-      novoCadastroCutoff: isoDate(novoCadastroD),
-    };
+    // Cortes derivados (módulo compartilhado — mesma regra usada na reconciliação por cliente)
+    const ctx = deriveLegacyContext(aStart, aEnd, rStart);
 
     const warnings = [];
     const queries: any[] = [];
@@ -107,14 +74,7 @@ Deno.serve(async (req) => {
     // 1. Remessas realizadas por cliente (10 anos)
     const clients = {}; // cd_pessoa -> aggregate
     try {
-      const sql = `SELECT f.cd_pessoa,
-        MIN(r.dt_saida) AS first_remessa,
-        MAX(r.dt_saida) AS last_remessa,
-        SUM(CASE WHEN r.dt_saida >= '${aStart}' AND r.dt_saida < '${aEnd}' THEN 1 ELSE 0 END) AS cnt_a,
-        SUM(CASE WHEN r.dt_saida >= '${rStart}' AND r.dt_saida < '${aStart}' THEN 1 ELSE 0 END) AS cnt_r
-        ${approvedRemessaFrom}
-          AND r.dt_saida >= '${isoDate(remessaLowerD)}'
-        GROUP BY f.cd_pessoa`;
+      const sql = buildLegacyRemessaSql(ctx);
       queries.push({ label: 'Remessas realizadas por cliente', description: 'fl_remessa aprovada — contagem nas janelas de análise e referência', sql });
       for (const r of getRows(await runQuery(source, wrap(sql), 60000))) {
         const code = String(r.cd_pessoa);
@@ -132,11 +92,7 @@ Deno.serve(async (req) => {
 
     // 2. Fichas de locação por cliente (sem remessa realizada → Prospector/Novo cadastro)
     try {
-      const sql = `SELECT cd_pessoa, MIN(dt_pedido) AS min_ficha
-        FROM fich_loc WITH (NOLOCK)
-        WHERE cd_pessoa IS NOT NULL AND cd_pessoa <> ''
-          AND dt_pedido >= '${isoDate(fichaLowerD)}'
-        GROUP BY cd_pessoa`;
+      const sql = buildLegacyFichaSql(ctx);
       queries.push({ label: 'Fichas de locação por cliente', description: 'fich_loc — base de Prospector / Novo cadastro', sql });
       for (const r of getRows(await runQuery(source, wrap(sql), 30000))) {
         const code = String(r.cd_pessoa);
@@ -166,7 +122,7 @@ Deno.serve(async (req) => {
     for (const s of CLIENT_STATUSES) distribution[s] = { count: 0, revenue: 0 };
     const clientList = [];
     for (const c of Object.values(clients)) {
-      const status = classify(c, ctx);
+      const status = classifyLegacy(c, ctx);
       const rev = revenue[c.cd_pessoa] || 0;
       distribution[status].count++;
       distribution[status].revenue += rev;

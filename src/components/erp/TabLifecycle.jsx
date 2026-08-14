@@ -2,6 +2,7 @@ import { useState } from "react";
 import { base44 } from "@/api/base44Client";
 import { useErpSource, ALL_SOURCES_ID } from "@/lib/ErpSourceContext";
 import LifecycleFamilyCompare from "@/components/erp/LifecycleFamilyCompare";
+import LifecycleClientRecon from "@/components/erp/LifecycleClientRecon";
 import { HeartPulse, Play, Loader2 } from "lucide-react";
 
 const STATUS_META = {
@@ -108,6 +109,7 @@ export default function TabLifecycle() {
           ) : (
             running ? null : <div className="text-xs text-gray-500">Motor legado não retornou — paralelo indisponível nesta execução.</div>
           )}
+          <LifecycleClientRecon sourceId={v1.source.id} asOf={v1.as_of_date} />
         </>
       )}
     </div>

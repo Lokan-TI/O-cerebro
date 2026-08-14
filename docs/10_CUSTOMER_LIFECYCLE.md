@@ -36,6 +36,6 @@ Evento base de atividade comercial (v1): **NF emitida** (`Invoice`), para manter
 
 ## Migração
 1. Implementar como serviço único no backend, sem alterar telas. *(entregue: `computeLifecycle` + `customerLifecycle.ts`, versão v1, as_of explícito, universo NF de MTR-001; aproximação documentada: REACTIVATED exige nenhuma NF entre 91–365 dias, garantindo gap ≥ 181d)*
-2. Rodar em paralelo às regras atuais e produzir relatório de reconciliação por cliente. *(em execução: aba admin "Lifecycle v1" roda os dois motores no mesmo corte e compara por família — NF × remessa são universos distintos; reconciliação por cliente pendente)*
+2. Rodar em paralelo às regras atuais e produzir relatório de reconciliação por cliente. *(entregue: `reconcileLifecycle` cruza cliente a cliente os dois motores no mesmo corte — matriz de confusão por família, taxa de concordância, receita em divergência e top 50 divergências por receita 12m. Corte 2026-08-13: 6.653 clientes em comum, 74,3% de concordância, 1.708 divergentes (R$ 8,3 mi), 6.200 só no v1 (NF sem remessa aprovada) e 2.690 só no legado. Padrão dominante: 700 clientes DORMANT/CHURNED no v1 aparecem como ativos no legado — remessa em curso sem NF emitida no período.)*
 3. Aprovar divergências com o negócio.
 4. Só então as abas passam a ler o snapshot oficial e as regras antigas são retiradas.
