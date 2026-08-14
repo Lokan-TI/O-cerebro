@@ -35,7 +35,7 @@ Evento base de atividade comercial (v1): **NF emitida** (`Invoice`), para manter
 `CustomerLifecycleSnapshot`: `customer_id`, `as_of_date`, `status_id`, `status_since`, `last_activity_date`, `recency_days`, `activity_count_12m`, `revenue_12m`, `lifecycle_version`, `evidence[]`.
 
 ## Migração
-1. Implementar como serviço único no backend, sem alterar telas.
-2. Rodar em paralelo às regras atuais e produzir relatório de reconciliação por cliente.
+1. Implementar como serviço único no backend, sem alterar telas. *(entregue: `computeLifecycle` + `customerLifecycle.ts`, versão v1, as_of explícito, universo NF de MTR-001; aproximação documentada: REACTIVATED exige nenhuma NF entre 91–365 dias, garantindo gap ≥ 181d)*
+2. Rodar em paralelo às regras atuais e produzir relatório de reconciliação por cliente. *(em execução: aba admin "Lifecycle v1" roda os dois motores no mesmo corte e compara por família — NF × remessa são universos distintos; reconciliação por cliente pendente)*
 3. Aprovar divergências com o negócio.
 4. Só então as abas passam a ler o snapshot oficial e as regras antigas são retiradas.

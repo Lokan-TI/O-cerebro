@@ -270,6 +270,71 @@ METRICS.push(
   },
 );
 
+// Coorte de retenção 12m ancorada no fim do período (janela fixa de 12+12 meses).
+function retentionCohortSql(ctx: AnalysisContext) {
+  const d = (n: number) => {
+    const x = new Date(ctx.period_end + 'T00:00:00Z');
+    x.setUTCDate(x.getUTCDate() - n);
+    return x.toISOString().slice(0, 10);
+  };
+  const d365 = d(365);
+  return `SELECT
+    SUM(CASE WHEN prior_cnt > 0 THEN 1 ELSE 0 END) AS base_,
+    SUM(CASE WHEN prior_cnt > 0 AND cur_cnt > 0 THEN 1 ELSE 0 END) AS retained,
+    SUM(CASE WHEN prior_cnt > 0 AND cur_cnt = 0 THEN 1 ELSE 0 END) AS churned
+    FROM (SELECT cd_pessoa,
+      SUM(CASE WHEN ${INVOICE_DATE_FIELD} < '${d365}' THEN 1 ELSE 0 END) AS prior_cnt,
+      SUM(CASE WHEN ${INVOICE_DATE_FIELD} >= '${d365}' THEN 1 ELSE 0 END) AS cur_cnt
+      FROM nf WHERE ${windowClause(ctx, d(730), ctx.period_end)} AND ISNULL(vl_faturamento,0) > 0
+      GROUP BY cd_pessoa) t`;
+}
+const RETENTION_BLOCKERS = [
+  'Janela fixa 12m vs 12m ancorada no fim do período de análise (não usa a duração do período).',
+  'Atividade = NF emitida (lifecycle v1, doc 10); o motor legado usa remessa — divergência estrutural esperada.',
+];
+
+METRICS.push(
+  {
+    metric_id: 'MTR-023',
+    business_name: 'Taxa de retenção 12m',
+    version: '0.1',
+    formula: 'clientes com NF nos 12m anteriores que também faturaram nos 12m finais / base da coorte',
+    grain: 'customer',
+    unit: 'percent',
+    time_dimension: INVOICE_DATE_FIELD,
+    business_owner: PENDING_OWNER,
+    technical_owner: 'Data Platform',
+    source_of_truth: 'nf (lifecycle v1 · doc 10)',
+    trusted: false,
+    blocking_questions: RETENTION_BLOCKERS,
+    build: (ctx) => ({
+      queries: [retentionCohortSql(ctx)],
+      reduce: ([r]) => {
+        const base = Number(r?.[0]?.base_ || 0);
+        return base ? Math.round((Number(r?.[0]?.retained || 0) / base) * 10000) / 100 : null;
+      },
+    }),
+  },
+  {
+    metric_id: 'MTR-024',
+    business_name: 'Clientes perdidos 12m (churn)',
+    version: '0.1',
+    formula: 'clientes com NF nos 12m anteriores e nenhuma NF nos 12m finais da coorte',
+    grain: 'customer',
+    unit: 'count',
+    time_dimension: INVOICE_DATE_FIELD,
+    business_owner: PENDING_OWNER,
+    technical_owner: 'Data Platform',
+    source_of_truth: 'nf (lifecycle v1 · doc 10)',
+    trusted: false,
+    blocking_questions: RETENTION_BLOCKERS,
+    build: (ctx) => ({
+      queries: [retentionCohortSql(ctx)],
+      reduce: ([r]) => Number(r?.[0]?.churned || 0),
+    }),
+  },
+);
+
 export function getMetric(metricId: string) {
   return METRICS.find((m) => m.metric_id === metricId) || null;
 }

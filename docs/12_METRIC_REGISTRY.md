@@ -127,6 +127,8 @@ Função `reconcileMetrics` · entidade `MetricReconciliation` (uma linha por m�
 | MTR-020 Recebíveis em aberto | — | executável | — | SEM LEGADO (janela do analytics difere) |
 | MTR-021 Recebíveis vencidos | — | executável | — | SEM LEGADO (depende da data corrente) |
 | MTR-022 DSO | — | executável | — | SEM LEGADO |
+| MTR-023 Taxa de retenção 12m | — | executável | — | SEM LEGADO (lifecycle v1 · NF; legado usa remessa) |
+| MTR-024 Clientes perdidos 12m | — | executável | — | SEM LEGADO (idem) |
 
 MTR-018 e MTR-019 entraram no registry executável (v0.1). MTR-019 define "novo" pela **primeira NF faturada de todos os tempos**, enquanto o legado usa data de cadastro (doc 10) — divergência estrutural esperada.
 

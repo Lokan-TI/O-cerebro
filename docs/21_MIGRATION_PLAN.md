@@ -31,7 +31,9 @@ A troca é atômica: a release anterior só é rebaixada a `superseded` quando a
 Entregue: registry ampliado com MTR-018 (NFs faturadas) e MTR-019 (novos clientes faturados).
 Entregue: métricas de Recebíveis/DSO no registry (MTR-020 em aberto, MTR-021 vencidos, MTR-022 DSO) — sem contraparte legada direta (janelas distintas), reconciliadas como SEM LEGADO.
 Entregue: ADR-010 (aprovação de métricas pelo CFO) redigido e em AWAITING_APPROVAL — lista as questões bloqueantes por métrica; a assinatura vira `trusted = true` e remove o selo NÃO OFICIAL.
-Pendente: assinatura do CFO no ADR-010 e métricas de Retenção/Churn canônicas (aguardam a máquina de estados única do doc 10 / ADR-002).
+Entregue: Customer Lifecycle v1 como serviço único (`computeLifecycle`, doc 10 passos 1–2) — atividade por NF, as_of explícito, rodando em paralelo ao motor legado por remessa na aba admin "Lifecycle v1", com comparação por família.
+Entregue: métricas de Retenção/Churn no registry (MTR-023 taxa de retenção 12m, MTR-024 clientes perdidos 12m) — coorte 12m × 12m sobre o universo NF, reconciliadas como SEM LEGADO (motor legado usa remessa).
+Pendente: assinatura do CFO no ADR-010, reconciliação por cliente do lifecycle (doc 10 passo 2) e aprovação das divergências com o negócio (passo 3).
 
 Metric Layer no backend, métrica por métrica, com reconciliação obrigatória:
 ```
