@@ -23,6 +23,10 @@ export const SE1_COLUMNS = [
   ['E1_STATUS', 'Status'],
   ['E1_BAIXA', 'Data da baixa'],
   ['E1_HIST', 'Histórico'],
+  ['NATUREZA_DESCRICAO', 'Natureza financeira — Descrição'],
+  ['NATUREZA_TIPO', 'Natureza financeira — Tipo de movimentação'],
+  ['NATUREZA_STATUS', 'Natureza financeira — Status (A=Ativo / I=Inativo)'],
+  ['NATUREZA_BALANCETE', 'Natureza financeira — Balancete (S/N)'],
   ['SISLOC_CD_LAN', 'Sisloc — ID do lançamento'],
   ['SISLOC_DOCUMENTO', 'Sisloc — CNPJ/CPF completo'],
   ['SISLOC_EMPRESA', 'Sisloc — Empresa gestora'],
@@ -48,6 +52,10 @@ export const SE2_COLUMNS = [
   ['E2_STATUS', 'Status'],
   ['E2_BAIXA', 'Data da baixa'],
   ['E2_HIST', 'Histórico'],
+  ['NATUREZA_DESCRICAO', 'Natureza financeira — Descrição'],
+  ['NATUREZA_TIPO', 'Natureza financeira — Tipo de movimentação'],
+  ['NATUREZA_STATUS', 'Natureza financeira — Status (A=Ativo / I=Inativo)'],
+  ['NATUREZA_BALANCETE', 'Natureza financeira — Balancete (S/N)'],
   ['SISLOC_CD_LAN', 'Sisloc — ID do lançamento'],
   ['SISLOC_DOCUMENTO', 'Sisloc — CNPJ/CPF completo'],
   ['SANEAMENTO', 'Pendências de saneamento'],
@@ -60,11 +68,27 @@ export function getTotvsLayout(doc: string) {
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
+// Filtro de status para o saneamento (fl_status no CAR, fl_status_titulo no CAP —
+// domínio oficial do dicionário: 5=Provisório · 10=Aberto · 25/30=Liquidado · 40=Cancelado · 50=Renegociado · 60=PCLD).
+// "Vencido" é avaliado contra a data de hoje.
+const STATUS_FILTERS: Record<string, (st: string, ven: string) => string> = {
+  aberto_vencido: (st, ven) => `(${st} = 10 AND ${ven} < CAST(GETDATE() AS date))`,
+  aberto_a_vencer: (st, ven) => `(${st} = 10 AND (${ven} >= CAST(GETDATE() AS date) OR ${ven} IS NULL))`,
+  provisorio: (st) => `(${st} = 5)`,
+};
+
+function statusWhere(statuses: string[] | undefined, st: string, ven: string) {
+  const conds = (Array.isArray(statuses) ? statuses : [])
+    .filter((s) => STATUS_FILTERS[s])
+    .map((s) => STATUS_FILTERS[s](st, ven));
+  return conds.length ? ` AND (${conds.join(' OR ')})` : '';
+}
+
 // Limpa o documento (só dígitos) — os campos do Sisloc vêm com máscara inconsistente.
 const DOC_CLEAN = (col: string) =>
   `REPLACE(REPLACE(REPLACE(REPLACE(LTRIM(RTRIM(COALESCE(${col}, ''))), '.', ''), '-', ''), '/', ''), ' ', '')`;
 
-function baseCte(doc: string, startDate: string, endDate: string) {
+function baseCte(doc: string, startDate: string, endDate: string, statuses?: string[]) {
   const isCap = doc === 'cap';
   if (!DATE_RE.test(startDate) || !DATE_RE.test(endDate)) throw new Error('Período inválido.');
 
@@ -78,6 +102,7 @@ function baseCte(doc: string, startDate: string, endDate: string) {
   const hist = isCap ? 'ob_cap' : 'ob_car';
   const pes = isCap ? 'c.cd_pessoa_cre' : 'c.cd_pessoa_cli';
   const table = isCap ? 'cap' : 'car';
+  const stCol = isCap ? 'c.fl_status_titulo' : 'c.fl_status';
 
   const cancel = isCap ? '' : ' AND c.dt_cancelamento IS NULL';
   // CAP não possui nf_numero: o nº do título vem do documento de origem / do próprio lançamento.
@@ -99,6 +124,9 @@ function baseCte(doc: string, startDate: string, endDate: string) {
       c.${bai} AS dt_baixa,
       ROUND(COALESCE(c.${vlp}, 0) + COALESCE(c.${vla}, 0) - COALESCE(c.${vld}, 0), 2) AS valor,
       COALESCE(pl.ds_planfin, '') AS natureza,
+      LTRIM(RTRIM(COALESCE(pl.tp_mov, ''))) AS natureza_tipo,
+      LTRIM(RTRIM(COALESCE(pl.fl_planfin, ''))) AS natureza_status,
+      LTRIM(RTRIM(COALESCE(pl.fl_balancete, ''))) AS natureza_balancete,
       LTRIM(RTRIM(COALESCE(CAST(c.${hist} AS varchar(4000)), ''))) AS historico,
       ${numExpr} AS num_titulo,
       ROW_NUMBER() OVER (
@@ -106,22 +134,25 @@ function baseCte(doc: string, startDate: string, endDate: string) {
         ORDER BY c.${ven}, c.cd_lan
       ) AS parcela,
       CASE
-        WHEN c.${bai} IS NOT NULL THEN 'BAIXADO'
-        ${isCap ? '' : "WHEN c.dt_cancelamento IS NOT NULL THEN 'CANCELADO'"}
-        WHEN c.${ven} < CAST('${endDate}' AS date) THEN 'EM ABERTO (VENCIDO)'
+        WHEN ${stCol} = 5 THEN 'PROVISORIO'
+        WHEN ${stCol} = 40 THEN 'CANCELADO'
+        WHEN ${stCol} = 50 THEN 'RENEGOCIADO'
+        WHEN ${stCol} = 60 THEN 'PCLD'
+        WHEN ${stCol} IN (25, 30) OR c.${bai} IS NOT NULL THEN 'BAIXADO'
+        WHEN c.${ven} < CAST(GETDATE() AS date) THEN 'EM ABERTO (VENCIDO)'
         ELSE 'EM ABERTO (A VENCER)'
       END AS status_titulo,
-      CASE WHEN c.${bai} IS NULL${cancel} THEN 1 ELSE 0 END AS em_aberto
+      CASE WHEN ${stCol} IN (5, 10) AND c.${bai} IS NULL${cancel} THEN 1 ELSE 0 END AS em_aberto
     FROM ${table} c WITH (NOLOCK)
     LEFT JOIN pessoa p WITH (NOLOCK) ON p.cd_pessoa = ${pes}
     LEFT JOIN plano pl WITH (NOLOCK) ON pl.cd_planfin = c.cd_conta
-    WHERE c.${emi} >= '${startDate}' AND c.${emi} < DATEADD(day, 1, CAST('${endDate}' AS date))
+    WHERE c.${emi} >= '${startDate}' AND c.${emi} < DATEADD(day, 1, CAST('${endDate}' AS date))${statusWhere(statuses, stCol, `c.${ven}`)}
   )`;
 }
 
 // Montagem final no layout TOTVS (SE1/SE2), paginada.
-export function buildTotvsSql({ doc, startDate, endDate, offset, pageSize }: {
-  doc: string; startDate: string; endDate: string; offset: number; pageSize: number;
+export function buildTotvsSql({ doc, startDate, endDate, offset, pageSize, statuses }: {
+  doc: string; startDate: string; endDate: string; offset: number; pageSize: number; statuses?: string[];
 }) {
   const isCap = doc === 'cap';
   const off = Math.max(Number(offset) || 0, 0);
@@ -144,7 +175,7 @@ export function buildTotvsSql({ doc, startDate, endDate, offset, pageSize }: {
   const nameCol = isCap ? 'E2_NOMFOR' : 'E1_NOMCLI';
   const codeCol = isCap ? 'E2_FORNECE' : 'E1_CLIENTE';
 
-  return `${baseCte(doc, startDate, endDate)}
+  return `${baseCte(doc, startDate, endDate, statuses)}
   SELECT
     ${filial} AS ${p}_FILIAL,
     ${codigo} AS ${codeCol},
@@ -164,6 +195,10 @@ export function buildTotvsSql({ doc, startDate, endDate, offset, pageSize }: {
     status_titulo AS ${p}_STATUS,
     CONVERT(char(10), dt_baixa, 23) AS ${p}_BAIXA,
     historico AS ${p}_HIST,
+    natureza AS NATUREZA_DESCRICAO,
+    natureza_tipo AS NATUREZA_TIPO,
+    natureza_status AS NATUREZA_STATUS,
+    natureza_balancete AS NATUREZA_BALANCETE,
     cd_lan AS SISLOC_CD_LAN,
     doc_num AS SISLOC_DOCUMENTO,
     ${isCap ? '' : 'empresa_cd AS SISLOC_EMPRESA,'}
@@ -174,9 +209,9 @@ export function buildTotvsSql({ doc, startDate, endDate, offset, pageSize }: {
 }
 
 // Contagem total + resumo de pendências, para o painel de saneamento.
-export function buildTotvsCountSql({ doc, startDate, endDate }: { doc: string; startDate: string; endDate: string; }) {
+export function buildTotvsCountSql({ doc, startDate, endDate, statuses }: { doc: string; startDate: string; endDate: string; statuses?: string[]; }) {
   const isCap = doc === 'cap';
-  return `${baseCte(doc, startDate, endDate)}
+  return `${baseCte(doc, startDate, endDate, statuses)}
   SELECT
     COUNT(*) AS total,
     SUM(CASE WHEN LEN(doc_num) NOT IN (11, 14) THEN 1 ELSE 0 END) AS sem_documento,

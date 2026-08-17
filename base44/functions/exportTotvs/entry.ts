@@ -21,9 +21,11 @@ export default async function (req: Request): Promise<Response> {
     const startDate = String(body?.start_date || '2013-01-01');
     const endDate = String(body?.end_date || new Date().toISOString().slice(0, 10));
 
+    const statuses = Array.isArray(body?.statuses) ? body.statuses.map(String) : [];
+
     const sql = mode === 'count'
-      ? buildTotvsCountSql({ doc, startDate, endDate })
-      : buildTotvsSql({ doc, startDate, endDate, offset: body?.offset, pageSize: body?.page_size });
+      ? buildTotvsCountSql({ doc, startDate, endDate, statuses })
+      : buildTotvsSql({ doc, startDate, endDate, offset: body?.offset, pageSize: body?.page_size, statuses });
 
     let source: Record<string, unknown> = { credential_reference: 'env' };
     if (body?.source_id) {
