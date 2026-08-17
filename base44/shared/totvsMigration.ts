@@ -10,21 +10,25 @@ export const SE1_COLUMNS = [
   ['SISLOC_FILIAL_CNPJ', 'Filial — CNPJ'],
   ['E1_CLIENTE', 'Código do cliente (8 primeiros do CNPJ)'],
   ['E1_LOJA', 'Loja (4 dígitos após a /)'],
-  ['E1_NOMCLI', 'Nome do cliente'],
-  ['E1_PREFIXO', 'Prefixo'],
-  ['E1_NUM', 'Nº do título'],
-  ['E1_PARCELA', 'Parcela'],
-  ['E1_TIPO', 'Tipo do título'],
+  ['E1_NOMCLI', 'Nome do cliente (auxiliar — X3 marca "não usado")'],
+  ['E1_PREFIXO', 'Prefixo (C3)'],
+  ['E1_NUM', 'Nº do título (C9)'],
+  ['E1_PARCELA', 'Parcela (C2)'],
   ['E1_EMISSAO', 'Emissão'],
   ['E1_VENCTO', 'Vencimento'],
   ['E1_VENCREA', 'Vencimento real'],
-  ['E1_VALOR', 'Valor'],
+  ['E1_VENCORI', 'Vencimento original'],
+  ['E1_VALOR', 'Valor do título'],
   ['E1_SALDO', 'Saldo'],
+  ['E1_VLCRUZ', 'Valor em moeda nacional (R$)'],
   ['E1_MOEDA', 'Moeda'],
-  ['E1_NATUREZ', 'Natureza (código da conta do plano financeiro)'],
   ['E1_STATUS', 'Status'],
+  ['E1_FLUXO', 'Fluxo de caixa'],
+  ['E1_NATUREZ', 'Natureza — código (C10)'],
+  ['E1_TIPO', 'Tipo do título (C3)'],
+  ['E1_HIST', 'Histórico (C40)'],
+  ['E1_XOBS', 'Observação completa'],
   ['E1_BAIXA', 'Data da baixa'],
-  ['E1_HIST', 'Histórico'],
   ['NATUREZA_DESCRICAO', 'Natureza financeira — Descrição'],
   ['NATUREZA_TIPO', 'Natureza financeira — Tipo de movimentação'],
   ['NATUREZA_STATUS', 'Natureza financeira — Status (A=Ativo / I=Inativo)'],
@@ -43,21 +47,25 @@ export const SE2_COLUMNS = [
   ['SISLOC_FILIAL_CNPJ', 'Filial — CNPJ'],
   ['E2_FORNECE', 'Código do fornecedor (8 primeiros do CNPJ)'],
   ['E2_LOJA', 'Loja (4 dígitos após a /)'],
-  ['E2_NOMFOR', 'Nome do fornecedor'],
-  ['E2_PREFIXO', 'Prefixo'],
-  ['E2_NUM', 'Nº do título'],
-  ['E2_PARCELA', 'Parcela'],
-  ['E2_TIPO', 'Tipo do título'],
+  ['E2_NOMFOR', 'Nome do fornecedor (auxiliar — X3 marca "não usado")'],
+  ['E2_PREFIXO', 'Prefixo (C3)'],
+  ['E2_NUM', 'Nº do título (C9)'],
+  ['E2_PARCELA', 'Parcela (C2)'],
   ['E2_EMISSAO', 'Emissão'],
   ['E2_VENCTO', 'Vencimento'],
   ['E2_VENCREA', 'Vencimento real'],
-  ['E2_VALOR', 'Valor'],
+  ['E2_VENCORI', 'Vencimento original'],
+  ['E2_VALOR', 'Valor do título'],
   ['E2_SALDO', 'Saldo'],
+  ['E2_VLCRUZ', 'Valor em moeda nacional (R$)'],
   ['E2_MOEDA', 'Moeda'],
-  ['E2_NATUREZ', 'Natureza (código da conta do plano financeiro)'],
   ['E2_STATUS', 'Status'],
+  ['E2_FLUXO', 'Fluxo de caixa'],
+  ['E2_NATUREZ', 'Natureza — código (C10)'],
+  ['E2_TIPO', 'Tipo do título (C3)'],
+  ['E2_HIST', 'Histórico (C40)'],
+  ['E2_XOBS', 'Observação completa'],
   ['E2_BAIXA', 'Data da baixa'],
-  ['E2_HIST', 'Histórico'],
   ['NATUREZA_DESCRICAO', 'Natureza financeira — Descrição'],
   ['NATUREZA_TIPO', 'Natureza financeira — Tipo de movimentação'],
   ['NATUREZA_STATUS', 'Natureza financeira — Status (A=Ativo / I=Inativo)'],
@@ -157,13 +165,13 @@ function baseCte(doc: string, startDate: string, endDate: string, statuses?: str
         ORDER BY c.${ven}, c.cd_lan
       ) AS parcela,
       CASE
-        WHEN ${stCol} = 5 THEN 'PROVISORIO'
-        WHEN ${stCol} = 40 THEN 'CANCELADO'
-        WHEN ${stCol} = 50 THEN 'RENEGOCIADO'
-        WHEN ${stCol} = 60 THEN 'PCLD'
-        WHEN ${stCol} IN (25, 30) OR c.${bai} IS NOT NULL THEN 'BAIXADO'
-        WHEN c.${ven} < CAST(GETDATE() AS date) THEN 'EM ABERTO (VENCIDO)'
-        ELSE 'EM ABERTO (A VENCER)'
+        WHEN ${stCol} = 5 THEN 'Titulo em aberto (Provisório)'
+        WHEN ${stCol} = 40 THEN 'Titulo cancelado'
+        WHEN ${stCol} = 50 THEN 'Titulo renegociado'
+        WHEN ${stCol} = 60 THEN 'Titulo em perda (PCLD)'
+        WHEN ${stCol} IN (25, 30) OR c.${bai} IS NOT NULL THEN 'Titulo baixado'
+        WHEN c.${ven} < CAST(GETDATE() AS date) THEN 'Titulo em aberto (Vencido)'
+        ELSE 'Titulo em aberto (A vencer)'
       END AS status_titulo,
       CASE WHEN ${stCol} IN (5, 10) AND c.${bai} IS NULL${cancel} THEN 1 ELSE 0 END AS em_aberto
     FROM ${table} c WITH (NOLOCK)
@@ -198,7 +206,8 @@ export function buildTotvsSql({ doc, startDate, endDate, offset, pageSize, statu
     CASE WHEN natureza_cod = '' THEN ' SEM NATUREZA FINANCEIRA NO LANCAMENTO;' ELSE '' END +
     CASE WHEN natureza_rateios > 1 THEN ' TITULO RATEADO EM MAIS DE UMA NATUREZA;' ELSE '' END +
     CASE WHEN valor <= 0 THEN ' VALOR ZERADO OU NEGATIVO;' ELSE '' END +
-    CASE WHEN dt_vencto IS NULL THEN ' SEM VENCIMENTO;' ELSE '' END
+    CASE WHEN dt_vencto IS NULL THEN ' SEM VENCIMENTO;' ELSE '' END +
+    CASE WHEN tp_titulo = '' THEN ' SEM TIPO DE TITULO (E2_TIPO/E1_TIPO);' ELSE '' END
   )`;
 
   const p = isCap ? 'E2' : 'E1';
@@ -213,20 +222,24 @@ export function buildTotvsSql({ doc, startDate, endDate, offset, pageSize, statu
     ${codigo} AS ${codeCol},
     ${loja} AS ${p}_LOJA,
     nome AS ${nameCol},
-    '' AS ${p}_PREFIXO,
-    num_titulo AS ${p}_NUM,
-    RIGHT('00' + CAST(parcela AS varchar(3)), 2) AS ${p}_PARCELA,
-    tp_titulo AS ${p}_TIPO,
+    '1' AS ${p}_PREFIXO,
+    LEFT(num_titulo, 9) AS ${p}_NUM,
+    CAST(parcela AS varchar(2)) AS ${p}_PARCELA,
     CONVERT(char(10), dt_emissao, 23) AS ${p}_EMISSAO,
     CONVERT(char(10), dt_vencto, 23) AS ${p}_VENCTO,
     CONVERT(char(10), dt_vencto, 23) AS ${p}_VENCREA,
+    CONVERT(char(10), dt_vencto, 23) AS ${p}_VENCORI,
     valor AS ${p}_VALOR,
     CASE WHEN em_aberto = 1 THEN valor ELSE 0 END AS ${p}_SALDO,
+    valor AS ${p}_VLCRUZ,
     '1' AS ${p}_MOEDA,
-    natureza_cod AS ${p}_NATUREZ,
     status_titulo AS ${p}_STATUS,
+    'SIM' AS ${p}_FLUXO,
+    natureza_cod AS ${p}_NATUREZ,
+    tp_titulo AS ${p}_TIPO,
+    LEFT(historico, 40) AS ${p}_HIST,
+    historico AS ${p}_XOBS,
     CONVERT(char(10), dt_baixa, 23) AS ${p}_BAIXA,
-    historico AS ${p}_HIST,
     natureza AS NATUREZA_DESCRICAO,
     natureza_tipo AS NATUREZA_TIPO,
     natureza_status AS NATUREZA_STATUS,

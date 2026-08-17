@@ -2,13 +2,15 @@
 // como texto para o Excel não comer zeros à esquerda nem virar notação científica.
 
 const TEXT_COLS = new Set([
-  "E1_FILIAL", "E1_CLIENTE", "E1_LOJA", "E1_NUM", "E1_PARCELA", "E1_MOEDA",
-  "E2_FILIAL", "E2_FORNECE", "E2_LOJA", "E2_NUM", "E2_PARCELA", "E2_MOEDA",
+  "E1_FILIAL", "E1_CLIENTE", "E1_LOJA", "E1_NUM", "E1_PARCELA", "E1_MOEDA", "E1_PREFIXO",
+  "E2_FILIAL", "E2_FORNECE", "E2_LOJA", "E2_NUM", "E2_PARCELA", "E2_MOEDA", "E2_PREFIXO",
   "E1_NATUREZ", "E2_NATUREZ",
   "SISLOC_DOCUMENTO", "SISLOC_FILIAL_CNPJ",
 ]);
 
-const MONEY_COLS = new Set(["E1_VALOR", "E1_SALDO", "E2_VALOR", "E2_SALDO"]);
+const MONEY_COLS = new Set([
+  "E1_VALOR", "E1_SALDO", "E1_VLCRUZ", "E2_VALOR", "E2_SALDO", "E2_VLCRUZ",
+]);
 
 function cell(colId, value) {
   if (value == null) return '""';
