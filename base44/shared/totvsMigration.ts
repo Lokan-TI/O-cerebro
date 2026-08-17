@@ -31,12 +31,16 @@ export const SE1_COLUMNS = [
   ['NATUREZA_BALANCETE', 'Natureza financeira — Balancete (S/N)'],
   ['SISLOC_CD_LAN', 'Sisloc — ID do lançamento'],
   ['SISLOC_DOCUMENTO', 'Sisloc — CNPJ/CPF completo'],
-  ['SISLOC_EMPRESA', 'Sisloc — Empresa gestora'],
+  ['SISLOC_EMPRESA', 'Sisloc — Código da empresa/filial'],
+  ['SISLOC_CONTA_BANCARIA', 'Sisloc — Conta bancária do título'],
+  ['SISLOC_NATUREZA_RATEIOS', 'Sisloc — Qtd. de naturezas rateadas'],
   ['SANEAMENTO', 'Pendências de saneamento'],
 ];
 
 export const SE2_COLUMNS = [
   ['E2_FILIAL', 'Filial'],
+  ['SISLOC_FILIAL_NOME', 'Filial — nome no Sisloc'],
+  ['SISLOC_FILIAL_CNPJ', 'Filial — CNPJ'],
   ['E2_FORNECE', 'Código do fornecedor (8 primeiros do CNPJ)'],
   ['E2_LOJA', 'Loja (4 dígitos após a /)'],
   ['E2_NOMFOR', 'Nome do fornecedor'],
@@ -60,6 +64,9 @@ export const SE2_COLUMNS = [
   ['NATUREZA_BALANCETE', 'Natureza financeira — Balancete (S/N)'],
   ['SISLOC_CD_LAN', 'Sisloc — ID do lançamento'],
   ['SISLOC_DOCUMENTO', 'Sisloc — CNPJ/CPF completo'],
+  ['SISLOC_EMPRESA', 'Sisloc — Código da empresa/filial'],
+  ['SISLOC_CONTA_BANCARIA', 'Sisloc — Conta bancária do título'],
+  ['SISLOC_NATUREZA_RATEIOS', 'Sisloc — Qtd. de naturezas rateadas'],
   ['SANEAMENTO', 'Pendências de saneamento'],
 ];
 
@@ -105,6 +112,11 @@ function baseCte(doc: string, startDate: string, endDate: string, statuses?: str
   const pes = isCap ? 'c.cd_pessoa_cre' : 'c.cd_pessoa_cli';
   const table = isCap ? 'cap' : 'car';
   const stCol = isCap ? 'c.fl_status_titulo' : 'c.fl_status';
+  // Empresa (filial): CAR tem empresa gestora própria; CAP herda do rateio do
+  // lançamento (lan_xcr.cd_empresa) e, na falta, da conta bancária do título.
+  const empresaExpr = isCap
+    ? 'COALESCE(lx.cd_empresa, co.cd_empresa)'
+    : 'COALESCE(c.cd_empresa_gestora, lx.cd_empresa, co.cd_empresa)';
 
   const cancel = isCap ? '' : ' AND c.dt_cancelamento IS NULL';
   // CAP não possui nf_numero: o nº do título vem do documento de origem / do próprio lançamento.
@@ -119,11 +131,11 @@ function baseCte(doc: string, startDate: string, endDate: string, statuses?: str
       c.cd_lan,
       CASE WHEN LEN(${docExpr}) IN (11, 14) THEN ${docExpr} ELSE ${cpfExpr} END AS doc_num,
       LTRIM(RTRIM(COALESCE(NULLIF(p.nm_fan_pessoa, ''), p.nm_pessoa, ''))) AS nome,
-      ${isCap
-        ? `'' AS empresa_cd, '' AS empresa_nome, '' AS empresa_cnpj,`
-        : `c.cd_empresa_gestora AS empresa_cd,
+      ${empresaExpr} AS empresa_cd,
       LTRIM(RTRIM(COALESCE(NULLIF(e.nm_fan_empresa, ''), e.nm_razsoc_empresa, ''))) AS empresa_nome,
-      ${DOC_CLEAN('e.cnpj_empresa')} AS empresa_cnpj,`}
+      ${DOC_CLEAN('e.cnpj_empresa')} AS empresa_cnpj,
+      LTRIM(RTRIM(COALESCE(co.nm_conta, ''))) AS conta_banco,
+      COALESCE(lx.rateios, 0) AS natureza_rateios,
       LTRIM(RTRIM(COALESCE(c.${tp}, ''))) AS tp_titulo,
       c.${emi} AS dt_emissao,
       c.${ven} AS dt_vencto,
@@ -156,8 +168,13 @@ function baseCte(doc: string, startDate: string, endDate: string, statuses?: str
       CASE WHEN ${stCol} IN (5, 10) AND c.${bai} IS NULL${cancel} THEN 1 ELSE 0 END AS em_aberto
     FROM ${table} c WITH (NOLOCK)
     LEFT JOIN pessoa p WITH (NOLOCK) ON p.cd_pessoa = ${pes}
-    LEFT JOIN plano pl WITH (NOLOCK) ON pl.cd_planfin = c.cd_conta${isCap ? '' : `
-    LEFT JOIN empresa e WITH (NOLOCK) ON e.cd_empresa = c.cd_empresa_gestora`}
+    OUTER APPLY (
+      SELECT TOP 1 l.cd_planfin, l.cd_empresa, COUNT(*) OVER () AS rateios
+      FROM lan_xcr l WITH (NOLOCK) WHERE l.cd_lan = c.cd_lan ORDER BY l.id_row
+    ) lx
+    LEFT JOIN plano pl WITH (NOLOCK) ON pl.cd_planfin = lx.cd_planfin
+    LEFT JOIN conta co WITH (NOLOCK) ON co.cd_conta = c.cd_conta
+    LEFT JOIN empresa e WITH (NOLOCK) ON e.cd_empresa = ${empresaExpr}
     WHERE c.${emi} >= '${startDate}' AND c.${emi} < DATEADD(day, 1, CAST('${endDate}' AS date))${statusWhere(statuses, stCol, `c.${ven}`)}
   )`;
 }
@@ -172,13 +189,14 @@ export function buildTotvsSql({ doc, startDate, endDate, offset, pageSize, statu
 
   const codigo = `CASE WHEN LEN(doc_num) IN (11, 14) THEN LEFT(doc_num, 8) ELSE '' END`;
   const loja = `CASE WHEN LEN(doc_num) = 14 THEN SUBSTRING(doc_num, 9, 4) WHEN LEN(doc_num) = 11 THEN '0001' ELSE '' END`;
-  const filial = isCap ? `''` : `CASE WHEN empresa_cd IS NULL THEN '' ELSE '01' + RIGHT('00' + CAST(empresa_cd AS varchar(4)), 2) END`;
+  const filial = `CASE WHEN empresa_cd IS NULL THEN '' ELSE '01' + RIGHT('00' + CAST(empresa_cd AS varchar(4)), 2) END`;
 
   const saneamento = `LTRIM(
     CASE WHEN LEN(doc_num) NOT IN (11, 14) THEN ' SEM CNPJ/CPF VALIDO;' ELSE '' END +
     CASE WHEN nome = '' THEN ' SEM NOME;' ELSE '' END +
-    ${isCap ? `' SEM FILIAL (CAP NAO TEM EMPRESA NO SISLOC);'` : `CASE WHEN empresa_cd IS NULL THEN ' SEM FILIAL;' ELSE '' END`} +
-    CASE WHEN natureza_cod = '' THEN ' CONTA FINANCEIRA NAO ENCONTRADA NO PLANO;' ELSE '' END +
+    CASE WHEN empresa_cd IS NULL THEN ' SEM FILIAL;' ELSE '' END +
+    CASE WHEN natureza_cod = '' THEN ' SEM NATUREZA FINANCEIRA NO LANCAMENTO;' ELSE '' END +
+    CASE WHEN natureza_rateios > 1 THEN ' TITULO RATEADO EM MAIS DE UMA NATUREZA;' ELSE '' END +
     CASE WHEN valor <= 0 THEN ' VALOR ZERADO OU NEGATIVO;' ELSE '' END +
     CASE WHEN dt_vencto IS NULL THEN ' SEM VENCIMENTO;' ELSE '' END
   )`;
@@ -190,7 +208,8 @@ export function buildTotvsSql({ doc, startDate, endDate, offset, pageSize, statu
   return `${baseCte(doc, startDate, endDate, statuses)}
   SELECT
     ${filial} AS ${p}_FILIAL,
-    ${isCap ? '' : 'empresa_nome AS SISLOC_FILIAL_NOME, empresa_cnpj AS SISLOC_FILIAL_CNPJ,'}
+    empresa_nome AS SISLOC_FILIAL_NOME,
+    empresa_cnpj AS SISLOC_FILIAL_CNPJ,
     ${codigo} AS ${codeCol},
     ${loja} AS ${p}_LOJA,
     nome AS ${nameCol},
@@ -214,7 +233,9 @@ export function buildTotvsSql({ doc, startDate, endDate, offset, pageSize, statu
     natureza_balancete AS NATUREZA_BALANCETE,
     cd_lan AS SISLOC_CD_LAN,
     doc_num AS SISLOC_DOCUMENTO,
-    ${isCap ? '' : 'empresa_cd AS SISLOC_EMPRESA,'}
+    empresa_cd AS SISLOC_EMPRESA,
+    conta_banco AS SISLOC_CONTA_BANCARIA,
+    natureza_rateios AS SISLOC_NATUREZA_RATEIOS,
     ${saneamento} AS SANEAMENTO
   FROM src
   ORDER BY cd_lan
@@ -229,7 +250,7 @@ export function buildTotvsCountSql({ doc, startDate, endDate, statuses }: { doc:
     COUNT(*) AS total,
     SUM(CASE WHEN LEN(doc_num) NOT IN (11, 14) THEN 1 ELSE 0 END) AS sem_documento,
     SUM(CASE WHEN nome = '' THEN 1 ELSE 0 END) AS sem_nome,
-    ${isCap ? 'COUNT(*)' : 'SUM(CASE WHEN empresa_cd IS NULL THEN 1 ELSE 0 END)'} AS sem_filial,
+    SUM(CASE WHEN empresa_cd IS NULL THEN 1 ELSE 0 END) AS sem_filial,
     SUM(CASE WHEN natureza_cod = '' THEN 1 ELSE 0 END) AS sem_natureza,
     SUM(CASE WHEN valor <= 0 THEN 1 ELSE 0 END) AS valor_invalido,
     SUM(CASE WHEN dt_vencto IS NULL THEN 1 ELSE 0 END) AS sem_vencimento,
