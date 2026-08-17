@@ -6,6 +6,8 @@
 
 export const SE1_COLUMNS = [
   ['E1_FILIAL', 'Filial'],
+  ['SISLOC_FILIAL_NOME', 'Filial — nome no Sisloc'],
+  ['SISLOC_FILIAL_CNPJ', 'Filial — CNPJ'],
   ['E1_CLIENTE', 'Código do cliente (8 primeiros do CNPJ)'],
   ['E1_LOJA', 'Loja (4 dígitos após a /)'],
   ['E1_NOMCLI', 'Nome do cliente'],
@@ -19,7 +21,7 @@ export const SE1_COLUMNS = [
   ['E1_VALOR', 'Valor'],
   ['E1_SALDO', 'Saldo'],
   ['E1_MOEDA', 'Moeda'],
-  ['E1_NATUREZ', 'Natureza'],
+  ['E1_NATUREZ', 'Natureza (código da conta do plano financeiro)'],
   ['E1_STATUS', 'Status'],
   ['E1_BAIXA', 'Data da baixa'],
   ['E1_HIST', 'Histórico'],
@@ -48,7 +50,7 @@ export const SE2_COLUMNS = [
   ['E2_VALOR', 'Valor'],
   ['E2_SALDO', 'Saldo'],
   ['E2_MOEDA', 'Moeda'],
-  ['E2_NATUREZ', 'Natureza'],
+  ['E2_NATUREZ', 'Natureza (código da conta do plano financeiro)'],
   ['E2_STATUS', 'Status'],
   ['E2_BAIXA', 'Data da baixa'],
   ['E2_HIST', 'Histórico'],
@@ -117,14 +119,23 @@ function baseCte(doc: string, startDate: string, endDate: string, statuses?: str
       c.cd_lan,
       CASE WHEN LEN(${docExpr}) IN (11, 14) THEN ${docExpr} ELSE ${cpfExpr} END AS doc_num,
       LTRIM(RTRIM(COALESCE(NULLIF(p.nm_fan_pessoa, ''), p.nm_pessoa, ''))) AS nome,
-      ${isCap ? `'' AS empresa_cd,` : 'c.cd_empresa_gestora AS empresa_cd,'}
+      ${isCap
+        ? `'' AS empresa_cd, '' AS empresa_nome, '' AS empresa_cnpj,`
+        : `c.cd_empresa_gestora AS empresa_cd,
+      LTRIM(RTRIM(COALESCE(NULLIF(e.nm_fan_empresa, ''), e.nm_razsoc_empresa, ''))) AS empresa_nome,
+      ${DOC_CLEAN('e.cnpj_empresa')} AS empresa_cnpj,`}
       LTRIM(RTRIM(COALESCE(c.${tp}, ''))) AS tp_titulo,
       c.${emi} AS dt_emissao,
       c.${ven} AS dt_vencto,
       c.${bai} AS dt_baixa,
       ROUND(COALESCE(c.${vlp}, 0) + COALESCE(c.${vla}, 0) - COALESCE(c.${vld}, 0), 2) AS valor,
-      COALESCE(pl.ds_planfin, '') AS natureza,
-      LTRIM(RTRIM(COALESCE(pl.tp_mov, ''))) AS natureza_tipo,
+      LTRIM(RTRIM(COALESCE(pl.nr_planfin, ''))) AS natureza_cod,
+      LTRIM(RTRIM(COALESCE(pl.ds_planfin, ''))) AS natureza,
+      CASE
+        WHEN LEFT(LTRIM(RTRIM(COALESCE(pl.nr_planfin, ''))), 1) = '1' THEN 'ENTRADA'
+        WHEN LEFT(LTRIM(RTRIM(COALESCE(pl.nr_planfin, ''))), 1) = '2' THEN 'SAIDA'
+        ELSE ''
+      END AS natureza_tipo,
       LTRIM(RTRIM(COALESCE(pl.fl_planfin, ''))) AS natureza_status,
       LTRIM(RTRIM(COALESCE(pl.fl_balancete, ''))) AS natureza_balancete,
       LTRIM(RTRIM(COALESCE(CAST(c.${hist} AS varchar(4000)), ''))) AS historico,
@@ -145,7 +156,8 @@ function baseCte(doc: string, startDate: string, endDate: string, statuses?: str
       CASE WHEN ${stCol} IN (5, 10) AND c.${bai} IS NULL${cancel} THEN 1 ELSE 0 END AS em_aberto
     FROM ${table} c WITH (NOLOCK)
     LEFT JOIN pessoa p WITH (NOLOCK) ON p.cd_pessoa = ${pes}
-    LEFT JOIN plano pl WITH (NOLOCK) ON pl.cd_planfin = c.cd_conta
+    LEFT JOIN plano pl WITH (NOLOCK) ON pl.cd_planfin = c.cd_conta${isCap ? '' : `
+    LEFT JOIN empresa e WITH (NOLOCK) ON e.cd_empresa = c.cd_empresa_gestora`}
     WHERE c.${emi} >= '${startDate}' AND c.${emi} < DATEADD(day, 1, CAST('${endDate}' AS date))${statusWhere(statuses, stCol, `c.${ven}`)}
   )`;
 }
@@ -166,7 +178,7 @@ export function buildTotvsSql({ doc, startDate, endDate, offset, pageSize, statu
     CASE WHEN LEN(doc_num) NOT IN (11, 14) THEN ' SEM CNPJ/CPF VALIDO;' ELSE '' END +
     CASE WHEN nome = '' THEN ' SEM NOME;' ELSE '' END +
     ${isCap ? `' SEM FILIAL (CAP NAO TEM EMPRESA NO SISLOC);'` : `CASE WHEN empresa_cd IS NULL THEN ' SEM FILIAL;' ELSE '' END`} +
-    CASE WHEN natureza = '' THEN ' SEM NATUREZA;' ELSE '' END +
+    CASE WHEN natureza_cod = '' THEN ' CONTA FINANCEIRA NAO ENCONTRADA NO PLANO;' ELSE '' END +
     CASE WHEN valor <= 0 THEN ' VALOR ZERADO OU NEGATIVO;' ELSE '' END +
     CASE WHEN dt_vencto IS NULL THEN ' SEM VENCIMENTO;' ELSE '' END
   )`;
@@ -178,6 +190,7 @@ export function buildTotvsSql({ doc, startDate, endDate, offset, pageSize, statu
   return `${baseCte(doc, startDate, endDate, statuses)}
   SELECT
     ${filial} AS ${p}_FILIAL,
+    ${isCap ? '' : 'empresa_nome AS SISLOC_FILIAL_NOME, empresa_cnpj AS SISLOC_FILIAL_CNPJ,'}
     ${codigo} AS ${codeCol},
     ${loja} AS ${p}_LOJA,
     nome AS ${nameCol},
@@ -191,7 +204,7 @@ export function buildTotvsSql({ doc, startDate, endDate, offset, pageSize, statu
     valor AS ${p}_VALOR,
     CASE WHEN em_aberto = 1 THEN valor ELSE 0 END AS ${p}_SALDO,
     '1' AS ${p}_MOEDA,
-    natureza AS ${p}_NATUREZ,
+    natureza_cod AS ${p}_NATUREZ,
     status_titulo AS ${p}_STATUS,
     CONVERT(char(10), dt_baixa, 23) AS ${p}_BAIXA,
     historico AS ${p}_HIST,
@@ -217,7 +230,7 @@ export function buildTotvsCountSql({ doc, startDate, endDate, statuses }: { doc:
     SUM(CASE WHEN LEN(doc_num) NOT IN (11, 14) THEN 1 ELSE 0 END) AS sem_documento,
     SUM(CASE WHEN nome = '' THEN 1 ELSE 0 END) AS sem_nome,
     ${isCap ? 'COUNT(*)' : 'SUM(CASE WHEN empresa_cd IS NULL THEN 1 ELSE 0 END)'} AS sem_filial,
-    SUM(CASE WHEN natureza = '' THEN 1 ELSE 0 END) AS sem_natureza,
+    SUM(CASE WHEN natureza_cod = '' THEN 1 ELSE 0 END) AS sem_natureza,
     SUM(CASE WHEN valor <= 0 THEN 1 ELSE 0 END) AS valor_invalido,
     SUM(CASE WHEN dt_vencto IS NULL THEN 1 ELSE 0 END) AS sem_vencimento,
     SUM(CASE WHEN em_aberto = 1 THEN 1 ELSE 0 END) AS em_aberto,
