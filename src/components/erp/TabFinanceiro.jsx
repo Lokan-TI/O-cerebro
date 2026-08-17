@@ -1,5 +1,6 @@
 import { useState } from "react";
 import TabFornecedores from "@/components/erp/TabFornecedores";
+import FinanceiroExportTab from "@/components/erp/FinanceiroExportTab";
 import { useAnalyticsView } from "@/lib/analyticsView";
 import { useErpSnapshot } from "@/lib/ErpSnapshotContext";
 import { useEmpresaFilter } from "@/lib/EmpresaFilterContext";
@@ -131,9 +132,12 @@ export default function TabFinanceiro() {
         <button onClick={() => setSub("cap_conta")} className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${sub === "cap_conta" ? "bg-purple-600 text-white" : "text-gray-400 hover:text-gray-200"}`}>CAP por conta</button>
         <button onClick={() => setSub("balancete")} className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${sub === "balancete" ? "bg-purple-600 text-white" : "text-gray-400 hover:text-gray-200"}`}>Balancete</button>
         <button onClick={() => setSub("fornecedores")} className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${sub === "fornecedores" ? "bg-purple-600 text-white" : "text-gray-400 hover:text-gray-200"}`}>Fornecedores</button>
+        <button onClick={() => setSub("exportar")} className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${sub === "exportar" ? "bg-purple-600 text-white" : "text-gray-400 hover:text-gray-200"}`}>Exportar CAP/CAR</button>
       </div>
 
       {sub === "fornecedores" && <TabFornecedores />}
+
+      {sub === "exportar" && <FinanceiroExportTab empresas={carEmp.map((r) => r.cd_empresa)} />}
 
       {/* Resumo mensal: CAR vs CAP */}
       {sub === "resumo" && (
