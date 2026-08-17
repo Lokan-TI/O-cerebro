@@ -2,6 +2,7 @@ import { useState } from "react";
 import TabFornecedores from "@/components/erp/TabFornecedores";
 import FinanceiroExportTab from "@/components/erp/FinanceiroExportTab";
 import TotvsSaneamentoTab from "@/components/erp/TotvsSaneamentoTab";
+import CapPorContaTab from "@/components/erp/CapPorContaTab";
 import { useAnalyticsView } from "@/lib/analyticsView";
 import { useErpSnapshot } from "@/lib/ErpSnapshotContext";
 import { useEmpresaFilter } from "@/lib/EmpresaFilterContext";
@@ -38,7 +39,6 @@ export default function TabFinanceiro() {
   const pct = gerada != null && gerada > 0 ? (diff / gerada * 100) : null;
 
   const carEmp = aView.carByEmp;
-  const capConta = analytics.cap_by_conta || [];
   const balancete = analytics.plano_balancete || [];
 
   const carVsCapMonthly = (analytics.car_vs_cap_monthly || []).map((r) => ({
@@ -197,42 +197,8 @@ export default function TabFinanceiro() {
         </div>
       )}
 
-      {/* CAP por conta */}
-      {sub === "cap_conta" && (
-        <div className="bg-gray-900 border border-gray-800 rounded-xl p-5">
-          <h3 className="text-white font-semibold mb-4 text-sm">Contas a Pagar (CAP) por conta contábil</h3>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="text-gray-500 text-xs uppercase border-b border-gray-800">
-                  <th className="text-left py-2 px-3">Conta</th>
-                  <th className="text-right py-2 px-3">Qtd</th>
-                  <th className="text-right py-2 px-3">Total</th>
-                  <th className="text-right py-2 px-3">Em aberto</th>
-                  <th className="text-right py-2 px-3">Baixado</th>
-                  <th className="text-right py-2 px-3">Vencido</th>
-                </tr>
-              </thead>
-              <tbody>
-                {capConta.map((r, i) => {
-                  const planoMatch = balancete.find((p) => p.cd_planfin === r.cd_conta);
-                  return (
-                    <tr key={i} className="border-b border-gray-800/50 hover:bg-gray-800/30">
-                      <td className="py-2 px-3 text-white">{planoMatch?.ds_planfin || `Conta ${r.cd_conta}`}</td>
-                      <td className="py-2 px-3 text-right text-gray-300">{fmtNum(r.qtd)}</td>
-                      <td className="py-2 px-3 text-right text-red-400 font-medium">{fmtCur(r.vl_total)}</td>
-                      <td className="py-2 px-3 text-right text-amber-400">{fmtCur(r.vl_aberto)}</td>
-                      <td className="py-2 px-3 text-right text-gray-300">{fmtCur(r.vl_baixado)}</td>
-                      <td className="py-2 px-3 text-right text-red-400">{fmtCur(r.vl_vencido)}</td>
-                    </tr>
-                  );
-                })}
-                {capConta.length === 0 && <tr><td colSpan={6} className="text-center text-gray-600 py-6">Sem dados</td></tr>}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
+      {/* CAP por conta — consulta ao vivo agrupada pelo plano financeiro */}
+      {sub === "cap_conta" && <CapPorContaTab dateRange={dateRange} />}
 
       {/* Balancete */}
       {sub === "balancete" && (() => {
