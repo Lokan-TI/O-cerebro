@@ -156,8 +156,8 @@ export default function TabFinanceiro() {
               <YAxis stroke="#666" fontSize={11} tickFormatter={(v) => fmtCur(v).replace("R$", "")} />
               <Tooltip contentStyle={{ backgroundColor: "#111", border: "1px solid #333" }} formatter={(v) => fmtCur(v)} />
               <Legend wrapperStyle={{ fontSize: 12 }} />
-              <Bar dataKey="car" name="CAR (Receber)" fill="#22c55e" radius={[4, 4, 0, 0]} />
-              <Bar dataKey="cap" name="CAP (Pagar)" fill="#ef4444" radius={[4, 4, 0, 0]} />
+              <Bar dataKey="cap" name="CAP (Pagar)" stackId="fin" fill="#ef4444" />
+              <Bar dataKey="car" name="CAR (Receber)" stackId="fin" fill="#22c55e" radius={[4, 4, 0, 0]} />
             </ComposedChart>
           </ResponsiveContainer>
         </div>
