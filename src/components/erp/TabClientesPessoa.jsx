@@ -5,6 +5,7 @@ import { useAnalyticsView } from "@/lib/analyticsView";
 import { getEmpresaLabel } from "@/lib/empresaLabels";
 import { fmtCur, fmtNum } from "@/lib/erpFormat";
 import ClientesReceitaChart from "@/components/erp/ClientesReceitaChart";
+import ClientesAtivosTable from "@/components/erp/ClientesAtivosTable";
 import ClientePatrimoniosModal from "@/components/erp/ClientePatrimoniosModal";
 import { Users, TrendingUp, Search, Crown, FileText, Repeat, Percent } from "lucide-react";
 
@@ -86,7 +87,7 @@ export default function TabClientesPessoa() {
         <div className="rounded-xl border border-purple-700/40 bg-purple-950/30 p-4">
           <div className="flex items-center gap-2 mb-2"><Users className="w-4 h-4 text-purple-400" /><span className="text-xs text-gray-400 uppercase">Clientes ativos</span></div>
           <div className="text-2xl font-bold text-white">{fmtNum(clientesAtivos)}</div>
-          <div className="text-xs text-gray-500 mt-1">Com receita no período · {fmtNum(clients.length)} na lista</div>
+          <div className="text-xs text-gray-500 mt-1">Com receita no período</div>
         </div>
         <div className="rounded-xl border border-green-700/40 bg-green-950/30 p-4">
           <div className="flex items-center gap-2 mb-2"><TrendingUp className="w-4 h-4 text-green-400" /><span className="text-xs text-gray-400 uppercase">Receita total</span></div>
@@ -108,75 +109,8 @@ export default function TabClientesPessoa() {
       {/* Evolução mensal da receita da base ativa */}
       <ClientesReceitaChart monthlyRevenue={snapshot.monthly_revenue} selectedEmpresa={selectedEmpresa} />
 
-      {/* Lista principal — clientes ativos gerando receita */}
-      <div className="bg-gray-900 border border-gray-800 rounded-xl p-5">
-        <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
-          <h3 className="text-white font-semibold text-sm flex items-center gap-2">
-            <Crown className="w-4 h-4 text-purple-400" /> Clientes ativos gerando receita
-            <span className="text-gray-500 font-normal">· {fmtNum(filtered.length)} clientes</span>
-          </h3>
-          <input
-            type="text"
-            placeholder="Buscar cliente…"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="px-3 py-1.5 bg-gray-800 border border-gray-700 rounded-lg text-sm text-gray-200 placeholder-gray-500 focus:outline-none focus:border-purple-500 w-48"
-          />
-        </div>
-
-        <div className="overflow-x-auto max-h-[560px] overflow-y-auto">
-          <table className="w-full text-sm">
-            <thead className="sticky top-0 bg-gray-900">
-              <tr className="text-gray-500 text-xs uppercase border-b border-gray-800">
-                <th className="text-left py-2 px-3">#</th>
-                <th className="text-left py-2 px-3">Cliente</th>
-                <th className="text-right py-2 px-3">Receita</th>
-                <th className="text-right py-2 px-3">% total</th>
-                <th className="text-right py-2 px-3">NFs</th>
-                <th className="text-right py-2 px-3">Última NF</th>
-                <th className="text-right py-2 px-3">Contratos ativos</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filtered.map((c, i) => (
-                <tr
-                  key={`${c.cd_pessoa}-${i}`}
-                  onClick={() => setSelectedClient(c)}
-                  className="border-b border-gray-800/50 hover:bg-gray-800/30 cursor-pointer"
-                >
-                  <td className="py-2 px-3 text-gray-500">{i + 1}</td>
-                  <td className="py-2 px-3 text-white">
-                    <div className="truncate max-w-[220px]">{c.nm_pessoa}</div>
-                    <div className="text-xs text-gray-600">#{c.cd_pessoa}</div>
-                  </td>
-                  <td className="py-2 px-3 text-right text-green-400 font-medium">{fmtCur(c.receita)}</td>
-                  <td className="py-2 px-3 text-right text-gray-400">{c.share.toFixed(1)}%</td>
-                  <td className="py-2 px-3 text-right text-gray-300">{fmtNum(c.nfs)}</td>
-                  <td className="py-2 px-3 text-right text-gray-400 text-xs">{c.ultima_nf || "—"}</td>
-                  <td className="py-2 px-3 text-right">
-                    {c.contratos_ativos == null ? (
-                      <span className="text-gray-600 text-xs">—</span>
-                    ) : (
-                      <span className="inline-flex items-center gap-1 text-purple-400">
-                        <Repeat className="w-3 h-3" />
-                        {fmtNum(c.contratos_ativos)}
-                        <span className="text-gray-600 text-xs">/{fmtNum(c.contratos_total)}</span>
-                      </span>
-                    )}
-                  </td>
-                </tr>
-              ))}
-              {filtered.length === 0 && (
-                <tr><td colSpan={7} className="text-center text-gray-600 py-6">Nenhum cliente encontrado</td></tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-        <div className="mt-3 text-xs text-gray-600 flex items-center gap-1.5">
-          <Search className="w-3 h-3" />
-          Receita = faturamento (nf) no período. Contratos ativos cruzados com fich_loc (top 20) — clientes fora desse topo aparecem como "—". Clique em um cliente para ver os patrimônios em posse e o histórico completo.
-        </div>
-      </div>
+      {/* Lista completa de clientes ativos — consulta ao vivo + exportação */}
+      <ClientesAtivosTable onSelectClient={setSelectedClient} />
 
       {selectedClient && (
         <ClientePatrimoniosModal client={selectedClient} onClose={() => setSelectedClient(null)} />
