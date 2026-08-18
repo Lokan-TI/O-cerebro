@@ -6,12 +6,14 @@ import AtivosKpiCards from "@/components/ativos/AtivosKpiCards";
 import AtivosHierarquia from "@/components/ativos/AtivosHierarquia";
 import FamiliaComparativo from "@/components/ativos/FamiliaComparativo";
 import CapexOpexPanel from "@/components/ativos/CapexOpexPanel";
+import ManutencaoVsDepreciacao from "@/components/ativos/ManutencaoVsDepreciacao";
 import QueryInspector from "@/components/erp/QueryInspector";
 import { RefreshCw, Boxes, AlertTriangle } from "lucide-react";
 
 export default function AtivosCustos() {
   const { selectedSource } = useErpSource();
   const [data, setData] = useState(null);
+  const [itemData, setItemData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
@@ -27,6 +29,11 @@ export default function AtivosCustos() {
       });
       if (res.data?.error) setError(res.data.error);
       else setData(res.data);
+
+      const resItens = await base44.functions.invoke("analyzeManutencaoDepreciacao", {
+        ...(sourceId ? { source_id: sourceId } : {}),
+      });
+      if (!resItens.data?.error) setItemData(resItens.data);
     } catch (e) {
       setError("Não foi possível consultar o ERP agora. Detalhe: " + String(e?.message || e).slice(0, 200));
     } finally {
@@ -83,6 +90,7 @@ export default function AtivosCustos() {
         <>
           <AtivosKpiCards grupos={data.grupos} ranking={ranking} cap={cap} />
           <FamiliaComparativo compare={compare} />
+          {itemData?.items && <ManutencaoVsDepreciacao items={itemData.items} />}
           <AtivosHierarquia ranking={ranking} />
           <CapexOpexPanel cap={cap} />
         </>
