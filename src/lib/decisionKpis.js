@@ -27,7 +27,13 @@ export function buildDecisionKpis(snapshot) {
       .reduce((s, o) => s + (o.qtd || 0), 0);
 
   const carVencidoPct = a.car_total ? (a.car_vencido / a.car_total) * 100 : null;
-  const capAbertoPct = a.cap_total ? (a.cap_aberto / a.cap_total) * 100 : null;
+  // CAP: o compromisso firme é o aberto sem o provisório (fl_status_titulo = 5),
+  // e o total já exclui os títulos cancelados (fl_status_titulo = 40).
+  const capFirme = a.cap_aberto_firme != null
+    ? a.cap_aberto_firme
+    : (a.cap_aberto || 0) - (a.cap_provisorio || 0);
+  const capAbertoPct = a.cap_total ? (capFirme / a.cap_total) * 100 : null;
+  const capVencidoPct = a.cap_total ? ((a.cap_vencido || 0) / a.cap_total) * 100 : null;
   const fatTotal = k.fat_ano || 0;
   const novosPct = fatTotal ? ((k.new_client_revenue || 0) / fatTotal) * 100 : null;
   const contratosAtivosPct = a.fichloc_total
@@ -184,10 +190,12 @@ export function buildDecisionKpis(snapshot) {
         },
         {
           id: "cap", label: "Contas a pagar", value: brl(a.cap_total),
-          sub: `Em aberto ${brl(a.cap_aberto)}`,
-          market: "CAP em aberto acima de 35% pressiona o caixa",
+          sub: `Firme em aberto ${brl(capFirme)} · provisório ${brl(a.cap_provisorio)}`,
+          market: "CAP firme em aberto acima de 35% do emitido pressiona o caixa",
           status: status(capAbertoPct, { good: 25, warn: 35, direction: "down" }),
-          note: capAbertoPct == null ? null : `${pct(capAbertoPct)} em aberto`,
+          note: capAbertoPct == null
+            ? null
+            : `${pct(capAbertoPct)} firme em aberto · vencido ${pct(capVencidoPct)}`,
         },
         {
           id: "margem", label: "Margem de fluxo", value: pct(a.margem_percent),

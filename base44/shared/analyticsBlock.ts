@@ -71,24 +71,32 @@ export async function computeAnalytics({ source, wrap, startDate, endDate, lastY
 
   // ── CAP por conta (Contas a Pagar — sem dimensão empresa) ──
   try {
+    // Regra canônica do CAP (mesma de listCapPorConta / analyzeFinanceiro / exportTotvs):
+    // valor = vl_pre + vl_acr - vl_des · cancelado (fl_status_titulo = 40) fora do total ·
+    // aberto = status 5 (provisório) ou 10 (aberto) sem baixa, com o provisório destacado.
     const capSql = `SELECT
-        cd_conta,
+        c.cd_conta,
         COUNT(*) AS qtd,
-        ISNULL(SUM(vl_pre_cap),0) AS vl_total,
-        ISNULL(SUM(CASE WHEN dt_bai_cap IS NULL THEN vl_pre_cap ELSE 0 END),0) AS vl_aberto,
-        ISNULL(SUM(CASE WHEN dt_bai_cap IS NOT NULL THEN vl_pre_cap ELSE 0 END),0) AS vl_baixado,
-        ISNULL(SUM(CASE WHEN dt_ven_cap < GETDATE() AND dt_bai_cap IS NULL THEN vl_pre_cap ELSE 0 END),0) AS vl_vencido
-        FROM cap WITH (NOLOCK)
-        WHERE dt_emi_cap >= '${startDate}' AND dt_emi_cap < '${endDate}'
-        GROUP BY cd_conta
-        ORDER BY ISNULL(SUM(vl_pre_cap),0) DESC`;
+        ISNULL(SUM(CASE WHEN c.fl_status_titulo <> 40 THEN v.val ELSE 0 END),0) AS vl_total,
+        ISNULL(SUM(CASE WHEN c.fl_status_titulo IN (5, 10) AND c.dt_bai_cap IS NULL THEN v.val ELSE 0 END),0) AS vl_aberto,
+        ISNULL(SUM(CASE WHEN c.fl_status_titulo = 5 AND c.dt_bai_cap IS NULL THEN v.val ELSE 0 END),0) AS vl_provisorio,
+        ISNULL(SUM(CASE WHEN c.fl_status_titulo IN (25, 30) OR c.dt_bai_cap IS NOT NULL THEN v.val ELSE 0 END),0) AS vl_baixado,
+        ISNULL(SUM(CASE WHEN c.fl_status_titulo IN (5, 10) AND c.dt_bai_cap IS NULL AND c.dt_ven_cap < CAST(GETDATE() AS date) THEN v.val ELSE 0 END),0) AS vl_vencido,
+        ISNULL(SUM(CASE WHEN c.fl_status_titulo = 40 THEN v.val ELSE 0 END),0) AS vl_cancelado
+        FROM cap c WITH (NOLOCK)
+        CROSS APPLY (SELECT ROUND(COALESCE(c.vl_pre_cap,0)+COALESCE(c.vl_acr_cap,0)-COALESCE(c.vl_des_cap,0),2) AS val) v
+        WHERE c.dt_emi_cap >= '${startDate}' AND c.dt_emi_cap < '${endDate}'
+        GROUP BY c.cd_conta
+        ORDER BY ISNULL(SUM(CASE WHEN c.fl_status_titulo <> 40 THEN v.val ELSE 0 END),0) DESC`;
     out.cap_by_conta = getRows(await runQuery(source, wrap(capSql))).map(r => ({
       cd_conta: Number(r.cd_conta) || null,
       qtd: Number(r.qtd) || 0,
       vl_total: Number(r.vl_total) || 0,
       vl_aberto: Number(r.vl_aberto) || 0,
+      vl_provisorio: Number(r.vl_provisorio) || 0,
       vl_baixado: Number(r.vl_baixado) || 0,
       vl_vencido: Number(r.vl_vencido) || 0,
+      vl_cancelado: Number(r.vl_cancelado) || 0,
     }));
     queryCount++;
   } catch (e) { warnings.push('analytics.cap_by_conta: ' + (e.message || '').slice(0, 80)); }
@@ -114,14 +122,15 @@ export async function computeAnalytics({ source, wrap, startDate, endDate, lastY
 
   // ── CAP mensal ──
   try {
-    const capMonSql = `SELECT YEAR(dt_emi_cap) AS ano, MONTH(dt_emi_cap) AS mes,
-      ISNULL(SUM(vl_pre_cap),0) AS vl_total,
-      ISNULL(SUM(CASE WHEN dt_bai_cap IS NULL THEN vl_pre_cap ELSE 0 END),0) AS vl_aberto,
-      ISNULL(SUM(CASE WHEN dt_bai_cap IS NOT NULL THEN vl_pre_cap ELSE 0 END),0) AS vl_baixado,
+    const capMonSql = `SELECT YEAR(c.dt_emi_cap) AS ano, MONTH(c.dt_emi_cap) AS mes,
+      ISNULL(SUM(CASE WHEN c.fl_status_titulo <> 40 THEN v.val ELSE 0 END),0) AS vl_total,
+      ISNULL(SUM(CASE WHEN c.fl_status_titulo IN (5, 10) AND c.dt_bai_cap IS NULL THEN v.val ELSE 0 END),0) AS vl_aberto,
+      ISNULL(SUM(CASE WHEN c.fl_status_titulo IN (25, 30) OR c.dt_bai_cap IS NOT NULL THEN v.val ELSE 0 END),0) AS vl_baixado,
       COUNT(*) AS qtd
-      FROM cap WITH (NOLOCK)
-      WHERE dt_emi_cap >= '${lastYearStart}' AND dt_emi_cap < '${endDate}'
-      GROUP BY YEAR(dt_emi_cap), MONTH(dt_emi_cap)
+      FROM cap c WITH (NOLOCK)
+      CROSS APPLY (SELECT ROUND(COALESCE(c.vl_pre_cap,0)+COALESCE(c.vl_acr_cap,0)-COALESCE(c.vl_des_cap,0),2) AS val) v
+      WHERE c.dt_emi_cap >= '${lastYearStart}' AND c.dt_emi_cap < '${endDate}'
+      GROUP BY YEAR(c.dt_emi_cap), MONTH(c.dt_emi_cap)
       ORDER BY 1, 2`;
     out.cap_monthly = getRows(await runQuery(source, wrap(capMonSql))).map(r => ({
       ano: Number(r.ano), mes: Number(r.mes),
@@ -220,7 +229,7 @@ export async function computeAnalytics({ source, wrap, startDate, endDate, lastY
       LEFT JOIN (
         SELECT cd_conta, SUM(ISNULL(vl_pre_cap,0)+ISNULL(vl_acr_cap,0)-ISNULL(vl_des_cap,0)) AS vl, COUNT(*) AS qtd
         FROM cap WITH (NOLOCK)
-        WHERE dt_bai_cap >= '${startDate}' AND dt_bai_cap < '${endDate}'
+        WHERE dt_bai_cap >= '${startDate}' AND dt_bai_cap < '${endDate}' AND fl_status_titulo <> 40
         GROUP BY cd_conta
       ) s ON s.cd_conta = p.cd_planfin
       WHERE ISNULL(e.qtd,0) + ISNULL(s.qtd,0) > 0
@@ -340,6 +349,8 @@ export async function computeAnalytics({ source, wrap, startDate, endDate, lastY
     const capAberto = out.cap_by_conta.reduce((s, r) => s + r.vl_aberto, 0);
     const capBaixado = out.cap_by_conta.reduce((s, r) => s + r.vl_baixado, 0);
     const capVencido = out.cap_by_conta.reduce((s, r) => s + r.vl_vencido, 0);
+    const capProvisorio = out.cap_by_conta.reduce((s, r) => s + (r.vl_provisorio || 0), 0);
+    const capCancelado = out.cap_by_conta.reduce((s, r) => s + (r.vl_cancelado || 0), 0);
     const fichTotal = out.fichloc_by_empresa.reduce((s, r) => s + r.qtd, 0);
     const fichAtivas = out.fichloc_by_empresa.reduce((s, r) => s + r.qtd_ativas, 0);
     const fichEncerradas = out.fichloc_by_empresa.reduce((s, r) => s + r.qtd_encerradas, 0);
@@ -362,6 +373,9 @@ export async function computeAnalytics({ source, wrap, startDate, endDate, lastY
       cap_aberto: capAberto,
       cap_baixado: capBaixado,
       cap_vencido: capVencido,
+      cap_provisorio: capProvisorio,
+      cap_aberto_firme: capAberto - capProvisorio,
+      cap_cancelado: capCancelado,
       margem_fluxo: carTotal - capTotal,
       margem_percent: carTotal > 0 ? ((carTotal - capTotal) / carTotal * 100) : null,
       fichloc_total: fichTotal,
