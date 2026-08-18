@@ -573,67 +573,92 @@ async function processRefresh(base44, source, run, version, previousVersion, sta
     try {
       const curStart = 'DATEADD(year,-1,GETDATE())';
       const prevStart = 'DATEADD(year,-2,GETDATE())';
-      // Classificação por cliente feita na subconsulta; a agregação também roda no SQL
-      // (evita trafegar/truncar milhares de linhas no grão empresa×cliente).
-      const clientGrain = (dims) => `SELECT ${dims}
-            ISNULL(SUM(CASE WHEN dt_emi_nf >= ${prevStart} AND dt_emi_nf < ${curStart} THEN vl_faturamento ELSE 0 END),0) AS rev_prev,
-            COUNT(CASE WHEN dt_emi_nf >= ${prevStart} AND dt_emi_nf < ${curStart} THEN 1 END) AS nfs_prev,
-            ISNULL(SUM(CASE WHEN dt_emi_nf >= ${curStart} THEN vl_faturamento ELSE 0 END),0) AS rev_cur,
-            COUNT(CASE WHEN dt_emi_nf >= ${curStart} THEN 1 END) AS nfs_cur
-          FROM nf WITH (NOLOCK)
-          WHERE dt_emi_nf >= ${prevStart} AND dt_emi_nf < GETDATE() ${cancelFilter}
-            AND cd_pessoa IS NOT NULL
-          GROUP BY ${dims.includes('cd_empresa') ? 'cd_empresa, cd_pessoa' : 'cd_pessoa'}`;
-      const aggCols = `COUNT(CASE WHEN nfs_prev > 0 THEN 1 END) AS base_clients,
-          COUNT(CASE WHEN nfs_prev > 0 AND nfs_cur > 0 THEN 1 END) AS retained_clients,
-          COUNT(CASE WHEN nfs_prev > 0 AND nfs_cur = 0 THEN 1 END) AS churned_clients,
-          COUNT(CASE WHEN nfs_prev = 0 AND nfs_cur > 0 THEN 1 END) AS new_clients,
-          ISNULL(SUM(CASE WHEN nfs_prev > 0 THEN rev_prev ELSE 0 END),0) AS base_revenue,
-          ISNULL(SUM(CASE WHEN nfs_prev > 0 AND nfs_cur = 0 THEN rev_prev ELSE 0 END),0) AS revenue_at_risk,
-          ISNULL(SUM(CASE WHEN nfs_prev > 0 AND nfs_cur > 0 THEN rev_cur ELSE 0 END),0) AS retained_revenue,
-          ISNULL(SUM(CASE WHEN nfs_prev = 0 AND nfs_cur > 0 THEN rev_cur ELSE 0 END),0) AS new_revenue,
-          ISNULL(SUM(rev_cur),0) AS current_revenue`;
-      const shape = (r) => {
-        const base = Number(r.base_clients) || 0;
-        const retained = Number(r.retained_clients) || 0;
-        const churned = Number(r.churned_clients) || 0;
-        const novos = Number(r.new_clients) || 0;
-        const baseRev = Number(r.base_revenue) || 0;
-        const risk = Number(r.revenue_at_risk) || 0;
-        const retRev = Number(r.retained_revenue) || 0;
-        const newRev = Number(r.new_revenue) || 0;
-        const curRev = Number(r.current_revenue) || 0;
-        return {
-          base_clients: base,
-          active_clients: retained + novos,
-          retained_clients: retained,
-          churned_clients: churned,
-          new_clients: novos,
-          churn_rate: base > 0 ? (churned / base * 100) : null,
-          retention_rate: base > 0 ? (retained / base * 100) : null,
-          revenue_churn_rate: baseRev > 0 ? (risk / baseRev * 100) : null,
-          revenue_at_risk: risk,
-          base_revenue: baseRev,
-          current_revenue: curRev,
-          retained_revenue: retRev,
-          new_revenue: newRev,
-          retained_revenue_share: curRev > 0 ? (retRev / curRev * 100) : null,
-          new_revenue_share: curRev > 0 ? (newRev / curRev * 100) : null,
-        };
+      // Grão (empresa, cliente): permite churn por filial e, com dedupe por cd_pessoa,
+      // o consolidado do grupo (um cliente atendido por 2 filiais conta uma vez no geral).
+      const c12Sql = `SELECT cd_empresa, cd_pessoa,
+          ISNULL(SUM(CASE WHEN dt_emi_nf >= ${prevStart} AND dt_emi_nf < ${curStart} THEN vl_faturamento ELSE 0 END),0) AS rev_prev,
+          COUNT(CASE WHEN dt_emi_nf >= ${prevStart} AND dt_emi_nf < ${curStart} THEN 1 END) AS nfs_prev,
+          ISNULL(SUM(CASE WHEN dt_emi_nf >= ${curStart} THEN vl_faturamento ELSE 0 END),0) AS rev_cur,
+          COUNT(CASE WHEN dt_emi_nf >= ${curStart} THEN 1 END) AS nfs_cur
+        FROM nf WITH (NOLOCK)
+        WHERE dt_emi_nf >= ${prevStart} AND dt_emi_nf < GETDATE() ${cancelFilter}
+          AND cd_pessoa IS NOT NULL
+        GROUP BY cd_empresa, cd_pessoa`;
+      const c12Rows = getRows(await runQuery(source, wrap(c12Sql), 30000));
+      queryCount++;
+
+      // Acumulador reutilizado para consolidado e para cada empresa
+      const newAcc = () => ({
+        base: 0, retained: 0, churned: 0, novos: 0,
+        baseRev: 0, churnedRev: 0, retainedRevCur: 0, novosRevCur: 0, curRev: 0,
+      });
+      const addTo = (a, nfsPrev, nfsCur, revPrev, revCur) => {
+        a.curRev += revCur;
+        if (nfsPrev > 0) { a.base++; a.baseRev += revPrev; }
+        if (nfsPrev > 0 && nfsCur > 0) { a.retained++; a.retainedRevCur += revCur; }
+        if (nfsPrev > 0 && nfsCur === 0) { a.churned++; a.churnedRev += revPrev; }
+        if (nfsPrev === 0 && nfsCur > 0) { a.novos++; a.novosRevCur += revCur; }
       };
+      const finish = (a) => ({
+        base_clients: a.base,
+        active_clients: a.retained + a.novos,
+        retained_clients: a.retained,
+        churned_clients: a.churned,
+        new_clients: a.novos,
+        churn_rate: a.base > 0 ? (a.churned / a.base * 100) : null,
+        retention_rate: a.base > 0 ? (a.retained / a.base * 100) : null,
+        revenue_churn_rate: a.baseRev > 0 ? (a.churnedRev / a.baseRev * 100) : null,
+        revenue_at_risk: a.churnedRev,
+        base_revenue: a.baseRev,
+        current_revenue: a.curRev,
+        retained_revenue: a.retainedRevCur,
+        new_revenue: a.novosRevCur,
+        retained_revenue_share: a.curRev > 0 ? (a.retainedRevCur / a.curRev * 100) : null,
+        new_revenue_share: a.curRev > 0 ? (a.novosRevCur / a.curRev * 100) : null,
+      });
 
-      // Consolidado do grupo — grão cliente (um cliente atendido por 2 filiais conta uma vez)
-      const totalSql = `SELECT ${aggCols} FROM (${clientGrain('cd_pessoa,')}) c`;
-      const totalRows = getRows(await runQuery(source, wrap(totalSql), 30000));
-      queryCount++;
-      if (totalRows.length > 0) churn12 = shape(totalRows[0]);
+      const perEmp = {};
+      const consol = {}; // cd_pessoa -> somas entre empresas (dedupe do grupo)
+      for (const r of c12Rows) {
+        const emp = Number(r.cd_empresa);
+        const code = String(r.cd_pessoa);
+        const nfsPrev = Number(r.nfs_prev) || 0;
+        const nfsCur = Number(r.nfs_cur) || 0;
+        const revPrev = Number(r.rev_prev) || 0;
+        const revCur = Number(r.rev_cur) || 0;
+        if (!perEmp[emp]) perEmp[emp] = newAcc();
+        addTo(perEmp[emp], nfsPrev, nfsCur, revPrev, revCur);
+        if (!consol[code]) consol[code] = { nfsPrev: 0, nfsCur: 0, revPrev: 0, revCur: 0 };
+        consol[code].nfsPrev += nfsPrev;
+        consol[code].nfsCur += nfsCur;
+        consol[code].revPrev += revPrev;
+        consol[code].revCur += revCur;
+      }
+      const total = newAcc();
+      for (const v of Object.values(consol)) addTo(total, v.nfsPrev, v.nfsCur, v.revPrev, v.revCur);
+      const { base, retained, churned, novos, baseRev, churnedRev, retainedRevCur, novosRevCur, curRev } = total;
 
-      // Por empresa — grão empresa×cliente
-      const empSql = `SELECT cd_empresa, ${aggCols} FROM (${clientGrain('cd_empresa, cd_pessoa,')}) c GROUP BY cd_empresa`;
-      churn12ByEmpresa = getRows(await runQuery(source, wrap(empSql), 30000))
-        .map((r) => ({ cd_empresa: Number(r.cd_empresa), ...shape(r) }))
+      churn12ByEmpresa = Object.entries(perEmp)
+        .map(([emp, a]) => ({ cd_empresa: Number(emp), ...finish(a) }))
         .sort((a, b) => b.current_revenue - a.current_revenue);
-      queryCount++;
+
+      churn12 = {
+        base_clients: base,
+        active_clients: retained + novos,
+        retained_clients: retained,
+        churned_clients: churned,
+        new_clients: novos,
+        churn_rate: base > 0 ? (churned / base * 100) : null,
+        retention_rate: base > 0 ? (retained / base * 100) : null,
+        revenue_churn_rate: baseRev > 0 ? (churnedRev / baseRev * 100) : null,
+        revenue_at_risk: churnedRev,
+        base_revenue: baseRev,
+        current_revenue: curRev,
+        retained_revenue: retainedRevCur,
+        new_revenue: novosRevCur,
+        retained_revenue_share: curRev > 0 ? (retainedRevCur / curRev * 100) : null,
+        new_revenue_share: curRev > 0 ? (novosRevCur / curRev * 100) : null,
+      };
     } catch (e) {
       warnings.push('Falha ao calcular churn 12 meses: ' + (e.message || String(e)).slice(0, 120));
     }
