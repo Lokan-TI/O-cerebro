@@ -135,7 +135,7 @@ export default function TabExecutiva() {
           <KpiCard icon={Users} label="Clientes ativos (ano)" value={fmtNum(clientes)} sub={`${fmtNum(clientesMes)} no mês`} color="purple" />
           <KpiCard icon={UserPlus} label="Novos clientes" value={fmtNum(newClients)} sub="Primeira compra no ano" color="green" />
           <KpiCard icon={Repeat} label="Recorrentes" value={fmtNum(retainedClients)} sub="Compraram ano anterior e atual" color="blue" />
-          <KpiCard icon={UserMinus} label="Em churn (12 meses)" value={fmtNum(k.churn12?.churned_clients ?? churnedClients)} sub="Sem faturar nos últimos 12 meses" color="red" />
+          <KpiCard icon={UserMinus} label="Em churn (12 meses)" value={churn12Scoped ? fmtNum(churn12Scoped.churned_clients) : "—"} sub={isAll ? "Sem faturar nos últimos 12 meses" : "Da filial selecionada — igual à tabela abaixo"} color="red" />
         </div>
       </div>
 
@@ -164,12 +164,17 @@ export default function TabExecutiva() {
 
       {/* Coorte por ano civil — leitura complementar */}
       <div>
-        <h3 className="text-purple-300 text-xs font-semibold uppercase tracking-wider mb-3">Coorte do ano civil (complementar)</h3>
+        <h3 className="text-purple-300 text-xs font-semibold uppercase tracking-wider mb-3">
+          Coorte do ano civil (complementar){" "}
+          <span className="text-gray-500 normal-case">
+            · {isAll ? "consolidado do grupo" : getEmpresaLabel(selectedEmpresa, empRow?.nm_empresa)} · janela diferente da tabela de 12 meses
+          </span>
+        </h3>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <KpiCard icon={Repeat} label="Retenção no ano" value={fmtPct(retencao)} sub={isAll ? "Consolidado" : "Empresa selecionada"} color="green" />
-          <KpiCard icon={UserMinus} label="Churn no ano" value={fmtPct(churn)} sub="Ano civil — sujeito a sazonalidade" color="red" />
-          <KpiCard icon={TrendingUp} label="Receita de novos" value={fmtCur(newRevenue)} sub="Trazida por novos clientes" color="green" />
-          <KpiCard icon={TrendingDown} label="Receita retida" value={fmtCur(retainedRevenue)} sub="De clientes recorrentes" color="amber" />
+          <KpiCard icon={Repeat} label="Retenção no ano" value={fmtPct(retencao)} sub={`${fmtNum(retainedClients)} recorrentes de quem faturou no ano anterior`} color="green" />
+          <KpiCard icon={UserMinus} label="Churn no ano" value={fmtPct(churn)} sub={`${fmtNum(churnedClients)} sem faturar neste ano civil`} color="red" />
+          <KpiCard icon={TrendingUp} label="Receita de novos" value={fmtCur(newRevenue)} sub={`${fmtNum(newClients)} clientes de primeira compra no ano`} color="green" />
+          <KpiCard icon={TrendingDown} label="Receita retida" value={fmtCur(retainedRevenue)} sub="De clientes recorrentes no ano civil" color="amber" />
         </div>
         <p className="text-[11px] text-gray-500 mt-2 leading-relaxed">
           Leitura por ano civil (compara quem faturou no ano anterior com quem faturou neste ano, ainda incompleto) —
