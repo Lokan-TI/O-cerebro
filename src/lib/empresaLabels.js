@@ -9,6 +9,11 @@ export const EMPRESA_LABELS = {
   12: "010 - MONT",
 };
 
+// Ordena pela numeração de exibição (001, 002, ... 010), não pelo código interno do ERP.
+export function compareEmpresa(a, b) {
+  return String(getEmpresaLabel(a)).localeCompare(String(getEmpresaLabel(b)), "pt-BR");
+}
+
 export function getEmpresaLabel(cdEmpresa, fallbackName) {
   return EMPRESA_LABELS[cdEmpresa] || fallbackName || `Empresa ${cdEmpresa}`;
 }

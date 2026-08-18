@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { getEmpresaLabel } from "@/lib/empresaLabels";
+import { getEmpresaLabel, compareEmpresa } from "@/lib/empresaLabels";
 import { fmtCur, fmtNum } from "@/lib/erpFormat";
 import { Award, AlertTriangle, Building2 } from "lucide-react";
 
@@ -14,11 +14,7 @@ export default function ChurnEmpresaRanking({ rows, selectedEmpresa, onSelectEmp
     const arr = (rows || []).filter(
       (r) => r.base_clients > 0 || r.new_clients > 0 || r.current_revenue > 0
     );
-    return [...arr].sort((a, b) => {
-      const aHas = a.base_clients > 0, bHas = b.base_clients > 0;
-      if (aHas !== bHas) return aHas ? -1 : 1;
-      return (b.retention_rate ?? -1) - (a.retention_rate ?? -1);
-    });
+    return [...arr].sort((a, b) => compareEmpresa(a.cd_empresa, b.cd_empresa));
   }, [rows]);
 
   // Destaques só entre filiais com base comparável.

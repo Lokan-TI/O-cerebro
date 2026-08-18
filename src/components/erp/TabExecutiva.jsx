@@ -3,7 +3,7 @@ import AnnualGrowthChart from "@/components/erp/AnnualGrowthChart";
 import ChurnMetricPanel from "@/components/erp/ChurnMetricPanel";
 import ChurnEmpresaRanking from "@/components/erp/ChurnEmpresaRanking";
 import { useEmpresaFilter } from "@/lib/EmpresaFilterContext";
-import { getEmpresaLabel } from "@/lib/empresaLabels";
+import { getEmpresaLabel, compareEmpresa } from "@/lib/empresaLabels";
 import { fmtCur, fmtNum } from "@/lib/erpFormat";
 import {
   TrendingUp, TrendingDown, Users, UserPlus, UserMinus, Repeat, Wallet,
@@ -46,7 +46,7 @@ export default function TabExecutiva() {
     </div>
   );
 
-  const byEmp = snapshot.by_empresa || [];
+  const byEmp = [...(snapshot.by_empresa || [])].sort((a, b) => compareEmpresa(a.cd_empresa, b.cd_empresa));
   const k = snapshot.kpis || {};
   const isAll = selectedEmpresa == null;
   const empRow = !isAll ? byEmp.find((e) => e.cd_empresa === selectedEmpresa) : null;
