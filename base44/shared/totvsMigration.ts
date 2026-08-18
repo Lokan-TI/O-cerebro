@@ -70,6 +70,15 @@ export const SE2_COLUMNS = [
   ['NATUREZA_TIPO', 'Natureza financeira — Tipo de movimentação'],
   ['NATUREZA_STATUS', 'Natureza financeira — Status (A=Ativo / I=Inativo)'],
   ['NATUREZA_BALANCETE', 'Natureza financeira — Balancete (S/N)'],
+  ['SISLOC_NR_DOCTO', 'Sisloc — Nº documento (lanca.nr_doc_lan)'],
+  ['SISLOC_TIPO_DOCTO', 'Sisloc — Tipo documento (docto.nm_docto)'],
+  ['SISLOC_SG_DOCTO', 'Sisloc — Tipo documento (sigla)'],
+  ['SISLOC_CREDOR', 'Sisloc — Credor (pessoa.cd_pessoa_cre)'],
+  ['SISLOC_CREDOR_CNPJ', 'Sisloc — CNPJ/CPF do credor formatado'],
+  ['SISLOC_COMPETENCIA', 'Sisloc — Competência (lanca.dt_competencia)'],
+  ['SISLOC_DT_PREVISTA', 'Sisloc — Prevista (lanca.dt_prevista_lan)'],
+  ['SISLOC_VL_PREVISTO', 'Sisloc — ( = ) Previsto (vl_pre_cap)'],
+  ['SISLOC_STATUS_COD', 'Sisloc — Status (código fl_status_titulo)'],
   ['SISLOC_CD_LAN', 'Sisloc — ID do lançamento'],
   ['SISLOC_DOCUMENTO', 'Sisloc — CNPJ/CPF completo'],
   ['SISLOC_EMPRESA', 'Sisloc — Código da empresa/filial'],
@@ -123,21 +132,36 @@ function baseCte(doc: string, startDate: string, endDate: string, statuses?: str
   // Empresa (filial): CAR tem empresa gestora própria; CAP herda do rateio do
   // lançamento (lan_xcr.cd_empresa) e, na falta, da conta bancária do título.
   const empresaExpr = isCap
-    ? 'COALESCE(lx.cd_empresa, co.cd_empresa)'
+    ? 'COALESCE(la.cd_empresa, lx.cd_empresa, co.cd_empresa)'
     : 'COALESCE(c.cd_empresa_gestora, lx.cd_empresa, co.cd_empresa)';
 
   const cancel = isCap ? '' : ' AND c.dt_cancelamento IS NULL';
   // CAP não possui nf_numero: o nº do título vem do documento de origem / do próprio lançamento.
   const numExpr = isCap
-    ? `COALESCE(NULLIF(CAST(c.cd_controle AS varchar(30)), ''), CAST(c.cd_lan AS varchar(30)))`
+    ? `COALESCE(NULLIF(LTRIM(RTRIM(COALESCE(la.nr_doc_lan, ''))), ''), CAST(c.cd_lan AS varchar(30)))`
     : `COALESCE(NULLIF(CAST(c.nf_numero AS varchar(30)), ''), CAST(c.cd_lan AS varchar(30)))`;
   const docExpr = `${DOC_CLEAN(`NULLIF(p.nr_cnpj_pessoa, '')`)}`;
   const cpfExpr = `${DOC_CLEAN('p.nr_cpf_pessoa')}`;
+  // doc_num é calculado uma única vez no APPLY abaixo (dn.dn) para manter o SQL curto.
+  const docNumApply = `OUTER APPLY (SELECT CASE WHEN LEN(${docExpr}) IN (11, 14) THEN ${docExpr} ELSE ${cpfExpr} END AS dn) dn`;
+  // Máscara oficial: CNPJ xx.xxx.xxx/xxxx-xx (raiz + loja) e CPF xxx.xxx.xxx-xx.
+  const docFmt = `CASE
+        WHEN LEN(dn.dn) = 14 THEN SUBSTRING(dn.dn,1,2) + '.' + SUBSTRING(dn.dn,3,3) + '.' + SUBSTRING(dn.dn,6,3) + '/' + SUBSTRING(dn.dn,9,4) + '-' + SUBSTRING(dn.dn,13,2)
+        WHEN LEN(dn.dn) = 11 THEN SUBSTRING(dn.dn,1,3) + '.' + SUBSTRING(dn.dn,4,3) + '.' + SUBSTRING(dn.dn,7,3) + '-' + SUBSTRING(dn.dn,10,2)
+        ELSE '' END`;
 
   return `WITH src AS (
     SELECT
       c.cd_lan,
-      CASE WHEN LEN(${docExpr}) IN (11, 14) THEN ${docExpr} ELSE ${cpfExpr} END AS doc_num,
+      dn.dn AS doc_num,
+      ${docFmt} AS doc_fmt,
+      LTRIM(RTRIM(COALESCE(la.nr_doc_lan, ''))) AS nr_docto,
+      LTRIM(RTRIM(COALESCE(dc.nm_docto, ''))) AS docto_nome,
+      LTRIM(RTRIM(COALESCE(dc.sg_docto, ''))) AS docto_sigla,
+      la.dt_competencia AS dt_competencia,
+      la.dt_prevista_lan AS dt_prevista,
+      ROUND(COALESCE(c.${vlp}, 0), 2) AS vl_previsto,
+      ${stCol} AS status_cod,
       LTRIM(RTRIM(COALESCE(NULLIF(p.nm_fan_pessoa, ''), p.nm_pessoa, ''))) AS nome,
       ${empresaExpr} AS empresa_cd,
       LTRIM(RTRIM(COALESCE(NULLIF(e.nm_fan_empresa, ''), e.nm_razsoc_empresa, ''))) AS empresa_nome,
@@ -176,6 +200,9 @@ function baseCte(doc: string, startDate: string, endDate: string, statuses?: str
       CASE WHEN ${stCol} IN (5, 10) AND c.${bai} IS NULL${cancel} THEN 1 ELSE 0 END AS em_aberto
     FROM ${table} c WITH (NOLOCK)
     LEFT JOIN pessoa p WITH (NOLOCK) ON p.cd_pessoa = ${pes}
+    ${docNumApply}
+    LEFT JOIN lanca la WITH (NOLOCK) ON la.cd_lan = c.cd_lan
+    LEFT JOIN docto dc WITH (NOLOCK) ON dc.cd_docto = la.cd_docto
     OUTER APPLY (
       SELECT TOP 1 l.cd_planfin, l.cd_empresa, COUNT(*) OVER () AS rateios
       FROM lan_xcr l WITH (NOLOCK) WHERE l.cd_lan = c.cd_lan ORDER BY l.id_row
@@ -207,8 +234,25 @@ export function buildTotvsSql({ doc, startDate, endDate, offset, pageSize, statu
     CASE WHEN natureza_rateios > 1 THEN ' TITULO RATEADO EM MAIS DE UMA NATUREZA;' ELSE '' END +
     CASE WHEN valor <= 0 THEN ' VALOR ZERADO OU NEGATIVO;' ELSE '' END +
     CASE WHEN dt_vencto IS NULL THEN ' SEM VENCIMENTO;' ELSE '' END +
-    CASE WHEN tp_titulo = '' THEN ' SEM TIPO DE TITULO (E2_TIPO/E1_TIPO);' ELSE '' END
+    CASE WHEN tp_titulo = '' THEN ' SEM TIPO DE TITULO (E2_TIPO/E1_TIPO);' ELSE '' END${isCap ? `+
+    CASE WHEN nr_docto = '' THEN ' SEM Nº DOCUMENTO;' ELSE '' END +
+    CASE WHEN docto_nome = '' THEN ' SEM TIPO DE DOCUMENTO;' ELSE '' END` : ''}
   )`;
+
+  // Colunas de conferência exclusivas do CAP (dicionário Sisloc: nr_docto, tipo documento,
+  // credor, competência, prevista, previsto e status).
+  const capExtras = isCap
+    ? `
+    nr_docto AS SISLOC_NR_DOCTO,
+    docto_nome AS SISLOC_TIPO_DOCTO,
+    docto_sigla AS SISLOC_SG_DOCTO,
+    nome AS SISLOC_CREDOR,
+    doc_fmt AS SISLOC_CREDOR_CNPJ,
+    CONVERT(char(10), dt_competencia, 23) AS SISLOC_COMPETENCIA,
+    CONVERT(char(10), dt_prevista, 23) AS SISLOC_DT_PREVISTA,
+    vl_previsto AS SISLOC_VL_PREVISTO,
+    status_cod AS SISLOC_STATUS_COD,`
+    : '';
 
   const p = isCap ? 'E2' : 'E1';
   const nameCol = isCap ? 'E2_NOMFOR' : 'E1_NOMCLI';
@@ -239,7 +283,7 @@ export function buildTotvsSql({ doc, startDate, endDate, offset, pageSize, statu
     tp_titulo AS ${p}_TIPO,
     LEFT(historico, 40) AS ${p}_HIST,
     historico AS ${p}_XOBS,
-    CONVERT(char(10), dt_baixa, 23) AS ${p}_BAIXA,
+    CONVERT(char(10), dt_baixa, 23) AS ${p}_BAIXA,${capExtras}
     natureza AS NATUREZA_DESCRICAO,
     natureza_tipo AS NATUREZA_TIPO,
     natureza_status AS NATUREZA_STATUS,
