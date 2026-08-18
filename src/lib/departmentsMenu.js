@@ -38,7 +38,10 @@ export const DEPARTMENTS = [
   {
     id: "financeiro",
     label: "Financeiro",
-    items: [{ label: "Financeiro (CAR/CAP)", to: "/ErpCrmDashboard?tab=financeiro" }],
+    items: [
+      { label: "DRE, balancete e ralos financeiros", to: "/DetalhamentoFinanceiro" },
+      { label: "Financeiro (CAR/CAP)", to: "/ErpCrmDashboard?tab=financeiro" },
+    ],
   },
   {
     id: "fiscal",

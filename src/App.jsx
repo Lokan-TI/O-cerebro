@@ -15,6 +15,7 @@ import PainelDecisao from './pages/PainelDecisao.jsx';
 import GrowthMarketing from './pages/GrowthMarketing.jsx';
 import ProjecaoLongoPrazo from './pages/ProjecaoLongoPrazo.jsx';
 import AtivosCustos from './pages/AtivosCustos.jsx';
+import DetalhamentoFinanceiro from './pages/DetalhamentoFinanceiro.jsx';
 import { ErpSourceProvider } from '@/lib/ErpSourceContext';
 
 const { Pages, Layout, mainPage } = pagesConfig;
@@ -101,6 +102,11 @@ const AuthenticatedApp = () => {
       <Route path="/AtivosCustos" element={
         <LayoutWrapper currentPageName="AtivosCustos">
           <AtivosCustos />
+        </LayoutWrapper>
+      } />
+      <Route path="/DetalhamentoFinanceiro" element={
+        <LayoutWrapper currentPageName="DetalhamentoFinanceiro">
+          <DetalhamentoFinanceiro />
         </LayoutWrapper>
       } />
       <Route path="/Integracoes" element={
