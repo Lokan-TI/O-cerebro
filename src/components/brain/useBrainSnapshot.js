@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useErpSource, ALL_SOURCES_ID } from "@/lib/ErpSourceContext";
 import { mergeSnapshots } from "@/lib/mergeSnapshots";
+import { sanitizeSnapshot } from "@/lib/sanitizeSnapshot";
 
 export function useBrainSnapshot() {
   const { selectedSource, sources } = useErpSource();
@@ -30,7 +31,7 @@ export function useBrainSnapshot() {
           .then((rows) => rows?.[0] || null);
 
     load
-      .then((s) => { if (alive) setSnapshot(s); })
+      .then((s) => { if (alive) setSnapshot(sanitizeSnapshot(s)); })
       .catch(() => { if (alive) setSnapshot(null); })
       .finally(() => { if (alive) setLoading(false); });
 

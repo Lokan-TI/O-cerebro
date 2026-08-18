@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, useEffect, useCallback, useRef } from "react";
 import { base44 } from "@/api/base44Client";
 import { useErpSource } from "./ErpSourceContext";
+import { sanitizeSnapshot } from "./sanitizeSnapshot";
 
 const ErpSnapshotContext = createContext(null);
 
@@ -32,7 +33,7 @@ export function ErpSnapshotProvider({ children }) {
             const snaps = await base44.entities.ErpSnapshot.filter(
               { source_id: sourceId, is_current: true }, "-created_date", 1
             );
-            setSnapshot(snaps[0] || null);
+            setSnapshot(sanitizeSnapshot(snaps[0]) || null);
           }
         }
       } catch {
@@ -57,7 +58,7 @@ export function ErpSnapshotProvider({ children }) {
         base44.entities.ErpSnapshot.filter({ source_id: sourceId, is_current: true }, "-created_date", 1),
         base44.entities.ErpSyncRun.filter({ source_id: sourceId }, "-started_at", 1),
       ]);
-      setSnapshot(snaps[0] || null);
+      setSnapshot(sanitizeSnapshot(snaps[0]) || null);
       setLatestRun(runs[0] || null);
       if (runs[0] && runs[0].status === "running") {
         setRefreshing(true);
@@ -103,7 +104,7 @@ export function ErpSnapshotProvider({ children }) {
           const snaps = await base44.entities.ErpSnapshot.filter(
             { source_id: sourceId, is_current: true }, "-created_date", 1
           );
-          setSnapshot(snaps[0] || null);
+          setSnapshot(sanitizeSnapshot(snaps[0]) || null);
         }
       } catch {
         stopPolling();
