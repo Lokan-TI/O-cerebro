@@ -3,6 +3,7 @@ import TabFornecedores from "@/components/erp/TabFornecedores";
 import FinanceiroExportTab from "@/components/erp/FinanceiroExportTab";
 import TotvsSaneamentoTab from "@/components/erp/TotvsSaneamentoTab";
 import CapPorContaTab from "@/components/erp/CapPorContaTab";
+import CentrosCustoTab from "@/components/erp/CentrosCustoTab";
 import { useAnalyticsView } from "@/lib/analyticsView";
 import { useErpSnapshot } from "@/lib/ErpSnapshotContext";
 import { useEmpresaFilter } from "@/lib/EmpresaFilterContext";
@@ -144,6 +145,7 @@ export default function TabFinanceiro() {
         <button onClick={() => setSub("resumo")} className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${sub === "resumo" ? "bg-purple-600 text-white" : "text-gray-400 hover:text-gray-200"}`}>Resumo mensal</button>
         <button onClick={() => setSub("car_empresa")} className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${sub === "car_empresa" ? "bg-purple-600 text-white" : "text-gray-400 hover:text-gray-200"}`}>CAR por empresa</button>
         <button onClick={() => setSub("cap_conta")} className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${sub === "cap_conta" ? "bg-purple-600 text-white" : "text-gray-400 hover:text-gray-200"}`}>CAP por conta</button>
+        <button onClick={() => setSub("centros_custo")} className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${sub === "centros_custo" ? "bg-purple-600 text-white" : "text-gray-400 hover:text-gray-200"}`}>Centros de custo</button>
         <button onClick={() => setSub("balancete")} className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${sub === "balancete" ? "bg-purple-600 text-white" : "text-gray-400 hover:text-gray-200"}`}>Balancete</button>
         <button onClick={() => setSub("fornecedores")} className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${sub === "fornecedores" ? "bg-purple-600 text-white" : "text-gray-400 hover:text-gray-200"}`}>Fornecedores</button>
         <button onClick={() => setSub("exportar")} className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${sub === "exportar" ? "bg-purple-600 text-white" : "text-gray-400 hover:text-gray-200"}`}>Exportar CAP/CAR</button>
@@ -218,6 +220,9 @@ export default function TabFinanceiro() {
 
       {/* CAP por conta — consulta ao vivo agrupada pelo plano financeiro */}
       {sub === "cap_conta" && <CapPorContaTab dateRange={dateRange} />}
+
+      {/* Centros de custo — hierarquia do plano financeiro */}
+      {sub === "centros_custo" && <CentrosCustoTab dateRange={dateRange} />}
 
       {/* Balancete */}
       {sub === "balancete" && (() => {
