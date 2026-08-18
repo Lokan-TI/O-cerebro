@@ -21,6 +21,7 @@ export default function TabFinanceiro() {
   const { snapshot } = useErpSnapshot();
   const { selectedEmpresa } = useEmpresaFilter();
   const [sub, setSub] = useState("resumo"); // resumo | car_empresa | cap_conta | balancete
+  const [resumoView, setResumoView] = useState("mensal"); // mensal | anual
 
   if (loading && !analytics) return <div className="text-gray-500 p-8 text-center">Carregando financeiro…</div>;
   if (!analytics || !aView) return <div className="text-gray-500 p-8 text-center">Sem dados. Clique em "Atualizar dados" para carregar.</div>;
@@ -42,9 +43,21 @@ export default function TabFinanceiro() {
   const balancete = analytics.plano_balancete || [];
 
   const carVsCapMonthly = (analytics.car_vs_cap_monthly || []).map((r) => ({
-    label: r.label || fmtMonthLabel(r.mes, r.ano), car: r.car || 0, cap: r.cap || 0,
+    label: r.label || fmtMonthLabel(r.mes, r.ano), ano: r.ano, car: r.car || 0, cap: r.cap || 0,
     car_baixado: r.car_baixado || 0, cap_baixado: r.cap_baixado || 0,
   }));
+
+  // Agregado ano a ano (sem detalhe mensal)
+  const carVsCapYearly = Object.values(
+    carVsCapMonthly.reduce((acc, r) => {
+      const yy = String(r.label).split("/").pop().trim();
+      const ano = r.ano ?? (yy.length === 2 ? `20${yy}` : yy);
+      if (!acc[ano]) acc[ano] = { label: String(ano), car: 0, cap: 0 };
+      acc[ano].car += r.car;
+      acc[ano].cap += r.cap;
+      return acc;
+    }, {})
+  ).sort((a, b) => a.label.localeCompare(b.label));
 
   const resultado = receita - (k.cap_total || 0);
   const margemResult = receita > 0 ? (resultado / receita * 100) : null;
@@ -146,11 +159,17 @@ export default function TabFinanceiro() {
       {/* Resumo mensal: CAR vs CAP */}
       {sub === "resumo" && (
         <div className="bg-gray-900 border border-gray-800 rounded-xl p-5">
-          <h3 className="text-white font-semibold mb-4 text-sm flex items-center gap-2">
-            <BarChart3 className="w-4 h-4 text-purple-400" /> CAR vs CAP — série mensal
-          </h3>
+          <div className="flex items-center justify-between flex-wrap gap-3 mb-4">
+            <h3 className="text-white font-semibold text-sm flex items-center gap-2">
+              <BarChart3 className="w-4 h-4 text-purple-400" /> CAR vs CAP — {resumoView === "anual" ? "comparativo ano a ano" : "série mensal"}
+            </h3>
+            <div className="flex gap-1 bg-gray-800 border border-gray-700 rounded-lg p-0.5">
+              <button onClick={() => setResumoView("mensal")} className={`px-3 py-1 rounded-md text-xs font-medium transition-colors ${resumoView === "mensal" ? "bg-purple-600 text-white" : "text-gray-400 hover:text-gray-200"}`}>Mensal</button>
+              <button onClick={() => setResumoView("anual")} className={`px-3 py-1 rounded-md text-xs font-medium transition-colors ${resumoView === "anual" ? "bg-purple-600 text-white" : "text-gray-400 hover:text-gray-200"}`}>Ano a ano</button>
+            </div>
+          </div>
           <ResponsiveContainer width="100%" height={320}>
-            <ComposedChart data={carVsCapMonthly}>
+            <ComposedChart data={resumoView === "anual" ? carVsCapYearly : carVsCapMonthly}>
               <CartesianGrid strokeDasharray="3 3" stroke="#222" />
               <XAxis dataKey="label" stroke="#666" fontSize={11} />
               <YAxis stroke="#666" fontSize={11} tickFormatter={(v) => fmtCur(v).replace("R$", "")} />
