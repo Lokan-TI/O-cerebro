@@ -14,6 +14,7 @@ import BrainHome from './pages/BrainHome.jsx';
 import PainelDecisao from './pages/PainelDecisao.jsx';
 import GrowthMarketing from './pages/GrowthMarketing.jsx';
 import ProjecaoLongoPrazo from './pages/ProjecaoLongoPrazo.jsx';
+import AtivosCustos from './pages/AtivosCustos.jsx';
 import { ErpSourceProvider } from '@/lib/ErpSourceContext';
 
 const { Pages, Layout, mainPage } = pagesConfig;
@@ -95,6 +96,11 @@ const AuthenticatedApp = () => {
       <Route path="/ProjecaoLongoPrazo" element={
         <LayoutWrapper currentPageName="ProjecaoLongoPrazo">
           <ProjecaoLongoPrazo />
+        </LayoutWrapper>
+      } />
+      <Route path="/AtivosCustos" element={
+        <LayoutWrapper currentPageName="AtivosCustos">
+          <AtivosCustos />
         </LayoutWrapper>
       } />
       <Route path="/Integracoes" element={

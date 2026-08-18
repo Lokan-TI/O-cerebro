@@ -6,6 +6,7 @@ export const DEPARTMENTS = [
     items: [
       { label: "KPIs por departamento (inclui Growth)", to: "/PainelDecisao" },
       { label: "Previsibilidade de receita (10 anos)", to: "/ProjecaoLongoPrazo" },
+      { label: "Ativos, CAPEX e OPEX", to: "/AtivosCustos" },
     ],
   },
   {
