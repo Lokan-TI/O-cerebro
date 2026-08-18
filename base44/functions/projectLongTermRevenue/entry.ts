@@ -14,6 +14,33 @@ Deno.serve(async (req) => {
     const body = await req.json().catch(() => ({}));
     const years = Math.min(Math.max(Number(body?.years) || 10, 3), 20);
     const sourceId = body?.source_id;
+    const refresh = body?.refresh === true;
+
+    // Cache: por padrão devolvemos o último snapshot salvo (leitura instantânea, zero
+    // carga no ERP). O ERP só é consultado quando o usuário pede atualização.
+    const cached = await base44.asServiceRole.entities.ProjectionSnapshot.filter(
+      { source_id: sourceId || '', is_current: true }, '-generated_at', 1
+    );
+    if (!refresh) {
+      const s = cached[0];
+      if (!s) {
+        return Response.json({
+          no_snapshot: true,
+          message: 'Nenhum snapshot desta fonte foi gerado ainda. Clique em "Atualizar do ERP" para calcular a primeira vez.',
+        });
+      }
+      return Response.json({
+        from_cache: true,
+        generated_at: s.generated_at,
+        current_year: s.current_year,
+        year_fraction: s.year_fraction,
+        history: s.history || [],
+        fleet: s.fleet || {},
+        queries: s.queries || [],
+        warnings: s.warnings || [],
+      });
+    }
+    const startedAt = Date.now();
     let source: any = { credential_reference: 'env' };
     if (sourceId) {
       source = await base44.asServiceRole.entities.ErpDataSource.get(sourceId);
@@ -130,20 +157,49 @@ Deno.serve(async (req) => {
       })),
     };
 
-    return Response.json({
+    const queries = [
+      { label: 'Receita anual', description: 'nf — faturamento, notas e clientes por ano', sql: sqlRevenue },
+      { label: 'Compras de ativos por ano', description: 'patrimon — CAPEX e quantidade por ano de aquisição', sql: sqlCapex },
+      { label: 'Foto da frota', description: 'patrimon — valor, idade média e ativos acima de 10 anos', sql: sqlFleet },
+      { label: 'Frota por grupo', description: 'patrimon + equipto + grupo — concentração de capital', sql: sqlFleetGroup },
+    ];
+    const payload = {
       generated_at: now.toISOString(),
       current_year: currentYear,
       year_fraction: yearFraction,
       history,
       fleet,
       warnings,
-      queries: [
-        { label: 'Receita anual', description: 'nf — faturamento, notas e clientes por ano', sql: sqlRevenue },
-        { label: 'Compras de ativos por ano', description: 'patrimon — CAPEX e quantidade por ano de aquisição', sql: sqlCapex },
-        { label: 'Foto da frota', description: 'patrimon — valor, idade média e ativos acima de 10 anos', sql: sqlFleet },
-        { label: 'Frota por grupo', description: 'patrimon + equipto + grupo — concentração de capital', sql: sqlFleetGroup },
-      ],
-    });
+      queries,
+    };
+
+    // Publica o novo snapshot e desmarca o anterior
+    try {
+      await base44.asServiceRole.entities.ProjectionSnapshot.create({
+        source_id: sourceId || '',
+        source_name: source?.name || 'Fonte padrão',
+        is_current: false,
+        generated_at: payload.generated_at,
+        generated_by_name: user.full_name || user.email,
+        years,
+        current_year: currentYear,
+        year_fraction: yearFraction,
+        history,
+        fleet,
+        queries,
+        warnings,
+        duration_ms: Date.now() - startedAt,
+      }).then(async (snap: any) => {
+        for (const old of cached) {
+          await base44.asServiceRole.entities.ProjectionSnapshot.update(old.id, { is_current: false });
+        }
+        await base44.asServiceRole.entities.ProjectionSnapshot.update(snap.id, { is_current: true });
+      });
+    } catch (e) {
+      payload.warnings.push('Falha ao salvar snapshot: ' + (e.message || String(e)).slice(0, 120));
+    }
+
+    return Response.json({ ...payload, from_cache: false });
   } catch (error) {
     try {
       const body2 = await req.clone().json().catch(() => ({}));

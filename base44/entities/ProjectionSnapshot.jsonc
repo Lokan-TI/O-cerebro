@@ -1,0 +1,82 @@
+{
+  "name": "ProjectionSnapshot",
+  "type": "object",
+  "properties": {
+    "source_id": {
+      "type": "string",
+      "description": "ID da fonte de dados ERP (vazio = fonte padr\u00e3o de ambiente)"
+    },
+    "source_name": {
+      "type": "string"
+    },
+    "is_current": {
+      "type": "boolean",
+      "default": false
+    },
+    "generated_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "generated_by_name": {
+      "type": "string"
+    },
+    "years": {
+      "type": "number",
+      "default": 10
+    },
+    "current_year": {
+      "type": "number"
+    },
+    "year_fraction": {
+      "type": "number"
+    },
+    "history": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      },
+      "description": "Hist\u00f3rico anual de receita e CAPEX"
+    },
+    "fleet": {
+      "type": "object",
+      "description": "Foto atual da frota e concentra\u00e7\u00e3o por grupo"
+    },
+    "queries": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      }
+    },
+    "warnings": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "duration_ms": {
+      "type": "number",
+      "default": 0
+    }
+  },
+  "required": [
+    "generated_at"
+  ],
+  "rls": {
+    "read": {},
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

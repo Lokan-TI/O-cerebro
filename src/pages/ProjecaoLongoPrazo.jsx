@@ -22,15 +22,22 @@ export default function ProjecaoLongoPrazo() {
 
   const sourceId = selectedSource?.id && selectedSource.id !== ALL_SOURCES_ID ? selectedSource.id : undefined;
 
-  const load = async () => {
+  const load = async (refresh = false) => {
     setLoading(true);
     setError(null);
     try {
-      const res = await base44.functions.invoke("projectLongTermRevenue", {
-        years: 10,
-        ...(sourceId ? { source_id: sourceId } : {}),
-      });
+      const res = await Promise.race([
+        base44.functions.invoke("projectLongTermRevenue", {
+          years: 10,
+          refresh,
+          ...(sourceId ? { source_id: sourceId } : {}),
+        }),
+        new Promise((_, reject) =>
+          setTimeout(() => reject(new Error("tempo limite de 60s excedido")), 60000)
+        ),
+      ]);
       if (res.data?.error) setError(res.data.error);
+      else if (res.data?.no_snapshot) setError(res.data.message);
       else {
         setData(res.data);
         setAssumptions(defaultAssumptions(computeKpis(res.data)));
@@ -45,7 +52,7 @@ export default function ProjecaoLongoPrazo() {
     }
   };
 
-  useEffect(() => { load(); }, [sourceId]);
+  useEffect(() => { load(false); }, [sourceId]);
 
   const kpis = useMemo(() => (data ? computeKpis(data) : null), [data]);
   const rows = useMemo(
@@ -65,15 +72,21 @@ export default function ProjecaoLongoPrazo() {
             Histórico de crescimento, compras de ativos e KPIs de mercado de locação projetados para os próximos
             {" "}{assumptions?.horizonte || 10} anos.
           </p>
+          {data?.generated_at && (
+            <p className="text-xs text-gray-500 mt-1">
+              Dados de {new Date(data.generated_at).toLocaleString("pt-BR")}
+              {data.from_cache ? " · snapshot salvo (sem consulta ao ERP)" : " · consulta ao ERP feita agora"}
+            </p>
+          )}
         </div>
         <div className="flex items-center gap-2">
           {data?.queries && <QueryInspector queries={data.queries} />}
           <button
-            onClick={load}
+            onClick={() => load(true)}
             disabled={loading}
             className="flex items-center gap-2 bg-purple-600 hover:bg-purple-500 disabled:opacity-50 text-white text-sm rounded-lg px-4 py-2"
           >
-            <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} /> Recarregar dados
+            <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} /> Atualizar do ERP
           </button>
         </div>
       </div>
