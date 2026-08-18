@@ -8,10 +8,21 @@ const pct = (v) => (v == null ? "—" : `${v.toFixed(1)}%`);
 // Ranking de filiais pela janela móvel de 12 meses: quem retém mais clientes,
 // quem perde mais receita e quem cresce com clientes novos.
 export default function ChurnEmpresaRanking({ rows, selectedEmpresa, onSelectEmpresa }) {
+  // Mostra toda filial com atividade. As filiais novas (sem base nos 12 meses
+  // anteriores) não têm retenção/churn calculável — aparecem no fim da lista com "—".
   const list = useMemo(() => {
-    const arr = (rows || []).filter((r) => r.base_clients > 0);
-    return [...arr].sort((a, b) => (b.retention_rate ?? -1) - (a.retention_rate ?? -1));
+    const arr = (rows || []).filter(
+      (r) => r.base_clients > 0 || r.new_clients > 0 || r.current_revenue > 0
+    );
+    return [...arr].sort((a, b) => {
+      const aHas = a.base_clients > 0, bHas = b.base_clients > 0;
+      if (aHas !== bHas) return aHas ? -1 : 1;
+      return (b.retention_rate ?? -1) - (a.retention_rate ?? -1);
+    });
   }, [rows]);
+
+  // Destaques só entre filiais com base comparável.
+  const comparaveis = useMemo(() => list.filter((r) => r.base_clients > 0), [list]);
 
   if (!rows || rows.length === 0) {
     return (
@@ -24,12 +35,13 @@ export default function ChurnEmpresaRanking({ rows, selectedEmpresa, onSelectEmp
     );
   }
 
-  const best = list[0];
-  const worst = list[list.length - 1];
-  const maiorRisco = [...list].sort((a, b) => b.revenue_at_risk - a.revenue_at_risk)[0];
+  const best = comparaveis[0];
+  const worst = comparaveis[comparaveis.length - 1];
+  const maiorRisco = [...comparaveis].sort((a, b) => b.revenue_at_risk - a.revenue_at_risk)[0];
 
   return (
     <div className="space-y-3">
+      {best && (
       <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
         <div className="rounded-xl border border-green-700/40 bg-green-950/30 p-4">
           <div className="flex items-center gap-2 mb-1"><Award className="w-4 h-4 text-green-400" /><span className="text-xs text-gray-400 uppercase">Melhor retenção</span></div>
@@ -50,6 +62,7 @@ export default function ChurnEmpresaRanking({ rows, selectedEmpresa, onSelectEmp
           <div className="text-xs text-gray-500">{pct(maiorRisco.revenue_churn_rate)} da receita da base anterior</div>
         </div>
       </div>
+      )}
 
       <div className="bg-gray-900 border border-gray-800 rounded-xl overflow-x-auto">
         <table className="w-full text-sm">
@@ -76,7 +89,14 @@ export default function ChurnEmpresaRanking({ rows, selectedEmpresa, onSelectEmp
                 className={`border-b border-gray-800/50 hover:bg-gray-800/30 cursor-pointer ${r.cd_empresa === selectedEmpresa ? "bg-purple-950/40" : ""}`}
               >
                 <td className="py-2 px-3 text-gray-500">{i + 1}</td>
-                <td className="py-2 px-3 text-white">{getEmpresaLabel(r.cd_empresa)}</td>
+                <td className="py-2 px-3 text-white">
+                  {getEmpresaLabel(r.cd_empresa)}
+                  {!(r.base_clients > 0) && (
+                    <span className="ml-2 text-[10px] uppercase text-blue-300 border border-blue-800/60 bg-blue-950/40 rounded px-1.5 py-0.5">
+                      filial nova
+                    </span>
+                  )}
+                </td>
                 <td className="py-2 px-3 text-right text-gray-300">{fmtNum(r.base_clients)}</td>
                 <td className="py-2 px-3 text-right text-green-400">{fmtNum(r.retained_clients)}</td>
                 <td className="py-2 px-3 text-right text-blue-400">{fmtNum(r.new_clients)}</td>
@@ -95,6 +115,8 @@ export default function ChurnEmpresaRanking({ rows, selectedEmpresa, onSelectEmp
         Base = clientes com NF entre 24 e 12 meses atrás na filial · churn = os que não emitiram NF nos últimos 12 meses ·
         receita em risco = faturamento que esses clientes geravam. O consolidado do grupo remove a duplicidade de clientes
         atendidos por mais de uma filial, por isso a soma das linhas é maior que o geral.
+        Filiais marcadas como "filial nova" não tinham clientes na janela de 12 meses anteriores — retenção e churn
+        ficam sem base de comparação ("—"), mas os clientes novos e a receita do período são reais.
       </p>
     </div>
   );
