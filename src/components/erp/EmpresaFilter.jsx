@@ -1,5 +1,6 @@
 import { useEmpresaFilter } from "@/lib/EmpresaFilterContext";
 import { getEmpresaLabel } from "@/lib/empresaLabels";
+import { filterEmpresaRows } from "@/lib/empresaScope";
 import { Building2, Check } from "lucide-react";
 
 // Filtro GLOBAL de empresa — presente no cabeçalho, persiste entre todas as abas.
@@ -17,7 +18,7 @@ export default function EmpresaFilter() {
           className="appearance-none pl-8 pr-8 py-2 bg-gray-900 hover:bg-gray-800 border border-gray-700 hover:border-purple-500 rounded-lg text-sm text-white font-medium focus:outline-none focus:border-purple-500 min-w-[240px] cursor-pointer transition-colors"
         >
           <option value="">Todas as empresas</option>
-          {empresaList.map((e) => (
+          {filterEmpresaRows(empresaList).map((e) => (
             <option key={e.cd_empresa} value={e.cd_empresa}>
               {getEmpresaLabel(e.cd_empresa, e.nm_empresa)}
             </option>

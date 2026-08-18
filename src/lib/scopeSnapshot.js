@@ -1,3 +1,5 @@
+import { filterEmpresaRows } from "@/lib/empresaScope";
+
 // Recorta o snapshot para uma empresa específica, mantendo o mesmo formato
 // esperado por buildDecisionKpis. cdEmpresa null = consolidado (geral).
 export function scopeSnapshotByEmpresa(snapshot, cdEmpresa) {
@@ -29,8 +31,8 @@ export function scopeSnapshotByEmpresa(snapshot, cdEmpresa) {
 }
 
 export function empresaOptions(snapshot) {
-  const list = snapshot?.analytics?.empresas?.length
+  const raw = snapshot?.analytics?.empresas?.length
     ? snapshot.analytics.empresas.map((e) => ({ cd_empresa: e.cd_empresa, nm_empresa: e.nm_fan_empresa }))
     : (snapshot?.by_empresa || []).map((e) => ({ cd_empresa: e.cd_empresa, nm_empresa: e.nm_empresa }));
-  return list.sort((a, b) => a.cd_empresa - b.cd_empresa);
+  return filterEmpresaRows(raw).sort((a, b) => a.cd_empresa - b.cd_empresa);
 }

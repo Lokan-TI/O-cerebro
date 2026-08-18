@@ -2,6 +2,7 @@ import { createClientFromRequest } from 'npm:@base44/sdk@0.8.40';
 import { buildConfig, runQuery } from '../../shared/erpConnection.ts';
 import { approvedRemessaFrom, faturaFrom } from '../../shared/churnUniverse.ts';
 import { computeAnalytics } from '../../shared/analyticsBlock.ts';
+import { empFilter, EXCLUDED_EMPRESAS } from '../../shared/empresaScope.ts';
 
 const STEPS = [
   { id: 'conectando', label: 'Conectando ao banco' },
@@ -227,6 +228,10 @@ async function processRefresh(base44, source, run, version, previousVersion, sta
     const config = buildConfig(source);
     if (!config) throw new Error('Configuração de conexão incompleta para a fonte.');
 
+    // Empresas fora de escopo (LLK RENTAL, JCK) — excluídas de todas as consultas
+    const empF = empFilter();
+    const empFn = empFilter('n');
+    const empFnf = empFilter('nf');
     const wrap = (inner) => config.clientId
       ? `EXEC DW_API '${config.clientId}', '${inner.replace(/'/g, "''")}'`
       : inner;
@@ -282,7 +287,7 @@ async function processRefresh(base44, source, run, version, previousVersion, sta
         ISNULL(SUM(CASE WHEN dt_emi_nf >= ${yearStart} AND dt_emi_nf < ${yearEnd} THEN vl_faturamento ELSE 0 END),0) / NULLIF(COUNT(CASE WHEN dt_emi_nf >= ${yearStart} AND dt_emi_nf < ${yearEnd} THEN 1 END),0) AS ticket_ano,
         ISNULL(SUM(CASE WHEN dt_emi_nf >= ${monthStart} AND dt_emi_nf < ${monthEnd} THEN vl_faturamento ELSE 0 END),0) / NULLIF(COUNT(CASE WHEN dt_emi_nf >= ${monthStart} AND dt_emi_nf < ${monthEnd} THEN 1 END),0) AS ticket_mes,
         MAX(dt_emi_nf) AS max_date
-      FROM nf WHERE dt_emi_nf >= ${lastYearStart} AND dt_emi_nf < ${yearEnd} ${cancelFilter}`;
+      FROM nf WHERE dt_emi_nf >= ${lastYearStart} AND dt_emi_nf < ${yearEnd} ${cancelFilter} ${empF}`;
 
       const kpiRes = await runQuery(source, wrap(kpiSql), 30000);
       queryCount++;
@@ -300,7 +305,7 @@ async function processRefresh(base44, source, run, version, previousVersion, sta
         COUNT(DISTINCT CASE WHEN dt_pedido >= ${monthStart} AND dt_pedido < ${monthEnd} THEN cd_pessoa END) AS clientes_mes
         FROM fich_loc WITH (NOLOCK)
         WHERE dt_pedido >= ${lastYearStart} AND dt_pedido < ${yearEnd}
-          AND cd_pessoa IS NOT NULL AND cd_pessoa <> ''
+          AND cd_pessoa IS NOT NULL AND cd_pessoa <> '' ${empF}
         GROUP BY cd_empresa`;
       const fecRes = await runQuery(source, wrap(fecSql), 30000);
       queryCount++;
@@ -314,7 +319,7 @@ async function processRefresh(base44, source, run, version, previousVersion, sta
         COUNT(DISTINCT CASE WHEN dt_pedido >= ${monthStart} AND dt_pedido < ${monthEnd} THEN cd_pessoa END) AS clientes_mes
         FROM fich_loc WITH (NOLOCK)
         WHERE dt_pedido >= ${lastYearStart} AND dt_pedido < ${yearEnd}
-          AND cd_pessoa IS NOT NULL AND cd_pessoa <> ''`;
+          AND cd_pessoa IS NOT NULL AND cd_pessoa <> '' ${empF}`;
       const gRes = await runQuery(source, wrap(gSql), 30000);
       queryCount++;
       const gRow = getRows(gRes)[0] || {};
@@ -327,7 +332,7 @@ async function processRefresh(base44, source, run, version, previousVersion, sta
     let topClients = [];
     try {
       const topClientsSql = `SELECT TOP 5000 cd_pessoa, ISNULL(SUM(vl_faturamento),0) AS total, COUNT(*) AS nfs, MAX(dt_emi_nf) AS ultima_nf
-        FROM nf WHERE dt_emi_nf >= ${yearStart} AND dt_emi_nf < ${yearEnd} ${cancelFilter}
+        FROM nf WHERE dt_emi_nf >= ${yearStart} AND dt_emi_nf < ${yearEnd} ${cancelFilter} ${empF}
         GROUP BY cd_pessoa ORDER BY ISNULL(SUM(vl_faturamento),0) DESC`;
       const topClientsRes = await runQuery(source, wrap(topClientsSql), 30000);
       queryCount++;
@@ -347,7 +352,7 @@ async function processRefresh(base44, source, run, version, previousVersion, sta
         SELECT cd_empresa, cd_pessoa, ISNULL(SUM(vl_faturamento),0) AS total, COUNT(*) AS nfs, MAX(dt_emi_nf) AS ultima_nf,
           ROW_NUMBER() OVER (PARTITION BY cd_empresa ORDER BY ISNULL(SUM(vl_faturamento),0) DESC) AS rn
         FROM nf WITH (NOLOCK)
-        WHERE dt_emi_nf >= ${yearStart} AND dt_emi_nf < ${yearEnd} ${cancelFilter}
+        WHERE dt_emi_nf >= ${yearStart} AND dt_emi_nf < ${yearEnd} ${cancelFilter} ${empF}
         GROUP BY cd_empresa, cd_pessoa
       ) x WHERE rn <= 1000 ORDER BY cd_empresa, rn`;
       const tceRes = await runQuery(source, wrap(tceSql), 30000);
@@ -377,7 +382,7 @@ async function processRefresh(base44, source, run, version, previousVersion, sta
         FROM financas_car_comissao c WITH (NOLOCK)
         JOIN nf n WITH (NOLOCK) ON n.cd_nf = c.cd_nf
         JOIN pessoa p WITH (NOLOCK) ON p.cd_pessoa = c.cd_pessoa
-        WHERE n.dt_emi_nf >= ${yearStart} AND n.dt_emi_nf < ${yearEnd} ${cancelFilter}
+        WHERE n.dt_emi_nf >= ${yearStart} AND n.dt_emi_nf < ${yearEnd} ${cancelFilter} ${empFn}
           AND c.cd_pessoa IS NOT NULL
         GROUP BY c.cd_pessoa, p.nm_fan_pessoa, p.nm_pessoa
         ORDER BY ISNULL(SUM(c.vl_base_comissao),0) DESC`;
@@ -404,7 +409,7 @@ async function processRefresh(base44, source, run, version, previousVersion, sta
         FROM financas_car_comissao c WITH (NOLOCK)
         JOIN nf n WITH (NOLOCK) ON n.cd_nf = c.cd_nf
         JOIN pessoa p WITH (NOLOCK) ON p.cd_pessoa = c.cd_pessoa
-        WHERE n.dt_emi_nf >= ${yearStart} AND n.dt_emi_nf < ${yearEnd} ${cancelFilter}
+        WHERE n.dt_emi_nf >= ${yearStart} AND n.dt_emi_nf < ${yearEnd} ${cancelFilter} ${empFn}
           AND c.cd_pessoa IS NOT NULL
         GROUP BY n.cd_empresa, c.cd_pessoa, p.nm_fan_pessoa, p.nm_pessoa
       ) x WHERE rn <= 15 ORDER BY cd_empresa, rn`;
@@ -452,7 +457,7 @@ async function processRefresh(base44, source, run, version, previousVersion, sta
     let monthlyRevenue = [];
     try {
       const monthlySql = `SELECT cd_empresa, YEAR(dt_emi_nf) AS ano, MONTH(dt_emi_nf) AS mes, ISNULL(SUM(vl_faturamento),0) AS valor, COUNT(*) AS nfs, COUNT(DISTINCT cd_pessoa) AS clientes
-        FROM nf WHERE dt_emi_nf >= DATEADD(month,-12,${monthStart}) AND dt_emi_nf < ${monthEnd} ${cancelFilter}
+        FROM nf WHERE dt_emi_nf >= DATEADD(month,-12,${monthStart}) AND dt_emi_nf < ${monthEnd} ${cancelFilter} ${empF}
         GROUP BY cd_empresa, YEAR(dt_emi_nf), MONTH(dt_emi_nf) ORDER BY 1, 2, 3`;
       const monthlyRes = await runQuery(source, wrap(monthlySql), 30000);
       queryCount++;
@@ -477,10 +482,10 @@ async function processRefresh(base44, source, run, version, previousVersion, sta
     try {
       // Duas consultas sargáveis sobre nf — mesma origem dos KPIs de clientes ativos.
       const lastYrSql = `SELECT DISTINCT cd_empresa, cd_pessoa FROM nf WITH (NOLOCK)
-        WHERE dt_emi_nf >= ${lastYearStart} AND dt_emi_nf < ${lastYearEnd} ${cancelFilter}
+        WHERE dt_emi_nf >= ${lastYearStart} AND dt_emi_nf < ${lastYearEnd} ${cancelFilter} ${empF}
           AND cd_pessoa IS NOT NULL`;
       const thisYrSql = `SELECT DISTINCT cd_empresa, cd_pessoa FROM nf WITH (NOLOCK)
-        WHERE dt_emi_nf >= ${yearStart} AND dt_emi_nf < ${yearEnd} ${cancelFilter}
+        WHERE dt_emi_nf >= ${yearStart} AND dt_emi_nf < ${yearEnd} ${cancelFilter} ${empF}
           AND cd_pessoa IS NOT NULL`;
       const lastRows = getRows(await runQuery(source, wrap(lastYrSql), 30000));
       queryCount++;
@@ -520,7 +525,7 @@ async function processRefresh(base44, source, run, version, previousVersion, sta
       try {
         const revSql = `SELECT cd_empresa, cd_pessoa, ISNULL(SUM(vl_faturamento),0) AS rev
           FROM nf WITH (NOLOCK)
-          WHERE dt_emi_nf >= ${yearStart} AND dt_emi_nf < ${yearEnd} ${cancelFilter}
+          WHERE dt_emi_nf >= ${yearStart} AND dt_emi_nf < ${yearEnd} ${cancelFilter} ${empF}
             AND cd_pessoa IS NOT NULL
           GROUP BY cd_empresa, cd_pessoa`;
         for (const r of getRows(await runQuery(source, wrap(revSql), 30000))) {
@@ -581,7 +586,7 @@ async function processRefresh(base44, source, run, version, previousVersion, sta
           ISNULL(SUM(CASE WHEN dt_emi_nf >= ${curStart} THEN vl_faturamento ELSE 0 END),0) AS rev_cur,
           COUNT(CASE WHEN dt_emi_nf >= ${curStart} THEN 1 END) AS nfs_cur
         FROM nf WITH (NOLOCK)
-        WHERE dt_emi_nf >= ${prevStart} AND dt_emi_nf < GETDATE() ${cancelFilter}
+        WHERE dt_emi_nf >= ${prevStart} AND dt_emi_nf < GETDATE() ${cancelFilter} ${empF}
           AND cd_pessoa IS NOT NULL
         GROUP BY cd_empresa, cd_pessoa`;
       const c12Rows = getRows(await runQuery(source, wrap(c12Sql), 30000));
@@ -671,7 +676,7 @@ async function processRefresh(base44, source, run, version, previousVersion, sta
           SELECT cd_pessoa, MIN(dt_pedido) AS first_ficha
           FROM fich_loc WITH (NOLOCK)
           WHERE dt_pedido >= ${lastYearStart} AND dt_pedido < ${yearEnd}
-            AND cd_pessoa IS NOT NULL AND cd_pessoa <> ''
+            AND cd_pessoa IS NOT NULL AND cd_pessoa <> '' ${empF}
           GROUP BY cd_pessoa
         ) x
         WHERE first_ficha >= ${yearStart} AND first_ficha < ${yearEnd}
@@ -691,7 +696,7 @@ async function processRefresh(base44, source, run, version, previousVersion, sta
     try {
       const geoSql = `SELECT TOP 15 uf_destinatario AS uf, ISNULL(SUM(vl_faturamento),0) AS revenue, COUNT(*) AS nfs, COUNT(DISTINCT cd_pessoa) AS clients
         FROM nf WITH (NOLOCK)
-        WHERE dt_emi_nf >= ${yearStart} AND dt_emi_nf < ${yearEnd} ${cancelFilter}
+        WHERE dt_emi_nf >= ${yearStart} AND dt_emi_nf < ${yearEnd} ${cancelFilter} ${empF}
           AND uf_destinatario IS NOT NULL AND uf_destinatario <> ''
         GROUP BY uf_destinatario
         ORDER BY ISNULL(SUM(vl_faturamento),0) DESC`;
@@ -722,7 +727,7 @@ async function processRefresh(base44, source, run, version, previousVersion, sta
         COUNT(DISTINCT CASE WHEN nf.dt_emi_nf >= ${yearStart} AND nf.dt_emi_nf < ${yearEnd} THEN nf.cd_pessoa END) AS clientes_ano,
         COUNT(DISTINCT CASE WHEN nf.dt_emi_nf >= ${monthStart} AND nf.dt_emi_nf < ${monthEnd} THEN nf.cd_pessoa END) AS clientes_mes
       FROM nf WITH (NOLOCK)
-      WHERE nf.dt_emi_nf >= ${lastYearStart} AND nf.dt_emi_nf < ${yearEnd} ${cancelFilter}
+      WHERE nf.dt_emi_nf >= ${lastYearStart} AND nf.dt_emi_nf < ${yearEnd} ${cancelFilter} ${empFnf}
       GROUP BY nf.cd_empresa`;
       const empKpiRes = await runQuery(source, wrap(empKpiSql), 30000);
       queryCount++;
@@ -730,7 +735,7 @@ async function processRefresh(base44, source, run, version, previousVersion, sta
 
       let empNames = {};
       try {
-        const empNameRes = await runQuery(source, wrap('SELECT cd_empresa, nm_fan_empresa FROM empresa WHERE cd_empresa <= 50'));
+        const empNameRes = await runQuery(source, wrap(`SELECT cd_empresa, nm_fan_empresa FROM empresa WHERE cd_empresa <= 50 AND cd_empresa NOT IN (${EXCLUDED_EMPRESAS.join(',')})`));
         queryCount++;
         for (const r of getRows(empNameRes)) {
           empNames[Number(r.cd_empresa)] = String(r.nm_fan_empresa || '');
@@ -804,13 +809,13 @@ async function processRefresh(base44, source, run, version, previousVersion, sta
         FROM (
           SELECT cd_pessoa, YEAR(dt_emi_nf) AS ano, ISNULL(SUM(vl_faturamento),0) AS fat
           FROM nf WITH (NOLOCK)
-          WHERE dt_emi_nf >= ${evoStart} AND dt_emi_nf < ${yearEnd} ${cancelFilter}
+          WHERE dt_emi_nf >= ${evoStart} AND dt_emi_nf < ${yearEnd} ${cancelFilter} ${empF}
           GROUP BY cd_pessoa, YEAR(dt_emi_nf)
         ) y
         JOIN (
           SELECT cd_pessoa, MIN(YEAR(dt_emi_nf)) AS first_ano
           FROM nf WITH (NOLOCK)
-          WHERE dt_emi_nf >= ${evoStart} AND dt_emi_nf < ${yearEnd} ${cancelFilter}
+          WHERE dt_emi_nf >= ${evoStart} AND dt_emi_nf < ${yearEnd} ${cancelFilter} ${empF}
           GROUP BY cd_pessoa
         ) f ON f.cd_pessoa = y.cd_pessoa
         GROUP BY y.ano ORDER BY y.ano`;
@@ -833,13 +838,13 @@ async function processRefresh(base44, source, run, version, previousVersion, sta
         FROM (
           SELECT cd_empresa, cd_pessoa, YEAR(dt_emi_nf) AS ano, ISNULL(SUM(vl_faturamento),0) AS fat
           FROM nf WITH (NOLOCK)
-          WHERE dt_emi_nf >= ${evoStart} AND dt_emi_nf < ${yearEnd} ${cancelFilter}
+          WHERE dt_emi_nf >= ${evoStart} AND dt_emi_nf < ${yearEnd} ${cancelFilter} ${empF}
           GROUP BY cd_empresa, cd_pessoa, YEAR(dt_emi_nf)
         ) y
         JOIN (
           SELECT cd_empresa, cd_pessoa, MIN(YEAR(dt_emi_nf)) AS first_ano
           FROM nf WITH (NOLOCK)
-          WHERE dt_emi_nf >= ${evoStart} AND dt_emi_nf < ${yearEnd} ${cancelFilter}
+          WHERE dt_emi_nf >= ${evoStart} AND dt_emi_nf < ${yearEnd} ${cancelFilter} ${empF}
           GROUP BY cd_empresa, cd_pessoa
         ) f ON f.cd_empresa = y.cd_empresa AND f.cd_pessoa = y.cd_pessoa
         GROUP BY y.cd_empresa, y.ano ORDER BY y.cd_empresa, y.ano`;

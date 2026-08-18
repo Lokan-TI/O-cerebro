@@ -7,8 +7,6 @@ export const EMPRESA_LABELS = {
   10: "006 - TRÊS",
   13: "008 - PIRA",
   12: "010 - MONT",
-  6: "JCK",
-  5: "LLK RENTAL",
 };
 
 export function getEmpresaLabel(cdEmpresa, fallbackName) {

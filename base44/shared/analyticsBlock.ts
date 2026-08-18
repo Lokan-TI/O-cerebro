@@ -10,7 +10,13 @@ function fmtMonth(mes, ano) {
   return `${MES_PT[mes] || mes}/${String(ano).slice(2)}`;
 }
 
+import { empFilter, EXCLUDED_EMPRESAS } from './empresaScope.ts';
+
 export async function computeAnalytics({ source, wrap, startDate, endDate, lastYearStart, runQuery, getRows }) {
+  // Empresas fora de escopo (LLK RENTAL, JCK)
+  const empF = empFilter();
+  const empFc = empFilter('c');
+  const empFcar = empFilter('', 'cd_empresa_gestora');
   const warnings = [];
   let queryCount = 0;
 
@@ -37,7 +43,7 @@ export async function computeAnalytics({ source, wrap, startDate, endDate, lastY
 
   // ── Empresas ──
   try {
-    const empSql = `SELECT cd_empresa, nm_fan_empresa FROM empresa WITH (NOLOCK) ORDER BY cd_empresa`;
+    const empSql = `SELECT cd_empresa, nm_fan_empresa FROM empresa WITH (NOLOCK) WHERE cd_empresa NOT IN (${EXCLUDED_EMPRESAS.join(',')}) ORDER BY cd_empresa`;
     out.empresas = getRows(await runQuery(source, wrap(empSql))).map(r => ({
       cd_empresa: Number(r.cd_empresa),
       nm_fan_empresa: String(r.nm_fan_empresa || ''),
@@ -55,7 +61,7 @@ export async function computeAnalytics({ source, wrap, startDate, endDate, lastY
       ISNULL(SUM(CASE WHEN dt_bai_car IS NOT NULL THEN vl_pre_car ELSE 0 END),0) AS vl_baixado,
       ISNULL(SUM(CASE WHEN dt_ven_car < GETDATE() AND dt_bai_car IS NULL AND dt_cancelamento IS NULL THEN vl_pre_car ELSE 0 END),0) AS vl_vencido
       FROM car WITH (NOLOCK)
-      WHERE dt_emi_car >= '${startDate}' AND dt_emi_car < '${endDate}' AND dt_cancelamento IS NULL
+      WHERE dt_emi_car >= '${startDate}' AND dt_emi_car < '${endDate}' AND dt_cancelamento IS NULL ${empFcar}
       GROUP BY cd_empresa_gestora
       ORDER BY ISNULL(SUM(vl_pre_car),0) DESC`;
     out.car_by_empresa = getRows(await runQuery(source, wrap(carSql))).map(r => ({
@@ -118,7 +124,7 @@ export async function computeAnalytics({ source, wrap, startDate, endDate, lastY
       ISNULL(SUM(CASE WHEN dt_bai_car IS NOT NULL THEN vl_pre_car ELSE 0 END),0) AS vl_baixado,
       COUNT(*) AS qtd
       FROM car WITH (NOLOCK)
-      WHERE dt_emi_car >= '${lastYearStart}' AND dt_emi_car < '${endDate}' AND dt_cancelamento IS NULL
+      WHERE dt_emi_car >= '${lastYearStart}' AND dt_emi_car < '${endDate}' AND dt_cancelamento IS NULL ${empFcar}
       GROUP BY YEAR(dt_emi_car), MONTH(dt_emi_car)
       ORDER BY 1, 2`;
     out.car_monthly = getRows(await runQuery(source, wrap(carMonSql))).map(r => ({
@@ -159,7 +165,7 @@ export async function computeAnalytics({ source, wrap, startDate, endDate, lastY
       ISNULL(SUM(vl_minimo_locacao),0) AS vl_minimo,
       ISNULL(SUM(vl_encerramento),0) AS vl_encerramento
       FROM fich_loc WITH (NOLOCK)
-      WHERE dt_pedido >= '${startDate}' AND dt_pedido < '${endDate}'
+      WHERE dt_pedido >= '${startDate}' AND dt_pedido < '${endDate}' ${empF}
       GROUP BY cd_empresa
       ORDER BY COUNT(*) DESC`;
     out.fichloc_by_empresa = getRows(await runQuery(source, wrap(fichSql))).map(r => ({
@@ -180,7 +186,7 @@ export async function computeAnalytics({ source, wrap, startDate, endDate, lastY
       ISNULL(SUM(CASE WHEN dt_enc_ficha IS NOT NULL THEN 1 ELSE 0 END),0) AS qtd_encerradas,
       ISNULL(SUM(vl_minimo_locacao),0) AS vl_minimo
       FROM fich_loc WITH (NOLOCK)
-      WHERE dt_pedido >= '${lastYearStart}' AND dt_pedido < '${endDate}'
+      WHERE dt_pedido >= '${lastYearStart}' AND dt_pedido < '${endDate}' ${empF}
       GROUP BY YEAR(dt_pedido), MONTH(dt_pedido)
       ORDER BY 1, 2`;
     out.fichloc_monthly = getRows(await runQuery(source, wrap(fichMonSql))).map(r => ({
@@ -262,7 +268,7 @@ export async function computeAnalytics({ source, wrap, startDate, endDate, lastY
       FROM (
         SELECT cd_pessoa, MIN(dt_pedido) AS first_ficha
         FROM fich_loc WITH (NOLOCK)
-        WHERE dt_pedido >= '${lastYearStart}' AND dt_pedido < '${endDate}'
+        WHERE dt_pedido >= '${lastYearStart}' AND dt_pedido < '${endDate}' ${empF}
           AND cd_pessoa IS NOT NULL AND cd_pessoa <> ''
         GROUP BY cd_pessoa
       ) x
@@ -286,7 +292,7 @@ export async function computeAnalytics({ source, wrap, startDate, endDate, lastY
   try {
     const fcaSql = `SELECT COUNT(DISTINCT cd_pessoa) AS total
       FROM fich_loc WITH (NOLOCK)
-      WHERE dt_pedido >= '${startDate}' AND dt_pedido < '${endDate}'
+      WHERE dt_pedido >= '${startDate}' AND dt_pedido < '${endDate}' ${empF}
         AND cd_pessoa IS NOT NULL AND cd_pessoa <> ''`;
     out.fichloc_clientes_ativos = Number(getRows(await runQuery(source, wrap(fcaSql)))[0]?.total) || 0;
     queryCount++;
@@ -300,7 +306,7 @@ export async function computeAnalytics({ source, wrap, startDate, endDate, lastY
       ISNULL(SUM(vl_minimo_locacao),0) AS vl_minimo,
       ISNULL(SUM(CASE WHEN dt_enc_ficha IS NULL AND fl_baixada <> 'S' THEN 1 ELSE 0 END),0) AS qtd_ativas
       FROM fich_loc WITH (NOLOCK)
-      WHERE dt_pedido >= '${startDate}' AND dt_pedido < '${endDate}'
+      WHERE dt_pedido >= '${startDate}' AND dt_pedido < '${endDate}' ${empF}
       GROUP BY cd_pessoa
       ORDER BY COUNT(*) DESC`;
     topLocRows = getRows(await runQuery(source, wrap(topLocSql)));
@@ -337,7 +343,7 @@ export async function computeAnalytics({ source, wrap, startDate, endDate, lastY
       ISNULL(SUM(f.vl_fatura),0) AS vl_gerado
       FROM fl_fatura f WITH (NOLOCK)
       INNER JOIN fich_loc c WITH (NOLOCK) ON c.cd_controle = f.cd_controle
-      WHERE f.dt_geracao >= '${startDate}' AND f.dt_geracao < '${endDate}'
+      WHERE f.dt_geracao >= '${startDate}' AND f.dt_geracao < '${endDate}' ${empFc}
       GROUP BY c.cd_empresa
       ORDER BY ISNULL(SUM(f.vl_fatura),0) DESC`;
     out.receita_gerada_by_empresa = getRows(await runQuery(source, wrap(rgSql), 30000)).map(r => ({
