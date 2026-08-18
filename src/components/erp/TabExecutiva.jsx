@@ -99,6 +99,10 @@ export default function TabExecutiva() {
   const alerts = snapshot.alerts || [];
 
   const fmtPct = (v) => (v == null ? "—" : `${v.toFixed(1)}%`);
+
+  // Fonte única de verdade para churn/retenção: janela móvel de 12 meses (churn12_by_empresa).
+  // O comparativo abaixo usava a coorte do ano civil, gerando números diferentes da tabela de churn.
+  const churn12Map = new Map((k.churn12_by_empresa || []).map((r) => [r.cd_empresa, r]));
   const cresColor = crescimento == null ? "gray" : crescimento >= 0 ? "green" : "red";
 
   return (
@@ -167,6 +171,11 @@ export default function TabExecutiva() {
           <KpiCard icon={TrendingUp} label="Receita de novos" value={fmtCur(newRevenue)} sub="Trazida por novos clientes" color="green" />
           <KpiCard icon={TrendingDown} label="Receita retida" value={fmtCur(retainedRevenue)} sub="De clientes recorrentes" color="amber" />
         </div>
+        <p className="text-[11px] text-gray-500 mt-2 leading-relaxed">
+          Leitura por ano civil (compara quem faturou no ano anterior com quem faturou neste ano, ainda incompleto) —
+          por isso os percentuais divergem da janela móvel de 12 meses acima. O indicador oficial de churn e retenção é
+          o de 12 meses; este bloco serve apenas de contexto de sazonalidade.
+        </p>
       </div>
 
       {/* Comparativo por empresa */}
@@ -179,11 +188,11 @@ export default function TabExecutiva() {
             <thead>
               <tr className="text-gray-500 text-xs uppercase border-b border-gray-800">
                 <th className="text-left py-2 px-3">Empresa</th>
-                <th className="text-right py-2 px-3">Receita</th>
+                <th className="text-right py-2 px-3">Receita (ano civil)</th>
                 <th className="text-right py-2 px-3">Crescimento</th>
-                <th className="text-right py-2 px-3">Clientes</th>
-                <th className="text-right py-2 px-3">Churn</th>
-                <th className="text-right py-2 px-3">Retenção</th>
+                <th className="text-right py-2 px-3">Clientes (ano)</th>
+                <th className="text-right py-2 px-3">Churn 12m</th>
+                <th className="text-right py-2 px-3">Retenção 12m</th>
                 <th className="text-right py-2 px-3">Ticket médio</th>
                 <th className="text-right py-2 px-3">Receita/cliente</th>
               </tr>
@@ -191,6 +200,9 @@ export default function TabExecutiva() {
             <tbody>
               {byEmp.map((e) => {
                 const active = e.cd_empresa === selectedEmpresa;
+                const c12 = churn12Map.get(e.cd_empresa);
+                const churnRate = c12?.base_clients > 0 ? c12.churn_rate : null;
+                const retRate = c12?.base_clients > 0 ? c12.retention_rate : null;
                 return (
                   <tr key={e.cd_empresa} className={`border-b border-gray-800/50 hover:bg-gray-800/30 ${active ? "bg-purple-950/40" : ""}`}>
                     <td className="py-2 px-3 text-white font-medium">{getEmpresaLabel(e.cd_empresa, e.nm_empresa)}</td>
@@ -199,11 +211,11 @@ export default function TabExecutiva() {
                       {e.crescimento_ano == null ? "—" : `${e.crescimento_ano.toFixed(1)}%`}
                     </td>
                     <td className="py-2 px-3 text-right text-purple-400">{fmtNum(e.clientes_ano)}</td>
-                    <td className={`py-2 px-3 text-right ${e.churn_rate == null ? "text-gray-500" : e.churn_rate >= 30 ? "text-red-400" : e.churn_rate >= 15 ? "text-amber-400" : "text-green-400"}`}>
-                      {fmtPct(e.churn_rate)}
-                      {e.churned_clients != null && <span className="text-gray-600 text-xs ml-1">({fmtNum(e.churned_clients)})</span>}
+                    <td className={`py-2 px-3 text-right ${churnRate == null ? "text-gray-500" : churnRate >= 30 ? "text-red-400" : churnRate >= 15 ? "text-amber-400" : "text-green-400"}`}>
+                      {fmtPct(churnRate)}
+                      {churnRate != null && <span className="text-gray-600 text-xs ml-1">({fmtNum(c12.churned_clients)})</span>}
                     </td>
-                    <td className={`py-2 px-3 text-right ${e.retention_rate == null ? "text-gray-500" : "text-green-400"}`}>{fmtPct(e.retention_rate)}</td>
+                    <td className={`py-2 px-3 text-right ${retRate == null ? "text-gray-500" : "text-green-400"}`}>{fmtPct(retRate)}</td>
                     <td className="py-2 px-3 text-right text-blue-400">{fmtCur(e.ticket_ano)}</td>
                     <td className="py-2 px-3 text-right text-gray-300">{fmtCur(e.receita_por_cliente)}</td>
                   </tr>
@@ -215,6 +227,11 @@ export default function TabExecutiva() {
             </tbody>
           </table>
         </div>
+        <p className="text-[11px] text-gray-500 mt-3 leading-relaxed">
+          Receita, crescimento e clientes são do ano civil (jan até {snapshot.max_date || "hoje"}). Churn e retenção usam
+          a janela móvel de 12 meses — os mesmos números da tabela "Churn por empresa" acima, para não haver duas
+          leituras diferentes do mesmo indicador. Filiais sem base nos 12 meses anteriores aparecem com "—".
+        </p>
       </div>
 
       {/* Evolução anual de crescimento */}
