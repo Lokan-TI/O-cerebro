@@ -52,26 +52,47 @@ export async function computeAnalytics({ source, wrap, startDate, endDate, lastY
   } catch (e) { warnings.push('analytics.empresas: ' + (e.message || '').slice(0, 80)); }
 
   // ── CAR por empresa (Contas a Receber) ──
+  // Regra canônica do CAR (dicionário Sisloc, tabela car) — espelha o CAP:
+  //   status (fl_status): 5 provisório · 10 firme em aberto · 25/30 liquidado · 40 cancelado (fora de tudo)
+  //   valor do título = vl_pre_car + vl_acr_car - vl_des_car
+  //   empresa = cd_empresa_gestora · liquidação = dt_bai_car · vencimento = dt_ven_car
+  //   acréscimo de juros/multa efetivamente recebido = vl_juros + vl_multa
+  // Total a receber = Liquidado + A vencer + Vencido (provisório fica à parte, como no CAP).
   try {
     const carSql = `SELECT
-      cd_empresa_gestora,
+      c.cd_empresa_gestora,
       COUNT(*) AS qtd,
-      ISNULL(SUM(vl_pre_car),0) AS vl_total,
-      ISNULL(SUM(CASE WHEN dt_bai_car IS NULL AND dt_cancelamento IS NULL THEN vl_pre_car ELSE 0 END),0) AS vl_aberto,
-      ISNULL(SUM(CASE WHEN dt_bai_car IS NOT NULL THEN vl_pre_car ELSE 0 END),0) AS vl_baixado,
-      ISNULL(SUM(CASE WHEN dt_ven_car < GETDATE() AND dt_bai_car IS NULL AND dt_cancelamento IS NULL THEN vl_pre_car ELSE 0 END),0) AS vl_vencido
-      FROM car WITH (NOLOCK)
-      WHERE dt_emi_car >= '${startDate}' AND dt_emi_car < '${endDate}' AND dt_cancelamento IS NULL ${empFcar}
-      GROUP BY cd_empresa_gestora
-      ORDER BY ISNULL(SUM(vl_pre_car),0) DESC`;
-    out.car_by_empresa = getRows(await runQuery(source, wrap(carSql))).map(r => ({
-      cd_empresa: Number(r.cd_empresa_gestora) || null,
-      qtd: Number(r.qtd) || 0,
-      vl_total: Number(r.vl_total) || 0,
-      vl_aberto: Number(r.vl_aberto) || 0,
-      vl_baixado: Number(r.vl_baixado) || 0,
-      vl_vencido: Number(r.vl_vencido) || 0,
-    }));
+      ISNULL(SUM(CASE WHEN c.fl_status IN (25,30) OR (c.fl_status <> 40 AND c.dt_bai_car IS NOT NULL) THEN v.val ELSE 0 END),0) AS vl_liquidado,
+      ISNULL(SUM(CASE WHEN c.fl_status = 10 AND c.dt_bai_car IS NULL AND c.dt_ven_car >= CAST(GETDATE() AS date) THEN v.val ELSE 0 END),0) AS vl_a_vencer,
+      ISNULL(SUM(CASE WHEN c.fl_status IN (5,10) AND c.dt_bai_car IS NULL AND c.dt_ven_car < CAST(GETDATE() AS date) THEN v.val ELSE 0 END),0) AS vl_vencido,
+      ISNULL(SUM(CASE WHEN c.fl_status = 5 AND c.dt_bai_car IS NULL AND c.dt_ven_car >= CAST(GETDATE() AS date) THEN v.val ELSE 0 END),0) AS vl_provisorio,
+      ISNULL(SUM(CASE WHEN c.fl_status = 40 THEN v.val ELSE 0 END),0) AS vl_cancelado,
+      ISNULL(SUM(ISNULL(c.vl_juros,0)+ISNULL(c.vl_multa,0)),0) AS vl_juros_multa,
+      SUM(CASE WHEN ISNULL(c.vl_juros,0)+ISNULL(c.vl_multa,0) > 0 THEN 1 ELSE 0 END) AS qtd_com_juros
+      FROM car c WITH (NOLOCK)
+      CROSS APPLY (SELECT ROUND(COALESCE(c.vl_pre_car,0)+COALESCE(c.vl_acr_car,0)-COALESCE(c.vl_des_car,0),2) AS val) v
+      WHERE c.dt_emi_car >= '${startDate}' AND c.dt_emi_car < '${endDate}' ${empFcar}
+      GROUP BY c.cd_empresa_gestora
+      ORDER BY COUNT(*) DESC`;
+    out.car_by_empresa = getRows(await runQuery(source, wrap(carSql), 30000)).map(r => {
+      const liquidado = Number(r.vl_liquidado) || 0;
+      const aVencer = Number(r.vl_a_vencer) || 0;
+      const vencido = Number(r.vl_vencido) || 0;
+      return {
+        cd_empresa: Number(r.cd_empresa_gestora) || null,
+        qtd: Number(r.qtd) || 0,
+        vl_liquidado: liquidado,
+        vl_a_vencer: aVencer,
+        vl_vencido: vencido,
+        vl_provisorio: Number(r.vl_provisorio) || 0,
+        vl_cancelado: Number(r.vl_cancelado) || 0,
+        vl_juros_multa: Number(r.vl_juros_multa) || 0,
+        qtd_com_juros: Number(r.qtd_com_juros) || 0,
+        vl_total: liquidado + aVencer + vencido,
+        vl_aberto: aVencer + vencido,
+        vl_baixado: liquidado,
+      };
+    }).sort((a, b) => b.vl_total - a.vl_total);
     queryCount++;
   } catch (e) { warnings.push('analytics.car_by_empresa: ' + (e.message || '').slice(0, 80)); }
 
@@ -118,19 +139,23 @@ export async function computeAnalytics({ source, wrap, startDate, endDate, lastY
 
   // ── CAR mensal (últimos ~24 meses) ──
   try {
-    const carMonSql = `SELECT YEAR(dt_emi_car) AS ano, MONTH(dt_emi_car) AS mes,
-      ISNULL(SUM(vl_pre_car),0) AS vl_total,
-      ISNULL(SUM(CASE WHEN dt_bai_car IS NULL AND dt_cancelamento IS NULL THEN vl_pre_car ELSE 0 END),0) AS vl_aberto,
-      ISNULL(SUM(CASE WHEN dt_bai_car IS NOT NULL THEN vl_pre_car ELSE 0 END),0) AS vl_baixado,
+    const carMonSql = `SELECT YEAR(c.dt_emi_car) AS ano, MONTH(c.dt_emi_car) AS mes,
+      ISNULL(SUM(CASE WHEN c.fl_status <> 40 AND NOT (c.fl_status = 5 AND c.dt_bai_car IS NULL AND c.dt_ven_car >= CAST(GETDATE() AS date)) THEN v.val ELSE 0 END),0) AS vl_total,
+      ISNULL(SUM(CASE WHEN c.fl_status IN (5,10) AND c.dt_bai_car IS NULL THEN v.val ELSE 0 END),0) AS vl_aberto,
+      ISNULL(SUM(CASE WHEN c.fl_status IN (25,30) OR (c.fl_status <> 40 AND c.dt_bai_car IS NOT NULL) THEN v.val ELSE 0 END),0) AS vl_baixado,
+      ISNULL(SUM(ISNULL(c.vl_juros,0)+ISNULL(c.vl_multa,0)),0) AS vl_juros_multa,
       COUNT(*) AS qtd
-      FROM car WITH (NOLOCK)
-      WHERE dt_emi_car >= '${lastYearStart}' AND dt_emi_car < '${endDate}' AND dt_cancelamento IS NULL ${empFcar}
-      GROUP BY YEAR(dt_emi_car), MONTH(dt_emi_car)
+      FROM car c WITH (NOLOCK)
+      CROSS APPLY (SELECT ROUND(COALESCE(c.vl_pre_car,0)+COALESCE(c.vl_acr_car,0)-COALESCE(c.vl_des_car,0),2) AS val) v
+      WHERE c.dt_emi_car >= '${lastYearStart}' AND c.dt_emi_car < '${endDate}' ${empFcar}
+      GROUP BY YEAR(c.dt_emi_car), MONTH(c.dt_emi_car)
       ORDER BY 1, 2`;
-    out.car_monthly = getRows(await runQuery(source, wrap(carMonSql))).map(r => ({
+    out.car_monthly = getRows(await runQuery(source, wrap(carMonSql), 30000)).map(r => ({
       ano: Number(r.ano), mes: Number(r.mes),
       vl_total: Number(r.vl_total) || 0, vl_aberto: Number(r.vl_aberto) || 0,
-      vl_baixado: Number(r.vl_baixado) || 0, qtd: Number(r.qtd) || 0,
+      vl_baixado: Number(r.vl_baixado) || 0,
+      vl_juros_multa: Number(r.vl_juros_multa) || 0,
+      qtd: Number(r.qtd) || 0,
     }));
     queryCount++;
   } catch (e) { warnings.push('analytics.car_monthly: ' + (e.message || '').slice(0, 80)); }
@@ -238,7 +263,7 @@ export async function computeAnalytics({ source, wrap, startDate, endDate, lastY
       LEFT JOIN (
         SELECT cd_conta, SUM(ISNULL(vl_pre_car,0)+ISNULL(vl_acr_car,0)-ISNULL(vl_des_car,0)) AS vl, COUNT(*) AS qtd
         FROM car WITH (NOLOCK)
-        WHERE dt_bai_car >= '${startDate}' AND dt_bai_car < '${endDate}' AND dt_cancelamento IS NULL
+        WHERE dt_bai_car >= '${startDate}' AND dt_bai_car < '${endDate}' AND fl_status <> 40
         GROUP BY cd_conta
       ) e ON e.cd_conta = p.cd_planfin
       LEFT JOIN (
@@ -360,6 +385,13 @@ export async function computeAnalytics({ source, wrap, startDate, endDate, lastY
     const carAberto = out.car_by_empresa.reduce((s, r) => s + r.vl_aberto, 0);
     const carBaixado = out.car_by_empresa.reduce((s, r) => s + r.vl_baixado, 0);
     const carVencido = out.car_by_empresa.reduce((s, r) => s + r.vl_vencido, 0);
+    const carLiquidado = carBaixado;
+    const carAVencer = out.car_by_empresa.reduce((s, r) => s + (r.vl_a_vencer || 0), 0);
+    const carProvisorio = out.car_by_empresa.reduce((s, r) => s + (r.vl_provisorio || 0), 0);
+    const carCancelado = out.car_by_empresa.reduce((s, r) => s + (r.vl_cancelado || 0), 0);
+    const carJurosMulta = out.car_by_empresa.reduce((s, r) => s + (r.vl_juros_multa || 0), 0);
+    const carQtdComJuros = out.car_by_empresa.reduce((s, r) => s + (r.qtd_com_juros || 0), 0);
+    const carQtd = out.car_by_empresa.reduce((s, r) => s + (r.qtd || 0), 0);
     const capLiquidado = out.cap_by_conta.reduce((s, r) => s + (r.vl_liquidado || 0), 0);
     const capAVencer = out.cap_by_conta.reduce((s, r) => s + (r.vl_a_vencer || 0), 0);
     const capVencido = out.cap_by_conta.reduce((s, r) => s + r.vl_vencido, 0);
@@ -387,6 +419,14 @@ export async function computeAnalytics({ source, wrap, startDate, endDate, lastY
       car_aberto: carAberto,
       car_baixado: carBaixado,
       car_vencido: carVencido,
+      car_liquidado: carLiquidado,
+      car_a_vencer: carAVencer,
+      car_provisorio: carProvisorio,
+      car_cancelado: carCancelado,
+      car_juros_multa: carJurosMulta,
+      car_qtd_com_juros: carQtdComJuros,
+      car_qtd: carQtd,
+      car_juros_pct_titulos: carQtd > 0 ? (carQtdComJuros / carQtd * 100) : null,
       cap_total: capTotal,
       cap_liquidado: capLiquidado,
       cap_a_vencer: capAVencer,
