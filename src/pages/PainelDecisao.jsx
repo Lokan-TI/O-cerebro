@@ -1,6 +1,8 @@
 import { useMemo, useState, useEffect } from "react";
+import { base44 } from "@/api/base44Client";
 import { useBrainSnapshot } from "@/components/brain/useBrainSnapshot";
 import { buildDecisionKpis } from "@/lib/decisionKpis";
+import { buildGrowthKpis } from "@/lib/growthKpis";
 import DecisionSection from "@/components/decision/DecisionSection";
 import EmpresaSelect from "@/components/decision/EmpresaSelect";
 import EmpresaComparison from "@/components/decision/EmpresaComparison";
@@ -22,10 +24,26 @@ export default function PainelDecisao() {
 
   const [empresa, setEmpresa] = useState(null);
   const options = useMemo(() => empresaOptions(snapshot), [snapshot]);
-  const departments = useMemo(
-    () => buildDecisionKpis(scopeSnapshotByEmpresa(snapshot, empresa)),
-    [snapshot, empresa]
-  );
+
+  // Bloco de Growth apurado direto no Sisloc (frota, propostas, idle time) —
+  // substitui os indicadores que o snapshot não consegue calcular.
+  const [growth, setGrowth] = useState(null);
+  useEffect(() => {
+    let alive = true;
+    base44.functions
+      .invoke("analyzeGrowth", {})
+      .then((res) => { if (alive && !res.data?.error) setGrowth(res.data); })
+      .catch(() => {});
+    return () => { alive = false; };
+  }, []);
+
+  const departments = useMemo(() => {
+    const scoped = scopeSnapshotByEmpresa(snapshot, empresa);
+    const base = buildDecisionKpis(scoped);
+    const growthDept = buildGrowthKpis(growth, scoped);
+    if (!growthDept) return base;
+    return base.map((d) => (d.id === "growth" ? growthDept : d));
+  }, [snapshot, empresa, growth]);
 
   const toggle = (key) =>
     setHiddenIds((h) => (h.includes(key) ? h.filter((x) => x !== key) : [...h, key]));
@@ -44,6 +62,12 @@ export default function PainelDecisao() {
               {source?.name ? ` · base ${source.name}` : ""}
               {snapshot?.max_date ? ` · dados até ${snapshot.max_date}` : ""}
             </p>
+            {!growth && (
+              <p className="text-xs text-purple-300/70 mt-1">
+                Apurando frota, propostas e tempo de pátio direto no Sisloc… os indicadores de Growth são
+                atualizados em alguns segundos.
+              </p>
+            )}
           </div>
           <div className="flex items-center gap-2 shrink-0">
             <EmpresaSelect value={empresa} onChange={setEmpresa} options={options} />
