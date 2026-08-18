@@ -6,7 +6,7 @@ import { fmtCur, fmtNum } from "@/lib/erpFormat";
 import { Loader2, AlertTriangle, RefreshCw, Search, Database } from "lucide-react";
 
 // Sub-aba "CAP por conta" — consulta ao vivo agrupada pelo plano financeiro,
-// com status oficiais do título (aberto, vencido, provisório, baixado, cancelado).
+// nas quatro categorias relevantes: Liquidado, A vencer, Vencido e Provisório (à parte).
 export default function CapPorContaTab({ dateRange }) {
   const { selectedSource } = useErpSource();
   const sourceId = selectedSource && selectedSource.id !== ALL_SOURCES_ID ? selectedSource.id : undefined;
@@ -76,11 +76,11 @@ export default function CapPorContaTab({ dateRange }) {
         <>
           {/* KPIs por status */}
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
-            <Kpi label="Total lançado" value={fmtCur(totals.vl_total)} sub={`${fmtNum(totals.qtd)} títulos · exclui cancelados`} color="text-white" />
-            <Kpi label="Em aberto" value={fmtCur(totals.vl_aberto)} sub={`Vencido: ${fmtCur(totals.vl_vencido)}`} color="text-amber-400" />
-            <Kpi label="Provisório" value={fmtCur(totals.vl_provisorio)} sub="Status 5 no Sisloc" color="text-blue-400" />
-            <Kpi label="Baixado" value={fmtCur(totals.vl_baixado)} sub="Pagamentos efetivados" color="text-green-400" />
-            <Kpi label="Cancelado" value={fmtCur(totals.vl_cancelado)} sub={`${fmtNum(totals.qtd_cancelado)} títulos · fora do total`} color="text-gray-400" />
+            <Kpi label="Total a pagar" value={fmtCur(totals.vl_total)} sub={`${fmtNum(totals.qtd)} títulos · sem provisório e cancelado`} color="text-white" />
+            <Kpi label="Liquidado" value={fmtCur(totals.vl_liquidado)} sub="Já pago" color="text-green-400" />
+            <Kpi label="A vencer" value={fmtCur(totals.vl_a_vencer)} sub="Ainda vai vencer" color="text-amber-400" />
+            <Kpi label="Vencido" value={fmtCur(totals.vl_vencido)} sub="Passou do vencimento sem baixa" color="text-red-400" />
+            <Kpi label="Provisório" value={fmtCur(totals.vl_provisorio)} sub="Previsibilidade · fora do total" color="text-blue-400" />
           </div>
 
           <div className="flex items-center gap-2 text-xs text-gray-500">
@@ -110,7 +110,7 @@ function Kpi({ label, value, sub, color }) {
 
 // Agrupa contas pelo 1º dígito do nr_planfin (1 = Entradas, 2 = Saídas).
 function buildGroups(rows, q) {
-  const empty = { qtd: 0, qtd_cancelado: 0, vl_total: 0, vl_aberto: 0, vl_vencido: 0, vl_provisorio: 0, vl_baixado: 0, vl_cancelado: 0 };
+  const empty = { qtd: 0, qtd_cancelado: 0, vl_total: 0, vl_liquidado: 0, vl_a_vencer: 0, vl_vencido: 0, vl_provisorio: 0, vl_cancelado: 0 };
   const totals = { ...empty };
   if (!rows) return { groups: [], totals };
 

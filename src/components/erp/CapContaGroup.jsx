@@ -20,11 +20,11 @@ export default function CapContaGroup({ group, grandTotal }) {
               <th className="text-left py-2 px-3">Conta</th>
               <th className="text-left py-2 px-3">Descrição</th>
               <th className="text-right py-2 px-3">Qtd</th>
-              <th className="text-right py-2 px-3">Total</th>
-              <th className="text-right py-2 px-3">Em aberto</th>
+              <th className="text-right py-2 px-3">Total a pagar</th>
+              <th className="text-right py-2 px-3">Liquidado</th>
+              <th className="text-right py-2 px-3">A vencer</th>
               <th className="text-right py-2 px-3">Vencido</th>
               <th className="text-right py-2 px-3">Provisório</th>
-              <th className="text-right py-2 px-3">Baixado</th>
               <th className="text-left py-2 px-3 w-32">Participação</th>
             </tr>
           </thead>
@@ -40,10 +40,10 @@ export default function CapContaGroup({ group, grandTotal }) {
                   </td>
                   <td className="py-2 px-3 text-right text-gray-300">{fmtNum(r.qtd)}</td>
                   <td className="py-2 px-3 text-right text-red-400 font-medium">{fmtCur(r.vl_total)}</td>
-                  <td className="py-2 px-3 text-right text-amber-400">{fmtCur(r.vl_aberto)}</td>
+                  <td className="py-2 px-3 text-right text-green-400">{fmtCur(r.vl_liquidado)}</td>
+                  <td className="py-2 px-3 text-right text-amber-400">{fmtCur(r.vl_a_vencer)}</td>
                   <td className="py-2 px-3 text-right text-red-300">{fmtCur(r.vl_vencido)}</td>
                   <td className="py-2 px-3 text-right text-blue-400">{fmtCur(r.vl_provisorio)}</td>
-                  <td className="py-2 px-3 text-right text-gray-300">{fmtCur(r.vl_baixado)}</td>
                   <td className="py-2 px-3">
                     <div className="flex items-center gap-2">
                       <div className="h-1.5 bg-gray-800 rounded-full flex-1 overflow-hidden">

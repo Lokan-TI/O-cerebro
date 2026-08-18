@@ -71,33 +71,42 @@ export async function computeAnalytics({ source, wrap, startDate, endDate, lastY
 
   // ── CAP por conta (Contas a Pagar — sem dimensão empresa) ──
   try {
-    // Regra canônica do CAP (mesma de listCapPorConta / analyzeFinanceiro / exportTotvs):
-    // valor = vl_pre + vl_acr - vl_des · cancelado (fl_status_titulo = 40) fora do total ·
-    // aberto = status 5 (provisório) ou 10 (aberto) sem baixa, com o provisório destacado.
+    // Regra canônica do CAP — quatro categorias relevantes, valor = vl_pre + vl_acr - vl_des:
+    // Liquidado (status 25+30 ou com data de baixa) · A vencer (status 10 sem baixa, vencimento futuro) ·
+    // Vencido (status 5/10 sem baixa, vencimento passado) · Provisório (status 5 sem baixa, vencimento futuro — à parte).
+    // Total a pagar = Liquidado + A vencer + Vencido (sem Provisório) · cancelado (40) fora de tudo.
     const capSql = `SELECT
         c.cd_conta,
         COUNT(*) AS qtd,
-        ISNULL(SUM(CASE WHEN c.fl_status_titulo <> 40 THEN v.val ELSE 0 END),0) AS vl_total,
-        ISNULL(SUM(CASE WHEN c.fl_status_titulo IN (5, 10) AND c.dt_bai_cap IS NULL THEN v.val ELSE 0 END),0) AS vl_aberto,
-        ISNULL(SUM(CASE WHEN c.fl_status_titulo = 5 AND c.dt_bai_cap IS NULL THEN v.val ELSE 0 END),0) AS vl_provisorio,
-        ISNULL(SUM(CASE WHEN c.fl_status_titulo IN (25, 30) OR c.dt_bai_cap IS NOT NULL THEN v.val ELSE 0 END),0) AS vl_baixado,
+        ISNULL(SUM(CASE WHEN c.fl_status_titulo IN (25, 30) OR (c.fl_status_titulo <> 40 AND c.dt_bai_cap IS NOT NULL) THEN v.val ELSE 0 END),0) AS vl_liquidado,
+        ISNULL(SUM(CASE WHEN c.fl_status_titulo = 10 AND c.dt_bai_cap IS NULL AND c.dt_ven_cap >= CAST(GETDATE() AS date) THEN v.val ELSE 0 END),0) AS vl_a_vencer,
         ISNULL(SUM(CASE WHEN c.fl_status_titulo IN (5, 10) AND c.dt_bai_cap IS NULL AND c.dt_ven_cap < CAST(GETDATE() AS date) THEN v.val ELSE 0 END),0) AS vl_vencido,
+        ISNULL(SUM(CASE WHEN c.fl_status_titulo = 5 AND c.dt_bai_cap IS NULL AND c.dt_ven_cap >= CAST(GETDATE() AS date) THEN v.val ELSE 0 END),0) AS vl_provisorio,
         ISNULL(SUM(CASE WHEN c.fl_status_titulo = 40 THEN v.val ELSE 0 END),0) AS vl_cancelado
         FROM cap c WITH (NOLOCK)
         CROSS APPLY (SELECT ROUND(COALESCE(c.vl_pre_cap,0)+COALESCE(c.vl_acr_cap,0)-COALESCE(c.vl_des_cap,0),2) AS val) v
         WHERE c.dt_emi_cap >= '${startDate}' AND c.dt_emi_cap < '${endDate}'
         GROUP BY c.cd_conta
-        ORDER BY ISNULL(SUM(CASE WHEN c.fl_status_titulo <> 40 THEN v.val ELSE 0 END),0) DESC`;
-    out.cap_by_conta = getRows(await runQuery(source, wrap(capSql))).map(r => ({
-      cd_conta: Number(r.cd_conta) || null,
-      qtd: Number(r.qtd) || 0,
-      vl_total: Number(r.vl_total) || 0,
-      vl_aberto: Number(r.vl_aberto) || 0,
-      vl_provisorio: Number(r.vl_provisorio) || 0,
-      vl_baixado: Number(r.vl_baixado) || 0,
-      vl_vencido: Number(r.vl_vencido) || 0,
-      vl_cancelado: Number(r.vl_cancelado) || 0,
-    }));
+        ORDER BY ISNULL(SUM(CASE WHEN c.fl_status_titulo <> 40 AND NOT (c.fl_status_titulo = 5 AND c.dt_bai_cap IS NULL AND c.dt_ven_cap >= CAST(GETDATE() AS date)) THEN v.val ELSE 0 END),0) DESC`;
+    out.cap_by_conta = getRows(await runQuery(source, wrap(capSql))).map(r => {
+      const liquidado = Number(r.vl_liquidado) || 0;
+      const aVencer = Number(r.vl_a_vencer) || 0;
+      const vencido = Number(r.vl_vencido) || 0;
+      return {
+        cd_conta: Number(r.cd_conta) || null,
+        qtd: Number(r.qtd) || 0,
+        vl_liquidado: liquidado,
+        vl_a_vencer: aVencer,
+        vl_vencido: vencido,
+        vl_provisorio: Number(r.vl_provisorio) || 0,
+        vl_cancelado: Number(r.vl_cancelado) || 0,
+        // Total a pagar do período — sem provisório e sem cancelado
+        vl_total: liquidado + aVencer + vencido,
+        // Compromisso ainda não pago (a vencer + vencido)
+        vl_aberto: aVencer + vencido,
+        vl_baixado: liquidado,
+      };
+    });
     queryCount++;
   } catch (e) { warnings.push('analytics.cap_by_conta: ' + (e.message || '').slice(0, 80)); }
 
@@ -123,9 +132,9 @@ export async function computeAnalytics({ source, wrap, startDate, endDate, lastY
   // ── CAP mensal ──
   try {
     const capMonSql = `SELECT YEAR(c.dt_emi_cap) AS ano, MONTH(c.dt_emi_cap) AS mes,
-      ISNULL(SUM(CASE WHEN c.fl_status_titulo <> 40 THEN v.val ELSE 0 END),0) AS vl_total,
+      ISNULL(SUM(CASE WHEN c.fl_status_titulo <> 40 AND NOT (c.fl_status_titulo = 5 AND c.dt_bai_cap IS NULL AND c.dt_ven_cap >= CAST(GETDATE() AS date)) THEN v.val ELSE 0 END),0) AS vl_total,
       ISNULL(SUM(CASE WHEN c.fl_status_titulo IN (5, 10) AND c.dt_bai_cap IS NULL THEN v.val ELSE 0 END),0) AS vl_aberto,
-      ISNULL(SUM(CASE WHEN c.fl_status_titulo IN (25, 30) OR c.dt_bai_cap IS NOT NULL THEN v.val ELSE 0 END),0) AS vl_baixado,
+      ISNULL(SUM(CASE WHEN c.fl_status_titulo IN (25, 30) OR (c.fl_status_titulo <> 40 AND c.dt_bai_cap IS NOT NULL) THEN v.val ELSE 0 END),0) AS vl_baixado,
       COUNT(*) AS qtd
       FROM cap c WITH (NOLOCK)
       CROSS APPLY (SELECT ROUND(COALESCE(c.vl_pre_cap,0)+COALESCE(c.vl_acr_cap,0)-COALESCE(c.vl_des_cap,0),2) AS val) v
@@ -345,12 +354,15 @@ export async function computeAnalytics({ source, wrap, startDate, endDate, lastY
     const carAberto = out.car_by_empresa.reduce((s, r) => s + r.vl_aberto, 0);
     const carBaixado = out.car_by_empresa.reduce((s, r) => s + r.vl_baixado, 0);
     const carVencido = out.car_by_empresa.reduce((s, r) => s + r.vl_vencido, 0);
-    const capTotal = out.cap_by_conta.reduce((s, r) => s + r.vl_total, 0);
-    const capAberto = out.cap_by_conta.reduce((s, r) => s + r.vl_aberto, 0);
-    const capBaixado = out.cap_by_conta.reduce((s, r) => s + r.vl_baixado, 0);
+    const capLiquidado = out.cap_by_conta.reduce((s, r) => s + (r.vl_liquidado || 0), 0);
+    const capAVencer = out.cap_by_conta.reduce((s, r) => s + (r.vl_a_vencer || 0), 0);
     const capVencido = out.cap_by_conta.reduce((s, r) => s + r.vl_vencido, 0);
     const capProvisorio = out.cap_by_conta.reduce((s, r) => s + (r.vl_provisorio || 0), 0);
     const capCancelado = out.cap_by_conta.reduce((s, r) => s + (r.vl_cancelado || 0), 0);
+    // Total a pagar = Liquidado + A vencer + Vencido (provisório fica à parte)
+    const capTotal = capLiquidado + capAVencer + capVencido;
+    const capAberto = capAVencer + capVencido;
+    const capBaixado = capLiquidado;
     const fichTotal = out.fichloc_by_empresa.reduce((s, r) => s + r.qtd, 0);
     const fichAtivas = out.fichloc_by_empresa.reduce((s, r) => s + r.qtd_ativas, 0);
     const fichEncerradas = out.fichloc_by_empresa.reduce((s, r) => s + r.qtd_encerradas, 0);
@@ -370,11 +382,13 @@ export async function computeAnalytics({ source, wrap, startDate, endDate, lastY
       car_baixado: carBaixado,
       car_vencido: carVencido,
       cap_total: capTotal,
+      cap_liquidado: capLiquidado,
+      cap_a_vencer: capAVencer,
       cap_aberto: capAberto,
       cap_baixado: capBaixado,
       cap_vencido: capVencido,
       cap_provisorio: capProvisorio,
-      cap_aberto_firme: capAberto - capProvisorio,
+      cap_aberto_firme: capAberto,
       cap_cancelado: capCancelado,
       margem_fluxo: carTotal - capTotal,
       margem_percent: carTotal > 0 ? ((carTotal - capTotal) / carTotal * 100) : null,

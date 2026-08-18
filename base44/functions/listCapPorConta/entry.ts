@@ -2,8 +2,10 @@ import { createClientFromRequest } from 'npm:@base44/sdk@0.8.40';
 import { execRead } from '../../shared/erpConnection.ts';
 
 // CAP agrupado por conta do plano financeiro, direto do banco.
-// Usa o domínio oficial de fl_status_titulo do Sisloc:
-// 5=provisório · 10=aberto · 25/30=baixado · 40=cancelado · 50=renegociado · 60=PCLD.
+// Quatro categorias relevantes: Liquidado (25/30 ou com data de baixa) ·
+// A vencer (10 sem baixa, vencimento futuro) · Vencido (5/10 sem baixa, vencimento passado) ·
+// Provisório (5 sem baixa, vencimento futuro — previsibilidade, fora do total a pagar).
+// Cancelado (40) fica fora de tudo.
 export default async function (req: Request): Promise<Response> {
   try {
     const base44 = createClientFromRequest(req);
@@ -22,18 +24,18 @@ export default async function (req: Request): Promise<Response> {
       LTRIM(RTRIM(COALESCE(pl.fl_planfin, ''))) AS fl_planfin,
       COUNT(*) AS qtd,
       SUM(CASE WHEN c.fl_status_titulo = 40 THEN 1 ELSE 0 END) AS qtd_cancelado,
-      SUM(CASE WHEN c.fl_status_titulo <> 40 THEN v.val ELSE 0 END) AS vl_total,
-      SUM(CASE WHEN c.fl_status_titulo IN (5, 10) AND c.dt_bai_cap IS NULL THEN v.val ELSE 0 END) AS vl_aberto,
+      SUM(CASE WHEN c.fl_status_titulo <> 40 AND NOT (c.fl_status_titulo = 5 AND c.dt_bai_cap IS NULL AND c.dt_ven_cap >= CAST(GETDATE() AS date)) THEN v.val ELSE 0 END) AS vl_total,
+      SUM(CASE WHEN c.fl_status_titulo IN (25, 30) OR (c.fl_status_titulo <> 40 AND c.dt_bai_cap IS NOT NULL) THEN v.val ELSE 0 END) AS vl_liquidado,
+      SUM(CASE WHEN c.fl_status_titulo = 10 AND c.dt_bai_cap IS NULL AND c.dt_ven_cap >= CAST(GETDATE() AS date) THEN v.val ELSE 0 END) AS vl_a_vencer,
       SUM(CASE WHEN c.fl_status_titulo IN (5, 10) AND c.dt_bai_cap IS NULL AND c.dt_ven_cap < CAST(GETDATE() AS date) THEN v.val ELSE 0 END) AS vl_vencido,
-      SUM(CASE WHEN c.fl_status_titulo = 5 THEN v.val ELSE 0 END) AS vl_provisorio,
-      SUM(CASE WHEN c.fl_status_titulo IN (25, 30) OR c.dt_bai_cap IS NOT NULL THEN v.val ELSE 0 END) AS vl_baixado,
+      SUM(CASE WHEN c.fl_status_titulo = 5 AND c.dt_bai_cap IS NULL AND c.dt_ven_cap >= CAST(GETDATE() AS date) THEN v.val ELSE 0 END) AS vl_provisorio,
       SUM(CASE WHEN c.fl_status_titulo = 40 THEN v.val ELSE 0 END) AS vl_cancelado
     FROM cap c WITH (NOLOCK)
     LEFT JOIN plano pl WITH (NOLOCK) ON pl.cd_planfin = c.cd_conta
     CROSS APPLY (SELECT ROUND(COALESCE(c.vl_pre_cap, 0) + COALESCE(c.vl_acr_cap, 0) - COALESCE(c.vl_des_cap, 0), 2) AS val) v
     WHERE c.dt_emi_cap >= '${startDate}' AND c.dt_emi_cap < DATEADD(day, 1, CAST('${endDate}' AS date))
     GROUP BY c.cd_conta, pl.nr_planfin, pl.ds_planfin, pl.tp_mov, pl.fl_planfin
-    ORDER BY SUM(CASE WHEN c.fl_status_titulo <> 40 THEN v.val ELSE 0 END) DESC`;
+    ORDER BY SUM(CASE WHEN c.fl_status_titulo <> 40 AND NOT (c.fl_status_titulo = 5 AND c.dt_bai_cap IS NULL AND c.dt_ven_cap >= CAST(GETDATE() AS date)) THEN v.val ELSE 0 END) DESC`;
 
     let source: Record<string, unknown> = { credential_reference: 'env' };
     if (body?.source_id) {

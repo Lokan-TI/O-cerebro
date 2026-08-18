@@ -27,13 +27,17 @@ export function buildDecisionKpis(snapshot) {
       .reduce((s, o) => s + (o.qtd || 0), 0);
 
   const carVencidoPct = a.car_total ? (a.car_vencido / a.car_total) * 100 : null;
-  // CAP: o compromisso firme é o aberto sem o provisório (fl_status_titulo = 5),
-  // e o total já exclui os títulos cancelados (fl_status_titulo = 40).
-  const capFirme = a.cap_aberto_firme != null
-    ? a.cap_aberto_firme
-    : (a.cap_aberto || 0) - (a.cap_provisorio || 0);
-  const capAbertoPct = a.cap_total ? (capFirme / a.cap_total) * 100 : null;
-  const capVencidoPct = a.cap_total ? ((a.cap_vencido || 0) / a.cap_total) * 100 : null;
+  // CAP em quatro categorias: Liquidado (pago), A vencer, Vencido e Provisório.
+  // O "Total a pagar" soma Liquidado + A vencer + Vencido — o Provisório é previsibilidade
+  // e fica à parte; o cancelado (status 40) não entra em nada.
+  const capLiquidado = a.cap_liquidado != null ? a.cap_liquidado : (a.cap_baixado || 0);
+  const capAVencer = a.cap_a_vencer != null
+    ? a.cap_a_vencer
+    : Math.max((a.cap_aberto || 0) - (a.cap_vencido || 0), 0);
+  const capVencido = a.cap_vencido || 0;
+  const capTotalPagar = capLiquidado + capAVencer + capVencido;
+  const capAbertoPct = capTotalPagar ? ((capAVencer + capVencido) / capTotalPagar) * 100 : null;
+  const capVencidoPct = capTotalPagar ? (capVencido / capTotalPagar) * 100 : null;
   const fatTotal = k.fat_ano || 0;
   const novosPct = fatTotal ? ((k.new_client_revenue || 0) / fatTotal) * 100 : null;
   const contratosAtivosPct = a.fichloc_total
@@ -189,13 +193,19 @@ export function buildDecisionKpis(snapshot) {
           note: carVencidoPct == null ? null : `Vencido ${pct(carVencidoPct)}`,
         },
         {
-          id: "cap", label: "Contas a pagar", value: brl(a.cap_total),
-          sub: `Firme em aberto ${brl(capFirme)} · provisório ${brl(a.cap_provisorio)}`,
-          market: "CAP firme em aberto acima de 35% do emitido pressiona o caixa",
+          id: "cap", label: "Total a pagar", value: brl(capTotalPagar),
+          sub: `Liquidado ${brl(capLiquidado)} · a vencer ${brl(capAVencer)} · vencido ${brl(capVencido)}`,
+          market: "Compromisso em aberto acima de 35% do total a pagar pressiona o caixa",
           status: status(capAbertoPct, { good: 25, warn: 35, direction: "down" }),
           note: capAbertoPct == null
             ? null
-            : `${pct(capAbertoPct)} firme em aberto · vencido ${pct(capVencidoPct)}`,
+            : `${pct(capAbertoPct)} ainda em aberto · vencido ${pct(capVencidoPct)}`,
+        },
+        {
+          id: "cap_provisorio", label: "Provisório (previsibilidade)", value: brl(a.cap_provisorio),
+          sub: "Lançamentos previstos, fora do total a pagar",
+          market: "Previsão de desembolso — usar para planejar caixa, não como compromisso firme",
+          status: "neutral",
         },
         {
           id: "margem", label: "Margem de fluxo", value: pct(a.margem_percent),
