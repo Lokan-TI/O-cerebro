@@ -10,6 +10,9 @@ import ProjectionChart from "@/components/projecao/ProjectionChart";
 import ProjectionSummary from "@/components/projecao/ProjectionSummary";
 import ProjectionTable from "@/components/projecao/ProjectionTable";
 import AssetInvestmentPanel from "@/components/projecao/AssetInvestmentPanel";
+import DiagnosticoAtual from "@/components/projecao/DiagnosticoAtual";
+import PlanoSustentabilidade from "@/components/projecao/PlanoSustentabilidade";
+import { diagnose, roadmap } from "@/lib/sustainabilityDiagnosis";
 import QueryInspector from "@/components/erp/QueryInspector";
 import { RefreshCw, LineChart, AlertTriangle } from "lucide-react";
 
@@ -60,6 +63,11 @@ export default function ProjecaoLongoPrazo() {
     [kpis, assumptions]
   );
   const summary = useMemo(() => projectionSummary(kpis, rows), [kpis, rows]);
+  const diagnosis = useMemo(() => diagnose(kpis, summary), [kpis, summary]);
+  const steps = useMemo(
+    () => roadmap(kpis, summary, diagnosis.findings),
+    [kpis, summary, diagnosis]
+  );
 
   return (
     <div className="p-6 max-w-[1600px] mx-auto space-y-6">
@@ -113,6 +121,8 @@ export default function ProjecaoLongoPrazo() {
           <ProjectionChart kpis={kpis} rows={rows} />
           <AssetInvestmentPanel kpis={kpis} fleet={data.fleet} />
           <ProjectionTable rows={rows} />
+          <DiagnosticoAtual findings={diagnosis.findings} score={diagnosis.score} />
+          <PlanoSustentabilidade steps={steps} />
         </>
       )}
     </div>
