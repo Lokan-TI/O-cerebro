@@ -103,16 +103,23 @@ export default async function (req: Request): Promise<Response> {
 
     const warnings: string[] = [];
     const t0 = Date.now();
-    const run = async (label: string, sql: string) => {
+    // Orçamento total de 70s: cada consulta tem 15s e, se o tempo acabar, as
+    // restantes são puladas com aviso em vez de deixar a página girando.
+    const BUDGET_MS = 70000;
+    const run = async (label: string, sql: string, ms = 15000) => {
+      if (Date.now() - t0 > BUDGET_MS) {
+        warnings.push(`${label}: não executada — tempo limite da página atingido.`);
+        return [];
+      }
       try {
-        return rowsOf(await execRead(source, sql, 45000));
+        return rowsOf(await execRead(source, sql, ms));
       } catch (e) {
         warnings.push(`${label}: ${(e as Error)?.message || String(e)}`);
         return [];
       }
     };
 
-    const plano = await run('Plano financeiro', sqlPlano);
+    const plano = await run('Plano financeiro', sqlPlano, 30000);
     const saidas = await run('Saídas por conta', sqlSaidas);
     const entradas = await run('Entradas por conta', sqlEntradas);
     const mensal = await run('Série mensal', sqlMensal);

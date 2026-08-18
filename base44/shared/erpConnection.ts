@@ -102,6 +102,19 @@ async function getPool(key, config) {
   return await promise;
 }
 
+// Hard wall-clock limit: mssql's requestTimeout does not cover pool connect nor the
+// global mutex wait, so a wedged connection could hang the worker indefinitely.
+function withDeadline(promise, ms, label) {
+  let timer;
+  const guard = new Promise((_, reject) => {
+    timer = setTimeout(
+      () => reject(new Error(`${label}: o banco não respondeu em ${Math.round(ms / 1000)}s.`)),
+      ms,
+    );
+  });
+  return Promise.race([promise, guard]).finally(() => clearTimeout(timer));
+}
+
 // Run a query against a source's pool, serialized globally.
 // Optional `timeoutMs` overrides the pool's default requestTimeout (heavy ETL queries
 // can afford longer limits since refreshErpData is fire-and-forget with status polling).
@@ -109,12 +122,23 @@ export async function runQuery(source, execSql, timeoutMs) {
   const key = poolKeyFor(source);
   const built = buildConfig(source);
   if (!built) throw new Error('Configuração de conexão incompleta para a fonte selecionada.');
-  return await serialize(async () => {
-    const pool = await getPool(key, built.config);
-    const req = pool.request();
-    if (timeoutMs && timeoutMs > 0) req.requestTimeout = timeoutMs;
-    return await req.query(execSql);
-  });
+  const limit = timeoutMs && timeoutMs > 0 ? timeoutMs : 30000;
+  return await serialize(() =>
+    withDeadline(
+      (async () => {
+        const pool = await getPool(key, built.config);
+        const req = pool.request();
+        req.requestTimeout = limit;
+        return await req.query(execSql);
+      })(),
+      limit,
+      'Consulta ao ERP',
+    ).catch((e) => {
+      // Descarta o pool para que a próxima tentativa reconecte em vez de reusar conexão travada.
+      pools.delete(key);
+      throw e;
+    }),
+  );
 }
 
 // Runs a read query respecting the DW_API wrapper when the source has a client id (SISLOC).

@@ -76,6 +76,18 @@ export default function DetalhamentoFinanceiro() {
 
       {loading && !data && <div className="text-gray-500 text-center py-16">Montando balancete a partir do ERP…</div>}
 
+      {!loading && data?.warnings?.length > 0 && (
+        <div className="border border-red-700/50 bg-red-950/30 rounded-xl p-4 text-sm text-red-200">
+          <div className="flex gap-2 font-medium">
+            <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" /> O ERP não respondeu a parte das consultas — os números
+            abaixo estão incompletos. Clique em “Montar” para tentar de novo.
+          </div>
+          <ul className="mt-2 space-y-1 text-xs text-red-300/90 list-disc pl-8">
+            {data.warnings.map((w, i) => <li key={i}>{w}</li>)}
+          </ul>
+        </div>
+      )}
+
       {summary && (
         <>
           <NaturezaCards summary={summary} />
