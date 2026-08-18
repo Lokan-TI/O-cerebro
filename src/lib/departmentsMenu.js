@@ -5,6 +5,7 @@ export const DEPARTMENTS = [
     label: "Painel de Decisão",
     items: [
       { label: "KPIs por departamento (inclui Growth)", to: "/PainelDecisao" },
+      { label: "Previsibilidade de receita (10 anos)", to: "/ProjecaoLongoPrazo" },
     ],
   },
   {
