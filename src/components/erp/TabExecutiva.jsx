@@ -1,6 +1,7 @@
 import { useErpSnapshot } from "@/lib/ErpSnapshotContext";
 import AnnualGrowthChart from "@/components/erp/AnnualGrowthChart";
 import ChurnMetricPanel from "@/components/erp/ChurnMetricPanel";
+import ChurnEmpresaRanking from "@/components/erp/ChurnEmpresaRanking";
 import { useEmpresaFilter } from "@/lib/EmpresaFilterContext";
 import { getEmpresaLabel } from "@/lib/empresaLabels";
 import { fmtCur, fmtNum } from "@/lib/erpFormat";
@@ -36,7 +37,7 @@ function KpiCard({ icon: Icon, label, value, sub, color }) {
 
 export default function TabExecutiva() {
   const { snapshot, loading } = useErpSnapshot();
-  const { selectedEmpresa, empresaList } = useEmpresaFilter();
+  const { selectedEmpresa, empresaList, setSelectedEmpresa } = useEmpresaFilter();
 
   if (loading) return <div className="text-gray-500 p-8 text-center">Carregando visão executiva…</div>;
   if (!snapshot) return (
@@ -57,6 +58,11 @@ export default function TabExecutiva() {
   const clientes = isAll ? k.clientes_ano : empRow?.clientes_ano || 0;
   const clientesMes = isAll ? k.clientes_mes : empRow?.clientes_mes || 0;
   const receitaPorCliente = isAll ? k.receita_por_cliente : empRow?.receita_por_cliente || 0;
+
+  // Churn 12 meses: consolidado do grupo ou da filial selecionada
+  const churn12Scoped = isAll
+    ? k.churn12
+    : (k.churn12_by_empresa || []).find((r) => r.cd_empresa === selectedEmpresa) || null;
 
   // Retenção/churn: consolidado ou por empresa (armazenado em by_empresa)
   const retencao = isAll ? k.retention_rate : empRow?.retention_rate ?? null;
@@ -132,9 +138,24 @@ export default function TabExecutiva() {
       {/* Retenção */}
       <div>
         <h3 className="text-purple-300 text-xs font-semibold uppercase tracking-wider mb-3">
-          Retenção & Churn — janela móvel de 12 meses {!isAll && <span className="text-gray-500 normal-case">· consolidado (métrica não segmentada por empresa)</span>}
+          Retenção & Churn — janela móvel de 12 meses{" "}
+          <span className="text-gray-500 normal-case">
+            · {isAll ? "consolidado do grupo" : getEmpresaLabel(selectedEmpresa, empRow?.nm_empresa)}
+          </span>
         </h3>
-        <ChurnMetricPanel churn12={k.churn12} calendarChurn={isAll ? k.churn_rate : empRow?.churn_rate} />
+        <ChurnMetricPanel churn12={churn12Scoped} calendarChurn={isAll ? k.churn_rate : empRow?.churn_rate} />
+      </div>
+
+      {/* Ranking de filiais por retenção — sempre visível para comparação */}
+      <div>
+        <h3 className="text-purple-300 text-xs font-semibold uppercase tracking-wider mb-3">
+          Churn por empresa — qual filial retém mais clientes
+        </h3>
+        <ChurnEmpresaRanking
+          rows={k.churn12_by_empresa}
+          selectedEmpresa={selectedEmpresa}
+          onSelectEmpresa={(cd) => setSelectedEmpresa(cd === selectedEmpresa ? null : cd)}
+        />
       </div>
 
       {/* Coorte por ano civil — leitura complementar */}
