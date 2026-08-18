@@ -1,5 +1,6 @@
 import { useErpSnapshot } from "@/lib/ErpSnapshotContext";
 import AnnualGrowthChart from "@/components/erp/AnnualGrowthChart";
+import ChurnMetricPanel from "@/components/erp/ChurnMetricPanel";
 import { useEmpresaFilter } from "@/lib/EmpresaFilterContext";
 import { getEmpresaLabel } from "@/lib/empresaLabels";
 import { fmtCur, fmtNum } from "@/lib/erpFormat";
@@ -124,16 +125,24 @@ export default function TabExecutiva() {
           <KpiCard icon={Users} label="Clientes ativos (ano)" value={fmtNum(clientes)} sub={`${fmtNum(clientesMes)} no mês`} color="purple" />
           <KpiCard icon={UserPlus} label="Novos clientes" value={fmtNum(newClients)} sub="Primeira compra no ano" color="green" />
           <KpiCard icon={Repeat} label="Recorrentes" value={fmtNum(retainedClients)} sub="Compraram ano anterior e atual" color="blue" />
-          <KpiCard icon={UserMinus} label="Em churn" value={fmtNum(churnedClients)} sub="Pararam de comprar" color="red" />
+          <KpiCard icon={UserMinus} label="Em churn (12 meses)" value={fmtNum(k.churn12?.churned_clients ?? churnedClients)} sub="Sem faturar nos últimos 12 meses" color="red" />
         </div>
       </div>
 
       {/* Retenção */}
       <div>
-        <h3 className="text-purple-300 text-xs font-semibold uppercase tracking-wider mb-3">Retenção & Churn</h3>
+        <h3 className="text-purple-300 text-xs font-semibold uppercase tracking-wider mb-3">
+          Retenção & Churn — janela móvel de 12 meses {!isAll && <span className="text-gray-500 normal-case">· consolidado (métrica não segmentada por empresa)</span>}
+        </h3>
+        <ChurnMetricPanel churn12={k.churn12} calendarChurn={isAll ? k.churn_rate : empRow?.churn_rate} />
+      </div>
+
+      {/* Coorte por ano civil — leitura complementar */}
+      <div>
+        <h3 className="text-purple-300 text-xs font-semibold uppercase tracking-wider mb-3">Coorte do ano civil (complementar)</h3>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <KpiCard icon={Repeat} label="Taxa de retenção" value={fmtPct(retencao)} sub={isAll ? "Consolidado" : "Empresa selecionada"} color="green" />
-          <KpiCard icon={UserMinus} label="Churn de clientes" value={fmtPct(churn)} sub={isAll ? "Consolidado" : "Empresa selecionada"} color="red" />
+          <KpiCard icon={Repeat} label="Retenção no ano" value={fmtPct(retencao)} sub={isAll ? "Consolidado" : "Empresa selecionada"} color="green" />
+          <KpiCard icon={UserMinus} label="Churn no ano" value={fmtPct(churn)} sub="Ano civil — sujeito a sazonalidade" color="red" />
           <KpiCard icon={TrendingUp} label="Receita de novos" value={fmtCur(newRevenue)} sub="Trazida por novos clientes" color="green" />
           <KpiCard icon={TrendingDown} label="Receita retida" value={fmtCur(retainedRevenue)} sub="De clientes recorrentes" color="amber" />
         </div>

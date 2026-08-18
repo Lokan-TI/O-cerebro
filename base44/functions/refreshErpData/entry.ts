@@ -322,10 +322,11 @@ async function processRefresh(base44, source, run, version, previousVersion, sta
     } catch (e) { warnings.push('Falha ao extrair clientes fich_loc: ' + (e.message || String(e)).slice(0, 120)); }
     await updateStep(4, 35);
 
-    // Etapa 4: Top 100 clientes — timeout estendido
+    // Etapa 4: TODOS os clientes com receita no período (não apenas os 100 maiores) —
+    // teto técnico de 5000 linhas para proteger o tamanho do snapshot.
     let topClients = [];
     try {
-      const topClientsSql = `SELECT TOP 100 cd_pessoa, ISNULL(SUM(vl_faturamento),0) AS total, COUNT(*) AS nfs, MAX(dt_emi_nf) AS ultima_nf
+      const topClientsSql = `SELECT TOP 5000 cd_pessoa, ISNULL(SUM(vl_faturamento),0) AS total, COUNT(*) AS nfs, MAX(dt_emi_nf) AS ultima_nf
         FROM nf WHERE dt_emi_nf >= ${yearStart} AND dt_emi_nf < ${yearEnd} ${cancelFilter}
         GROUP BY cd_pessoa ORDER BY ISNULL(SUM(vl_faturamento),0) DESC`;
       const topClientsRes = await runQuery(source, wrap(topClientsSql), 30000);
@@ -348,7 +349,7 @@ async function processRefresh(base44, source, run, version, previousVersion, sta
         FROM nf WITH (NOLOCK)
         WHERE dt_emi_nf >= ${yearStart} AND dt_emi_nf < ${yearEnd} ${cancelFilter}
         GROUP BY cd_empresa, cd_pessoa
-      ) x WHERE rn <= 15 ORDER BY cd_empresa, rn`;
+      ) x WHERE rn <= 1000 ORDER BY cd_empresa, rn`;
       const tceRes = await runQuery(source, wrap(tceSql), 30000);
       queryCount++;
       topClientsByEmpresa = getRows(tceRes).map(r => ({
@@ -556,6 +557,65 @@ async function processRefresh(base44, source, run, version, previousVersion, sta
       warnings.push('Falha ao extrair coorte de clientes: ' + (e.message || String(e)).slice(0, 120));
     }
     await updateStep(7, 72);
+
+    // Etapa 7b: Churn/retenção em janela móvel de 12 meses, ponderado por receita.
+    //
+    // Falhas da métrica anterior (coorte por ano civil), corrigidas aqui:
+    //  (a) janela YTD: em agosto, quem comprou em out/2025 (há 10 meses) era contado como
+    //      churn embora esteja ativo no ciclo de 12 meses — inflava o churn;
+    //  (b) contagem por cabeça: a cauda longa de clientes pequenos/pontuais dominava o
+    //      percentual, escondendo que a receita vem da base recorrente;
+    //  (c) nenhuma leitura de receita em risco — churn de cliente ≠ churn de receita.
+    // Aqui: base = clientes com NF nos 12 meses anteriores; churn = os que não emitiram
+    // NF nos 12 meses correntes. Uma única consulta traz receita das duas janelas.
+    let churn12 = null;
+    try {
+      const curStart = 'DATEADD(year,-1,GETDATE())';
+      const prevStart = 'DATEADD(year,-2,GETDATE())';
+      const c12Sql = `SELECT cd_pessoa,
+          ISNULL(SUM(CASE WHEN dt_emi_nf >= ${prevStart} AND dt_emi_nf < ${curStart} THEN vl_faturamento ELSE 0 END),0) AS rev_prev,
+          COUNT(CASE WHEN dt_emi_nf >= ${prevStart} AND dt_emi_nf < ${curStart} THEN 1 END) AS nfs_prev,
+          ISNULL(SUM(CASE WHEN dt_emi_nf >= ${curStart} THEN vl_faturamento ELSE 0 END),0) AS rev_cur,
+          COUNT(CASE WHEN dt_emi_nf >= ${curStart} THEN 1 END) AS nfs_cur
+        FROM nf WITH (NOLOCK)
+        WHERE dt_emi_nf >= ${prevStart} AND dt_emi_nf < GETDATE() ${cancelFilter}
+          AND cd_pessoa IS NOT NULL
+        GROUP BY cd_pessoa`;
+      const c12Rows = getRows(await runQuery(source, wrap(c12Sql), 30000));
+      queryCount++;
+      let base = 0, retained = 0, churned = 0, novos = 0;
+      let baseRev = 0, churnedRev = 0, retainedRevCur = 0, novosRevCur = 0, curRev = 0;
+      for (const r of c12Rows) {
+        const nfsPrev = Number(r.nfs_prev) || 0;
+        const nfsCur = Number(r.nfs_cur) || 0;
+        const revPrev = Number(r.rev_prev) || 0;
+        const revCur = Number(r.rev_cur) || 0;
+        curRev += revCur;
+        if (nfsPrev > 0) { base++; baseRev += revPrev; }
+        if (nfsPrev > 0 && nfsCur > 0) { retained++; retainedRevCur += revCur; }
+        if (nfsPrev > 0 && nfsCur === 0) { churned++; churnedRev += revPrev; }
+        if (nfsPrev === 0 && nfsCur > 0) { novos++; novosRevCur += revCur; }
+      }
+      churn12 = {
+        base_clients: base,
+        active_clients: retained + novos,
+        retained_clients: retained,
+        churned_clients: churned,
+        new_clients: novos,
+        churn_rate: base > 0 ? (churned / base * 100) : null,
+        retention_rate: base > 0 ? (retained / base * 100) : null,
+        revenue_churn_rate: baseRev > 0 ? (churnedRev / baseRev * 100) : null,
+        revenue_at_risk: churnedRev,
+        base_revenue: baseRev,
+        current_revenue: curRev,
+        retained_revenue: retainedRevCur,
+        new_revenue: novosRevCur,
+        retained_revenue_share: curRev > 0 ? (retainedRevCur / curRev * 100) : null,
+        new_revenue_share: curRev > 0 ? (novosRevCur / curRev * 100) : null,
+      };
+    } catch (e) {
+      warnings.push('Falha ao calcular churn 12 meses: ' + (e.message || String(e)).slice(0, 120));
+    }
 
     // Etapa 8: Novos clientes por mês (primeira locação — fich_loc)
     let newClientsMonthly = [];
@@ -790,6 +850,7 @@ async function processRefresh(base44, source, run, version, previousVersion, sta
     kpis.churn_rate = cohortKpis.churn_rate;
     kpis.new_client_revenue = cohortKpis.new_client_revenue || 0;
     kpis.retained_revenue = cohortKpis.retained_revenue || 0;
+    kpis.churn12 = churn12;
     kpis.receita_por_cliente = kpis.clientes_ano > 0 ? (kpis.fat_ano / kpis.clientes_ano) : 0;
     kpis.fat_ponderado = kpis.fat_mes * 0.6;
 

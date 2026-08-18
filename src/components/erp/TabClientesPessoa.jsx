@@ -62,7 +62,8 @@ export default function TabClientesPessoa() {
     : clients;
 
   // KPIs
-  const clientesAtivos = clients.length;
+  // Clientes ativos = contagem distinta apurada no banco (não o tamanho da lista carregada)
+  const clientesAtivos = (isAll ? k.clientes_ano : empRow?.clientes_ano) || clients.length;
   const top10Receita = clients.slice(0, 10).reduce((s, c) => s + c.receita, 0);
   const concentracao = receitaTotal > 0 ? (top10Receita / receitaTotal) * 100 : 0;
   const ticketMedio = clientesAtivos > 0 ? receitaTotal / clientesAtivos : 0;
@@ -85,7 +86,7 @@ export default function TabClientesPessoa() {
         <div className="rounded-xl border border-purple-700/40 bg-purple-950/30 p-4">
           <div className="flex items-center gap-2 mb-2"><Users className="w-4 h-4 text-purple-400" /><span className="text-xs text-gray-400 uppercase">Clientes ativos</span></div>
           <div className="text-2xl font-bold text-white">{fmtNum(clientesAtivos)}</div>
-          <div className="text-xs text-gray-500 mt-1">Com receita no período</div>
+          <div className="text-xs text-gray-500 mt-1">Com receita no período · {fmtNum(clients.length)} na lista</div>
         </div>
         <div className="rounded-xl border border-green-700/40 bg-green-950/30 p-4">
           <div className="flex items-center gap-2 mb-2"><TrendingUp className="w-4 h-4 text-green-400" /><span className="text-xs text-gray-400 uppercase">Receita total</span></div>

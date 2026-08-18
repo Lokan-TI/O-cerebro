@@ -154,6 +154,8 @@ export default function SnapshotTables() {
               <option value={25}>25</option>
               <option value={50}>50</option>
               <option value={100}>100</option>
+              <option value={250}>250</option>
+              <option value={500}>500</option>
             </select>
             <div className="flex items-center gap-2">
               <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page <= 1} className="p-1 text-gray-400 hover:text-white disabled:opacity-30">
