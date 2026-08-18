@@ -25,16 +25,24 @@ export default function ProjecaoLongoPrazo() {
   const load = async () => {
     setLoading(true);
     setError(null);
-    const res = await base44.functions.invoke("projectLongTermRevenue", {
-      years: 10,
-      ...(sourceId ? { source_id: sourceId } : {}),
-    });
-    if (res.data?.error) setError(res.data.error);
-    else {
-      setData(res.data);
-      setAssumptions(defaultAssumptions(computeKpis(res.data)));
+    try {
+      const res = await base44.functions.invoke("projectLongTermRevenue", {
+        years: 10,
+        ...(sourceId ? { source_id: sourceId } : {}),
+      });
+      if (res.data?.error) setError(res.data.error);
+      else {
+        setData(res.data);
+        setAssumptions(defaultAssumptions(computeKpis(res.data)));
+      }
+    } catch (e) {
+      setError(
+        "Não foi possível consultar o ERP agora (a consulta demorou demais ou a conexão foi recusada). Tente recarregar em alguns instantes. Detalhe: " +
+        String(e?.message || e).slice(0, 200)
+      );
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   useEffect(() => { load(); }, [sourceId]);

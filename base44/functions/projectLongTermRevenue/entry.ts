@@ -64,10 +64,27 @@ Deno.serve(async (req) => {
       ORDER BY ISNULL(SUM(pt.vl_aqu_patrimonio),0) DESC`;
 
     const num = (v: any) => Number(v) || 0;
-    const revenueRows = getRows(await runQuery(source, wrap(sqlRevenue), 40000));
-    const capexRows = getRows(await runQuery(source, wrap(sqlCapex), 40000));
-    const fleetRow = getRows(await runQuery(source, wrap(sqlFleet), 40000))[0] || {};
-    const groupRows = getRows(await runQuery(source, wrap(sqlFleetGroup), 40000));
+    const warnings: string[] = [];
+    // Cada consulta tem teto próprio de 15s e falha isolada — evita que uma consulta
+    // lenta some com o tempo total da requisição e deixe a tela carregando sem fim.
+    const q = async (label: string, sql: string) => {
+      try {
+        return getRows(await runQuery(source, wrap(sql), 15000));
+      } catch (e) {
+        warnings.push(`${label}: ${(e.message || String(e)).slice(0, 140)}`);
+        return [];
+      }
+    };
+    const revenueRows = await q('Receita anual', sqlRevenue);
+    if (revenueRows.length === 0) {
+      return Response.json({
+        error: 'Não foi possível ler o histórico de receita do ERP (consulta excedeu 15s ou conexão recusada). Tente recarregar em alguns instantes.',
+        warnings,
+      });
+    }
+    const capexRows = await q('Compras de ativos', sqlCapex);
+    const fleetRow = (await q('Foto da frota', sqlFleet))[0] || {};
+    const groupRows = await q('Frota por grupo', sqlFleetGroup);
 
     const now = new Date();
     const currentYear = now.getFullYear();
@@ -119,6 +136,7 @@ Deno.serve(async (req) => {
       year_fraction: yearFraction,
       history,
       fleet,
+      warnings,
       queries: [
         { label: 'Receita anual', description: 'nf — faturamento, notas e clientes por ano', sql: sqlRevenue },
         { label: 'Compras de ativos por ano', description: 'patrimon — CAPEX e quantidade por ano de aquisição', sql: sqlCapex },
