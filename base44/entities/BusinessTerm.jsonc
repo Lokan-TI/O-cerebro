@@ -1,0 +1,92 @@
+{
+  "name": "BusinessTerm",
+  "type": "object",
+  "properties": {
+    "term_id": {
+      "type": "string",
+      "description": "Identificador do termo (ex.: BTR-001)"
+    },
+    "canonical_name": {
+      "type": "string",
+      "description": "Nome can\u00f4nico do termo de neg\u00f3cio"
+    },
+    "description": {
+      "type": "string",
+      "description": "Nome curto de exibi\u00e7\u00e3o"
+    },
+    "business_definition": {
+      "type": "string",
+      "description": "Defini\u00e7\u00e3o de neg\u00f3cio em linguagem natural"
+    },
+    "domain": {
+      "type": "string",
+      "description": "Dom\u00ednio: FINANCIAL, COMMERCIAL, FLEET, CUSTOMER, BRANCH"
+    },
+    "formula": {
+      "type": "string",
+      "description": "F\u00f3rmula de c\u00e1lculo comprovada por evid\u00eancia"
+    },
+    "grain": {
+      "type": "string",
+      "description": "Granularidade (per_year, per_period, 12m_rolling, per_snapshot)"
+    },
+    "inclusions": {
+      "type": "string",
+      "description": "O que entra no c\u00e1lculo"
+    },
+    "exclusions": {
+      "type": "string",
+      "description": "O que fica fora do c\u00e1lculo"
+    },
+    "unit": {
+      "type": "string",
+      "description": "Unidade: BRL, percent, days, count"
+    },
+    "source_of_truth": {
+      "type": "string",
+      "description": "Sistema fonte da verdade"
+    },
+    "physical_source": {
+      "type": "string",
+      "description": "Tabela e coluna f\u00edsicas de origem"
+    },
+    "owner": {
+      "type": "string",
+      "description": "Dono de neg\u00f3cio do termo"
+    },
+    "status": {
+      "type": "string",
+      "description": "VERIFIED, INFERRED_HIGH, INFERRED_LOW, UNKNOWN"
+    },
+    "evidence": {
+      "type": "string",
+      "description": "Base da evid\u00eancia: QUERY_PATTERN, DATA_PROFILE, NOMENCLATURE, OBSERVED_ONLY"
+    },
+    "version": {
+      "type": "number",
+      "default": 1
+    }
+  },
+  "required": [
+    "term_id",
+    "canonical_name"
+  ],
+  "rls": {
+    "read": {},
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

@@ -1,0 +1,60 @@
+{
+  "name": "ErpEnum",
+  "type": "object",
+  "properties": {
+    "enum_name": {
+      "type": "string",
+      "description": "Nome do enum (ex.: RECEIVABLE_STATUS)"
+    },
+    "table_name": {
+      "type": "string",
+      "description": "Tabela f\u00edsica"
+    },
+    "field_name": {
+      "type": "string",
+      "description": "Campo f\u00edsico"
+    },
+    "code": {
+      "type": "number",
+      "description": "C\u00f3digo armazenado no ERP"
+    },
+    "meaning": {
+      "type": "string",
+      "description": "Significado de neg\u00f3cio do c\u00f3digo"
+    },
+    "is_active": {
+      "type": "boolean",
+      "default": true
+    },
+    "source": {
+      "type": "string",
+      "description": "Origem da evid\u00eancia: QUERY_PATTERN, DICTIONARY, DOCUMENTATION"
+    },
+    "validation_status": {
+      "type": "string",
+      "description": "VERIFIED, INFERRED, UNKNOWN"
+    }
+  },
+  "required": [
+    "enum_name",
+    "code"
+  ],
+  "rls": {
+    "read": {},
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

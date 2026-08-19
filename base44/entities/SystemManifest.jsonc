@@ -1,0 +1,64 @@
+{
+  "name": "SystemManifest",
+  "type": "object",
+  "properties": {
+    "system_id": {
+      "type": "string",
+      "description": "Identificador do sistema (ex.: LOKAN_ERP)"
+    },
+    "system_name": {
+      "type": "string",
+      "description": "Nome do sistema"
+    },
+    "system_type": {
+      "type": "string",
+      "description": "Tipo: ERP, CRM, DW, API"
+    },
+    "domain": {
+      "type": "string",
+      "description": "Dom\u00ednio coberto: FINANCIAL, FLEET, CUSTOMER, BRANCH"
+    },
+    "main_objects": {
+      "type": "string",
+      "description": "Principais tabelas/objetos do dom\u00ednio"
+    },
+    "table_count": {
+      "type": "number",
+      "default": 0
+    },
+    "last_discovered_at": {
+      "type": "string",
+      "description": "Data da \u00faltima descoberta de estrutura"
+    },
+    "last_verified_at": {
+      "type": "string",
+      "description": "Data da \u00faltima verifica\u00e7\u00e3o"
+    },
+    "status": {
+      "type": "string",
+      "description": "DISCOVERED, VERIFIED, PENDING"
+    }
+  },
+  "required": [
+    "system_id",
+    "domain"
+  ],
+  "rls": {
+    "read": {},
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

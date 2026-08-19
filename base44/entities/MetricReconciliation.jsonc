@@ -34,7 +34,8 @@
       "enum": [
         "BRL",
         "count",
-        "percent"
+        "percent",
+        "days"
       ],
       "default": "BRL"
     },
