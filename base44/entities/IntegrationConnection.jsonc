@@ -30,9 +30,9 @@
       ],
       "default": "api_key"
     },
-    "api_key": {
+    "api_key_secret_name": {
       "type": "string",
-      "description": "Credencial \u2014 usada apenas no back-end"
+      "description": "Nome do secret da plataforma que guarda a chave/token. A credencial nunca \u00e9 armazenada no banco."
     },
     "account_id": {
       "type": "string",

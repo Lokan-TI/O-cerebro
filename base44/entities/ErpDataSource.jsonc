@@ -65,11 +65,7 @@
     },
     "password_secret_name": {
       "type": "string",
-      "description": "Nome do secret da plataforma que guarda a senha (forma correta e recomendada). Ex.: ERP_PWD_PIRACICABA"
-    },
-    "password": {
-      "type": "string",
-      "description": "DEPRECIADO (P0-01) \u2014 senha em texto no banco de dados. Usar password_secret_name. Mantido apenas para as fontes ainda n\u00e3o migradas."
+      "description": "Nome do secret da plataforma que guarda a senha. \u00danica forma suportada de credencial por fonte \u2014 a senha nunca \u00e9 armazenada no banco."
     },
     "auth_type": {
       "type": "string",
@@ -96,8 +92,8 @@
     },
     "credential_reference": {
       "type": "string",
-      "default": "entity",
-      "description": "Origem da credencial: env (vari\u00e1veis de ambiente), secret (secret nomeado) ou entity (senha armazenada \u2014 depreciado)"
+      "default": "secret",
+      "description": "Origem da credencial: env (vari\u00e1veis de ambiente do servidor) ou secret (secret nomeado)"
     },
     "sync_periodicity": {
       "type": "string",
