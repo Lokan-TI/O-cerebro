@@ -93,6 +93,7 @@ export default function TabCliente360() {
                     <th className="text-center px-4 py-2">Ativos</th>
                     <th className="text-right px-4 py-2">Faturamento</th>
                     <th className="text-right px-4 py-2">CAR aberto</th>
+                    <th className="text-right px-4 py-2">CAR vencido</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -103,6 +104,7 @@ export default function TabCliente360() {
                       <td className="px-4 py-2 text-center text-green-400">{e.ativos}</td>
                       <td className="px-4 py-2 text-right text-white">{brl(e.faturamento)}</td>
                       <td className="px-4 py-2 text-right text-purple-300">{brl(e.car_aberto)}</td>
+                      <td className="px-4 py-2 text-right text-amber-400">{brl(e.car_vencido)}</td>
                     </tr>
                   ))}
                 </tbody>

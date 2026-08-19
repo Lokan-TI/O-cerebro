@@ -66,8 +66,12 @@ export function buildClienteDim(input: {
         primeira_nf: null,
         ultima_nf: null,
         car_total: 0,
+        car_liquidado: 0,
         car_aberto: 0,
+        car_a_vencer: 0,
         car_vencido: 0,
+        car_provisorio: 0,
+        car_juros_multa: 0,
         qtd_car: 0,
       });
     }
@@ -115,8 +119,12 @@ export function buildClienteDim(input: {
     if (!r) continue;
     r.qtd_car += num(c.qtd);
     r.car_total += num(c.valor_total);
-    r.car_aberto += num(c.valor_aberto);
+    r.car_liquidado += num(c.valor_liquidado);
+    r.car_a_vencer += num(c.valor_a_vencer);
     r.car_vencido += num(c.valor_vencido);
+    r.car_aberto += num(c.valor_a_vencer) + num(c.valor_vencido);
+    r.car_provisorio += num(c.valor_provisorio);
+    r.car_juros_multa += num(c.valor_juros_multa);
   }
 
   let clients = [...byId.values()].map((r) => {
@@ -157,12 +165,13 @@ export function buildClienteDim(input: {
     const key = String(c.cd_empresa ?? '—');
     const e = empMap.get(key) || {
       cd_empresa: c.cd_empresa, empresa_nome: c.empresa_nome || key,
-      clientes: 0, ativos: 0, faturamento: 0, car_aberto: 0,
+      clientes: 0, ativos: 0, faturamento: 0, car_aberto: 0, car_vencido: 0,
     };
     e.clientes++;
     if (c.status === 'ATIVO') e.ativos++;
     e.faturamento += c.faturamento;
     e.car_aberto += c.car_aberto;
+    e.car_vencido += c.car_vencido;
     empMap.set(key, e);
   }
 
@@ -177,6 +186,9 @@ export function buildClienteDim(input: {
       concentracao_top10: faturamentoTotal ? (top10 / faturamentoTotal) * 100 : 0,
       car_aberto_total: allForKpis.reduce((s, c) => s + c.car_aberto, 0),
       car_vencido_total: allForKpis.reduce((s, c) => s + c.car_vencido, 0),
+      car_liquidado_total: allForKpis.reduce((s, c) => s + (c.car_liquidado || 0), 0),
+      car_provisorio_total: allForKpis.reduce((s, c) => s + (c.car_provisorio || 0), 0),
+      car_juros_multa_total: allForKpis.reduce((s, c) => s + (c.car_juros_multa || 0), 0),
       recencia_media: (() => {
         const vals = allForKpis.map((c) => c.recencia_dias).filter((v) => v !== null) as number[];
         return vals.length ? vals.reduce((s, v) => s + v, 0) / vals.length : 0;

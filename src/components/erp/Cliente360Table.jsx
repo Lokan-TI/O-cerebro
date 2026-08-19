@@ -108,12 +108,13 @@ export default function Cliente360Table({ clients = [], truncated }) {
                 <th className="text-right px-4 py-3">Faturamento</th>
                 <th className="text-right px-4 py-3">Ticket médio</th>
                 <th className="text-right px-4 py-3">CAR aberto</th>
+                <th className="text-right px-4 py-3">CAR vencido</th>
                 <th className="text-left px-4 py-3">Última atividade</th>
               </tr>
             </thead>
             <tbody>
               {pageRows.length === 0 ? (
-                <tr><td colSpan={11} className="text-center py-12 text-gray-500 text-sm">Nenhum cliente encontrado.</td></tr>
+                <tr><td colSpan={12} className="text-center py-12 text-gray-500 text-sm">Nenhum cliente encontrado.</td></tr>
               ) : pageRows.map((c, i) => (
                 <tr key={c.global_id} className={`border-t border-gray-800 hover:bg-gray-800/30 ${i % 2 ? "bg-gray-800/20" : ""}`}>
                   <td className="px-4 py-2.5 text-gray-400 font-mono text-xs">{c.global_id}</td>
@@ -128,6 +129,7 @@ export default function Cliente360Table({ clients = [], truncated }) {
                   <td className="px-4 py-2.5 text-right text-white font-medium">{brl(c.faturamento)}</td>
                   <td className="px-4 py-2.5 text-right text-gray-400">{brl(c.ticket_medio)}</td>
                   <td className="px-4 py-2.5 text-right text-purple-300">{c.car_aberto > 0 ? brl(c.car_aberto) : "—"}</td>
+                  <td className="px-4 py-2.5 text-right text-amber-400">{c.car_vencido > 0 ? brl(c.car_vencido) : "—"}</td>
                   <td className="px-4 py-2.5 text-gray-400 text-xs">{c.ultima_atividade || "—"}</td>
                 </tr>
               ))}

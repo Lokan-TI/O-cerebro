@@ -13,7 +13,7 @@ export default function TabClientesCar() {
   const [search, setSearch] = useState("");
   const [onlyOpen, setOnlyOpen] = useState(false);
   const [year, setYear] = useState(new Date().getFullYear());
-  const [summary, setSummary] = useState({ total_clients: 0, total_value: 0, total_open: 0 });
+  const [summary, setSummary] = useState({ total_clients: 0, total_value: 0, total_open: 0, total_vencido: 0, total_provisorio: 0, total_juros_multa: 0 });
   const [queries, setQueries] = useState(null);
 
   const fetchClients = useCallback(async () => {
@@ -35,6 +35,9 @@ export default function TabClientesCar() {
           total_clients: result.total_clients || 0,
           total_value: result.total_value || 0,
           total_open: result.total_open || 0,
+          total_vencido: result.total_vencido || 0,
+          total_provisorio: result.total_provisorio || 0,
+          total_juros_multa: result.total_juros_multa || 0,
         });
       } else {
         setError(result?.error || "Falha ao buscar clientes.");
@@ -64,6 +67,8 @@ export default function TabClientesCar() {
 
   const formatBRL = (v) =>
     (Number(v) || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+  const formatBRL0 = (v) =>
+    (Number(v) || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 });
 
   const exportToExcel = () => {
     const headers = [
@@ -75,7 +80,10 @@ export default function TabClientesCar() {
       "Qtd. em Aberto",
       "Valor Total",
       "Valor em Aberto",
-      "Valor Baixado",
+      "Valor Vencido",
+      "Valor Liquidado",
+      "Valor Provisório",
+      "Juros/Multa",
       "Primeira Emissão",
       "Última Emissão",
       "Primeiro Vencimento",
@@ -91,7 +99,10 @@ export default function TabClientesCar() {
       c.qtd_em_aberto,
       (Number(c.vl_total) || 0).toFixed(2),
       (Number(c.vl_em_aberto) || 0).toFixed(2),
-      (Number(c.vl_baixado) || 0).toFixed(2),
+      (Number(c.vl_vencido) || 0).toFixed(2),
+      (Number(c.vl_liquidado) || 0).toFixed(2),
+      (Number(c.vl_provisorio) || 0).toFixed(2),
+      (Number(c.vl_juros_multa) || 0).toFixed(2),
       c.primeira_emi || "",
       c.ultima_emi || "",
       c.primeiro_venc || "",
@@ -181,19 +192,31 @@ export default function TabClientesCar() {
         </button>
       </div>
 
-      {/* Resumo */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+      {/* Resumo — regra canônica do CAR (valor = previsto + acréscimo − desconto · cancelados excluídos · provisório à parte) */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
         <div className="bg-gray-900 border border-gray-800 rounded-xl p-4">
           <p className="text-gray-400 text-xs uppercase tracking-wide">Clientes ativos</p>
           <p className="text-2xl font-bold text-white mt-1">{summary.total_clients}</p>
         </div>
         <div className="bg-gray-900 border border-gray-800 rounded-xl p-4">
-          <p className="text-gray-400 text-xs uppercase tracking-wide">Valor total gerado</p>
-          <p className="text-2xl font-bold text-white mt-1">{formatBRL(summary.total_value)}</p>
+          <p className="text-gray-400 text-xs uppercase tracking-wide">Total a receber</p>
+          <p className="text-2xl font-bold text-white mt-1">{formatBRL0(summary.total_value)}</p>
         </div>
         <div className="bg-gray-900 border border-gray-800 rounded-xl p-4">
-          <p className="text-gray-400 text-xs uppercase tracking-wide">Valor em aberto</p>
-          <p className="text-2xl font-bold text-purple-400 mt-1">{formatBRL(summary.total_open)}</p>
+          <p className="text-gray-400 text-xs uppercase tracking-wide">Em aberto</p>
+          <p className="text-2xl font-bold text-purple-400 mt-1">{formatBRL0(summary.total_open)}</p>
+        </div>
+        <div className="bg-gray-900 border border-gray-800 rounded-xl p-4">
+          <p className="text-gray-400 text-xs uppercase tracking-wide">Vencido</p>
+          <p className="text-2xl font-bold text-red-400 mt-1">{formatBRL0(summary.total_vencido)}</p>
+        </div>
+        <div className="bg-gray-900 border border-gray-800 rounded-xl p-4">
+          <p className="text-gray-400 text-xs uppercase tracking-wide">Provisório</p>
+          <p className="text-2xl font-bold text-gray-400 mt-1">{formatBRL0(summary.total_provisorio)}</p>
+        </div>
+        <div className="bg-gray-900 border border-gray-800 rounded-xl p-4">
+          <p className="text-gray-400 text-xs uppercase tracking-wide">Juros/multa</p>
+          <p className="text-2xl font-bold text-amber-400 mt-1">{formatBRL0(summary.total_juros_multa)}</p>
         </div>
       </div>
 
@@ -216,7 +239,9 @@ export default function TabClientesCar() {
                 <th className="text-center px-4 py-3">Em Aberto</th>
                 <th className="text-right px-4 py-3">Valor Total</th>
                 <th className="text-right px-4 py-3">Em Aberto</th>
-                <th className="text-right px-4 py-3">Baixado</th>
+                <th className="text-right px-4 py-3">Vencido</th>
+                <th className="text-right px-4 py-3">Liquidado</th>
+                <th className="text-right px-4 py-3">Juros/Multa</th>
                 <th className="text-left px-4 py-3">Última Emissão</th>
                 <th className="text-left px-4 py-3">Últ. Vencimento</th>
               </tr>
@@ -224,14 +249,14 @@ export default function TabClientesCar() {
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan={10} className="text-center py-12">
+                  <td colSpan={12} className="text-center py-12">
                     <div className="w-8 h-8 border-4 border-gray-700 border-t-purple-500 rounded-full animate-spin mx-auto mb-3" />
                     <p className="text-gray-400 text-sm">Carregando clientes ativos...</p>
                   </td>
                 </tr>
               ) : filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={10} className="text-center py-12 text-gray-500 text-sm">
+                  <td colSpan={12} className="text-center py-12 text-gray-500 text-sm">
                     Nenhum cliente encontrado.
                   </td>
                 </tr>
@@ -256,7 +281,9 @@ export default function TabClientesCar() {
                     </td>
                     <td className="px-4 py-2.5 text-right text-white font-medium">{formatBRL(c.vl_total)}</td>
                     <td className="px-4 py-2.5 text-right text-purple-300">{c.vl_em_aberto > 0 ? formatBRL(c.vl_em_aberto) : "—"}</td>
-                    <td className="px-4 py-2.5 text-right text-gray-400">{c.vl_baixado > 0 ? formatBRL(c.vl_baixado) : "—"}</td>
+                    <td className="px-4 py-2.5 text-right text-red-400">{c.vl_vencido > 0 ? formatBRL(c.vl_vencido) : "—"}</td>
+                    <td className="px-4 py-2.5 text-right text-gray-400">{c.vl_liquidado > 0 ? formatBRL(c.vl_liquidado) : "—"}</td>
+                    <td className="px-4 py-2.5 text-right text-amber-400">{c.vl_juros_multa > 0 ? formatBRL(c.vl_juros_multa) : "—"}</td>
                     <td className="px-4 py-2.5 text-gray-400 text-xs">{c.ultima_emi || "—"}</td>
                     <td className="px-4 py-2.5 text-gray-400 text-xs">{c.ultimo_venc || "—"}</td>
                   </tr>

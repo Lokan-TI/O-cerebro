@@ -26,8 +26,11 @@ export default function Cliente360Kpis({ k }) {
       <Card icon={DollarSign} label="Faturamento total" value={brl(k.faturamento_total)} />
       <Card icon={DollarSign} label="Ticket médio / cliente" value={brl(k.ticket_medio_cliente)} />
       <Card icon={Percent} label="Concentração top 10" value={pct(k.concentracao_top10)} tone="text-purple-400" />
+      <Card icon={Wallet} label="CAR liquidado" value={brl(k.car_liquidado_total)} tone="text-green-400" />
       <Card icon={Wallet} label="CAR em aberto" value={brl(k.car_aberto_total)} tone="text-purple-300" />
       <Card icon={AlertTriangle} label="CAR vencido" value={brl(k.car_vencido_total)} tone="text-amber-400" />
+      <Card icon={Wallet} label="CAR provisório" value={brl(k.car_provisorio_total)} tone="text-gray-400" />
+      <Card icon={DollarSign} label="Juros/multa recebidos" value={brl(k.car_juros_multa_total)} tone="text-amber-300" />
       <Card icon={Clock} label="Recência média" value={`${Math.round(Number(k.recencia_media) || 0)} dias`} />
       <Card icon={Users} label="Clientes com faturamento" value={int(k.clientes_com_faturamento)} />
     </div>

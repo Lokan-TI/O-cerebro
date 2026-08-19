@@ -1,6 +1,7 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.40';
 import { buildConfig, runQuery } from '../../shared/erpConnection.ts';
 import { buildClienteDim } from '../../shared/clienteDim.ts';
+import { empFilter } from '../../shared/empresaScope.ts';
 
 function getRows(result: any) {
   if (!result) return [];
@@ -52,7 +53,7 @@ Deno.serve(async (req) => {
           MIN(n.dt_emi_nf) AS primeira, MAX(n.dt_emi_nf) AS ultima
         FROM nf n WITH (NOLOCK)
         WHERE n.dt_emi_nf >= '${periodStart}' AND n.dt_emi_nf < '${periodEnd}'
-          AND ISNULL(n.fl_can_nf,'N') <> 'S' AND n.cd_pessoa IS NOT NULL
+          AND ISNULL(n.fl_can_nf,'N') <> 'S' AND n.cd_pessoa IS NOT NULL ${empFilter('n')}
         GROUP BY n.cd_pessoa, n.cd_empresa`;
       notas = getRows(await runQuery(source, wrap(sql), 60000));
       queryCount++;
@@ -67,7 +68,7 @@ Deno.serve(async (req) => {
           SUM(CASE WHEN f.dt_enc_ficha IS NULL THEN 1 ELSE 0 END) AS abertas,
           MIN(f.dt_pedido) AS primeira, MAX(f.dt_pedido) AS ultima
         FROM fich_loc f WITH (NOLOCK)
-        WHERE f.dt_pedido >= '${periodStart}' AND f.dt_pedido < '${periodEnd}' AND f.cd_pessoa IS NOT NULL
+        WHERE f.dt_pedido >= '${periodStart}' AND f.dt_pedido < '${periodEnd}' AND f.cd_pessoa IS NOT NULL ${empFilter('f')}
         GROUP BY f.cd_pessoa, f.cd_empresa`;
       fichas = getRows(await runQuery(source, wrap(sql), 60000));
       queryCount++;
@@ -75,16 +76,21 @@ Deno.serve(async (req) => {
       warnings.push('Falha ao agregar fichas de locação: ' + (e.message || String(e)).slice(0, 120));
     }
 
-    // 3) Financeiro por cliente (car)
+    // 3) Financeiro por cliente (car) — regra canônica do dicionário Sisloc:
+    // valor = vl_pre + vl_acr - vl_des · fl_status: 5 provisório · 10 firme · 25/30 liquidado · 40 cancelado (excluído)
     let cars: any[] = [];
     try {
-      const hoje = now.toISOString().slice(0, 10);
       const sql = `SELECT c.cd_pessoa_cli AS cd_pessoa, COUNT(*) AS qtd,
-          SUM(ISNULL(c.vl_pre_car,0)) AS valor_total,
-          SUM(CASE WHEN c.dt_bai_car IS NULL THEN ISNULL(c.vl_pre_car,0) ELSE 0 END) AS valor_aberto,
-          SUM(CASE WHEN c.dt_bai_car IS NULL AND c.dt_ven_car < '${hoje}' THEN ISNULL(c.vl_pre_car,0) ELSE 0 END) AS valor_vencido
+          SUM(CASE WHEN NOT (c.fl_status = 5 AND c.dt_bai_car IS NULL AND c.dt_ven_car >= CAST(GETDATE() AS date)) THEN v.val ELSE 0 END) AS valor_total,
+          SUM(CASE WHEN c.fl_status IN (25,30) OR c.dt_bai_car IS NOT NULL THEN v.val ELSE 0 END) AS valor_liquidado,
+          SUM(CASE WHEN c.fl_status = 10 AND c.dt_bai_car IS NULL AND c.dt_ven_car >= CAST(GETDATE() AS date) THEN v.val ELSE 0 END) AS valor_a_vencer,
+          SUM(CASE WHEN c.fl_status IN (5,10) AND c.dt_bai_car IS NULL AND c.dt_ven_car < CAST(GETDATE() AS date) THEN v.val ELSE 0 END) AS valor_vencido,
+          SUM(CASE WHEN c.fl_status = 5 AND c.dt_bai_car IS NULL AND c.dt_ven_car >= CAST(GETDATE() AS date) THEN v.val ELSE 0 END) AS valor_provisorio,
+          SUM(ISNULL(c.vl_juros,0)+ISNULL(c.vl_multa,0)) AS valor_juros_multa
         FROM car c WITH (NOLOCK)
+        CROSS APPLY (SELECT ROUND(COALESCE(c.vl_pre_car,0)+COALESCE(c.vl_acr_car,0)-COALESCE(c.vl_des_car,0),2) AS val) v
         WHERE c.dt_emi_car >= '${periodStart}' AND c.dt_emi_car < '${periodEnd}' AND c.cd_pessoa_cli IS NOT NULL
+          AND c.fl_status <> 40 ${empFilter('c', 'cd_empresa_gestora')}
         GROUP BY c.cd_pessoa_cli`;
       cars = getRows(await runQuery(source, wrap(sql), 60000));
       queryCount++;

@@ -1,5 +1,6 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.40';
 import { buildConfig, runQuery } from '../../shared/erpConnection.ts';
+import { empFilter } from '../../shared/empresaScope.ts';
 
 function getRows(result) {
   if (!result) return [];
@@ -39,24 +40,30 @@ Deno.serve(async (req) => {
       ? `EXEC DW_API '${config.clientId}', '${inner.replace(/'/g, "''")}'`
       : inner;
 
-    // Aggregate CAR by client (sargable date filter on dt_emi_car)
+    // Regra canônica do CAR (dicionário Sisloc): valor = vl_pre + vl_acr - vl_des ·
+    // fl_status: 5 provisório · 10 firme aberto · 25/30 liquidado · 40 cancelado (excluído).
+    // Total = liquidado + a vencer + vencido (provisório à parte) · juros/multa = vl_juros + vl_multa.
     const carSql = `SELECT
-      cd_pessoa_cli,
-      cd_empresa_gestora,
+      c.cd_pessoa_cli,
+      c.cd_empresa_gestora,
       COUNT(*) AS qtd_car,
-      ISNULL(SUM(vl_pre_car), 0) AS vl_total,
-      ISNULL(SUM(CASE WHEN dt_bai_car IS NULL AND dt_cancelamento IS NULL THEN vl_pre_car ELSE 0 END), 0) AS vl_em_aberto,
-      ISNULL(SUM(CASE WHEN dt_bai_car IS NOT NULL THEN vl_pre_car ELSE 0 END), 0) AS vl_baixado,
-      COUNT(CASE WHEN dt_bai_car IS NULL AND dt_cancelamento IS NULL THEN 1 END) AS qtd_em_aberto,
-      MIN(dt_emi_car) AS primeira_emi,
-      MAX(dt_emi_car) AS ultima_emi,
-      MIN(dt_ven_car) AS primeiro_venc,
-      MAX(dt_ven_car) AS ultimo_venc
-    FROM car WITH (NOLOCK)
-    WHERE dt_emi_car >= '${startDate}' AND dt_emi_car < '${endDate}'
-      AND dt_cancelamento IS NULL
-    GROUP BY cd_pessoa_cli, cd_empresa_gestora
-    ORDER BY ISNULL(SUM(vl_pre_car), 0) DESC`;
+      ISNULL(SUM(CASE WHEN NOT (c.fl_status = 5 AND c.dt_bai_car IS NULL AND c.dt_ven_car >= CAST(GETDATE() AS date)) THEN v.val ELSE 0 END), 0) AS vl_total,
+      ISNULL(SUM(CASE WHEN c.fl_status IN (25,30) OR c.dt_bai_car IS NOT NULL THEN v.val ELSE 0 END), 0) AS vl_liquidado,
+      ISNULL(SUM(CASE WHEN c.fl_status = 10 AND c.dt_bai_car IS NULL AND c.dt_ven_car >= CAST(GETDATE() AS date) THEN v.val ELSE 0 END), 0) AS vl_a_vencer,
+      ISNULL(SUM(CASE WHEN c.fl_status IN (5,10) AND c.dt_bai_car IS NULL AND c.dt_ven_car < CAST(GETDATE() AS date) THEN v.val ELSE 0 END), 0) AS vl_vencido,
+      ISNULL(SUM(CASE WHEN c.fl_status = 5 AND c.dt_bai_car IS NULL AND c.dt_ven_car >= CAST(GETDATE() AS date) THEN v.val ELSE 0 END), 0) AS vl_provisorio,
+      ISNULL(SUM(ISNULL(c.vl_juros,0)+ISNULL(c.vl_multa,0)), 0) AS vl_juros_multa,
+      COUNT(CASE WHEN c.fl_status IN (5,10) AND c.dt_bai_car IS NULL THEN 1 END) AS qtd_em_aberto,
+      MIN(c.dt_emi_car) AS primeira_emi,
+      MAX(c.dt_emi_car) AS ultima_emi,
+      MIN(c.dt_ven_car) AS primeiro_venc,
+      MAX(c.dt_ven_car) AS ultimo_venc
+    FROM car c WITH (NOLOCK)
+    CROSS APPLY (SELECT ROUND(COALESCE(c.vl_pre_car,0)+COALESCE(c.vl_acr_car,0)-COALESCE(c.vl_des_car,0),2) AS val) v
+    WHERE c.dt_emi_car >= '${startDate}' AND c.dt_emi_car < '${endDate}'
+      AND c.fl_status <> 40 ${empFilter('c', 'cd_empresa_gestora')}
+    GROUP BY c.cd_pessoa_cli, c.cd_empresa_gestora
+    ORDER BY 4 DESC`;
 
     const carRes = await runQuery(source, wrap(carSql));
     const carRows = getRows(carRes);
@@ -96,8 +103,9 @@ Deno.serve(async (req) => {
     // Build client list
     let clients = carRows.map(r => {
       const vlTotal = Number(r.vl_total) || 0;
-      const vlEmAberto = Number(r.vl_em_aberto) || 0;
-      const vlBaixado = Number(r.vl_baixado) || 0;
+      const vlLiquidado = Number(r.vl_liquidado) || 0;
+      const vlAVencer = Number(r.vl_a_vencer) || 0;
+      const vlVencido = Number(r.vl_vencido) || 0;
       return {
         cd_pessoa: Number(r.cd_pessoa_cli),
         nm_pessoa: nameMap[Number(r.cd_pessoa_cli)] || `Cliente ${r.cd_pessoa_cli}`,
@@ -106,8 +114,13 @@ Deno.serve(async (req) => {
         qtd_car: Number(r.qtd_car) || 0,
         qtd_em_aberto: Number(r.qtd_em_aberto) || 0,
         vl_total: vlTotal,
-        vl_em_aberto: vlEmAberto,
-        vl_baixado: vlBaixado,
+        vl_em_aberto: vlAVencer + vlVencido,
+        vl_baixado: vlLiquidado,
+        vl_liquidado: vlLiquidado,
+        vl_a_vencer: vlAVencer,
+        vl_vencido: vlVencido,
+        vl_provisorio: Number(r.vl_provisorio) || 0,
+        vl_juros_multa: Number(r.vl_juros_multa) || 0,
         primeira_emi: r.primeira_emi ? new Date(r.primeira_emi).toISOString().slice(0, 10) : null,
         ultima_emi: r.ultima_emi ? new Date(r.ultima_emi).toISOString().slice(0, 10) : null,
         primeiro_venc: r.primeiro_venc ? new Date(r.primeiro_venc).toISOString().slice(0, 10) : null,
@@ -122,6 +135,9 @@ Deno.serve(async (req) => {
 
     const totalValue = clients.reduce((s, c) => s + c.vl_total, 0);
     const totalOpen = clients.reduce((s, c) => s + c.vl_em_aberto, 0);
+    const totalVencido = clients.reduce((s, c) => s + c.vl_vencido, 0);
+    const totalProvisorio = clients.reduce((s, c) => s + c.vl_provisorio, 0);
+    const totalJurosMulta = clients.reduce((s, c) => s + c.vl_juros_multa, 0);
 
     return Response.json({
       success: true,
@@ -129,6 +145,9 @@ Deno.serve(async (req) => {
       total_clients: clients.length,
       total_value: totalValue,
       total_open: totalOpen,
+      total_vencido: totalVencido,
+      total_provisorio: totalProvisorio,
+      total_juros_multa: totalJurosMulta,
       date_range: { start: startDate, end: endDate },
       queries: [
         { label: 'CAR agregado por cliente', description: 'car — período e empresa gestora', sql: carSql },
