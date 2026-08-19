@@ -1,0 +1,58 @@
+{
+  "name": "KnowledgeGraphEdge",
+  "type": "object",
+  "properties": {
+    "edge_id": {
+      "type": "string",
+      "description": "Identificador da aresta (ex.: KG-001)"
+    },
+    "source_entity": {
+      "type": "string",
+      "description": "Entidade can\u00f4nica de origem"
+    },
+    "target_entity": {
+      "type": "string",
+      "description": "Entidade can\u00f4nica de destino"
+    },
+    "relationship_type": {
+      "type": "string",
+      "description": "Tipo de relacionamento (HAS, GENERATES, BECOMES, ...)"
+    },
+    "domain": {
+      "type": "string",
+      "description": "Dom\u00ednio ao qual a rela\u00e7\u00e3o pertence"
+    },
+    "description": {
+      "type": "string",
+      "description": "Descri\u00e7\u00e3o da rela\u00e7\u00e3o"
+    },
+    "status": {
+      "type": "string",
+      "default": "TO_VALIDATE",
+      "description": "VERIFIED, TO_VALIDATE, INFERRED"
+    }
+  },
+  "required": [
+    "edge_id",
+    "source_entity",
+    "target_entity"
+  ],
+  "rls": {
+    "read": {},
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

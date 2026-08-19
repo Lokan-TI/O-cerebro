@@ -1,0 +1,57 @@
+{
+  "name": "CanonicalDomain",
+  "type": "object",
+  "properties": {
+    "domain_id": {
+      "type": "string",
+      "description": "Identificador do dom\u00ednio (ex.: CD-01)"
+    },
+    "domain_name": {
+      "type": "string",
+      "description": "Nome do macrodom\u00ednio can\u00f4nico"
+    },
+    "description": {
+      "type": "string",
+      "description": "Descri\u00e7\u00e3o do dom\u00ednio"
+    },
+    "parent_domain": {
+      "type": "string",
+      "description": "Dom\u00ednio pai, quando subdom\u00ednio"
+    },
+    "entities": {
+      "type": "string",
+      "description": "Entidades can\u00f4nicas do dom\u00ednio (separadas por v\u00edrgula)"
+    },
+    "strategic_questions": {
+      "type": "string",
+      "description": "Principais quest\u00f5es estrat\u00e9gicas do dom\u00ednio"
+    },
+    "status": {
+      "type": "string",
+      "default": "TO_VALIDATE",
+      "description": "VERIFIED, TO_VALIDATE, INFERRED"
+    }
+  },
+  "required": [
+    "domain_id",
+    "domain_name"
+  ],
+  "rls": {
+    "read": {},
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}
