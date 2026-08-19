@@ -31,8 +31,8 @@ export default function ChurnEmpresaRanking({ rows, selectedEmpresa, onSelectEmp
     );
   }
 
-  const best = comparaveis[0];
-  const worst = comparaveis[comparaveis.length - 1];
+  const best = [...comparaveis].sort((a, b) => (b.retention_rate ?? -1) - (a.retention_rate ?? -1))[0];
+  const worst = [...comparaveis].sort((a, b) => (b.churn_rate ?? -1) - (a.churn_rate ?? -1))[0];
   const maiorRisco = [...comparaveis].sort((a, b) => b.revenue_at_risk - a.revenue_at_risk)[0];
 
   return (
