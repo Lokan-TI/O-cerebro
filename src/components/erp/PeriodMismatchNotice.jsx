@@ -14,7 +14,8 @@ export default function PeriodMismatchNotice() {
   // os dados já cobrem o período pedido. O fim aplicado é limitado à data de hoje.
   // Os números são calculados no servidor exatamente para a janela carregada:
   // qualquer diferença em relação ao período aplicado precisa de novo processamento.
-  if (loaded.start === period.start && loaded.end === period.end) return null;
+  // Se a janela carregada cobre a aplicada, os dados já respondem ao filtro.
+  if (loaded.start <= period.start && loaded.end >= period.end) return null;
 
   return (
     <div className="bg-amber-950 border border-amber-800 rounded-lg px-4 py-3 flex flex-wrap items-center gap-3">

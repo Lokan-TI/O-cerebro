@@ -21,19 +21,35 @@ export const PERIOD_PRESETS = [
 
 function isoDate(d) { return d.toISOString().slice(0, 10); }
 
+// Fim máximo = amanhã (fim exclusivo que cobre hoje). Períodos não se estendem para o
+// futuro: "Ano atual" vai de 1º de janeiro até hoje, e não até 31/12, evitando janelas
+// que o banco teria de varrer sem dados e que pareciam "todo o período".
+function maxEnd() {
+  const t = new Date();
+  t.setDate(t.getDate() + 1);
+  return isoDate(t);
+}
+function clampEnd(end) {
+  const cap = maxEnd();
+  return end > cap ? cap : end;
+}
+
 function presetRange(preset, customStart, customEnd) {
   const now = new Date();
   const y = now.getFullYear();
-  // "Todo o período": cobre todo o histórico operacional da base
-  if (preset === "tudo") return { start: "2000-01-01", end: `${y + 1}-01-01` };
-  if (preset === "ano_atual") return { start: `${y}-01-01`, end: `${y + 1}-01-01` };
-  if (preset === "ano_anterior") return { start: `${y - 1}-01-01`, end: `${y}-01-01` };
-  if (preset === "ultimos_12") {
-    const start = new Date(now.getFullYear() - 1, now.getMonth(), 1);
-    const end = new Date(now.getFullYear(), now.getMonth() + 1, 1);
-    return { start: isoDate(start), end: isoDate(end) };
-  }
-  return { start: customStart || `${y}-01-01`, end: customEnd || `${y + 1}-01-01` };
+  const range = (() => {
+    // "Todo o período": cobre todo o histórico operacional da base
+    if (preset === "tudo") return { start: "2000-01-01", end: `${y + 1}-01-01` };
+    if (preset === "ano_atual") return { start: `${y}-01-01`, end: `${y + 1}-01-01` };
+    if (preset === "ano_anterior") return { start: `${y - 1}-01-01`, end: `${y}-01-01` };
+    if (preset === "ultimos_12") {
+      const start = new Date(now.getFullYear() - 1, now.getMonth(), 1);
+      const end = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+      return { start: isoDate(start), end: isoDate(end) };
+    }
+    return { start: customStart || `${y}-01-01`, end: customEnd || `${y + 1}-01-01` };
+  })();
+  return { start: range.start, end: clampEnd(range.end) };
 }
 
 function readStored() {
