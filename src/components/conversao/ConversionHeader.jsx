@@ -1,42 +1,33 @@
-import { RefreshCw, Download, Database, CalendarRange, CheckCircle2, AlertTriangle } from "lucide-react";
+import { RefreshCw, Download, CalendarRange, CheckCircle2, AlertTriangle } from "lucide-react";
+import GlobalFilterBar from "@/components/erp/GlobalFilterBar";
 
+// O período vem do filtro global (Fonte → Empresa → Período), o mesmo usado em todas as
+// abas — a coorte de conversão respeita exatamente a janela escolhida pelo usuário.
 export default function ConversionHeader({
-  sourceName, snapshot, loading, refreshing, error,
-  periodStart, periodEnd, onPeriodChange, onRefresh, onExport,
+  snapshot, loading, refreshing, error,
+  periodStart, periodEnd, onRefresh, onExport,
 }) {
+  const mismatch = snapshot && (snapshot.period_start !== periodStart || snapshot.period_end !== periodEnd);
+
   return (
     <div className="space-y-3">
+      <div>
+        <h1 className="text-xl font-bold text-white">Conversão de Novos Clientes</h1>
+        <p className="text-xs text-gray-500 mt-0.5">
+          Cadastro na base → ficha de locação → nota fiscal
+        </p>
+      </div>
+
       <div className="flex items-end justify-between flex-wrap gap-3">
-        <div>
-          <h1 className="text-xl font-bold text-white">Conversão de Novos Clientes</h1>
-          <p className="text-xs text-gray-500 mt-0.5">
-            Cadastro na base → ficha de locação → nota fiscal
-          </p>
-        </div>
+        <GlobalFilterBar />
         <div className="flex items-end gap-3 flex-wrap">
-          <div>
-            <label className="block text-[10px] uppercase text-gray-500 mb-1">Fonte de dados</label>
-            <div className="flex items-center gap-2 px-3 py-1.5 bg-gray-900 border border-gray-700 rounded-lg text-sm text-gray-200">
-              <Database className="w-3.5 h-3.5 text-purple-400" /> {sourceName || "—"}
-            </div>
-          </div>
-          <div>
-            <label className="block text-[10px] uppercase text-gray-500 mb-1">Cadastros de</label>
-            <input type="date" value={periodStart} onChange={(e) => onPeriodChange(e.target.value, periodEnd)}
-              className="px-3 py-1.5 bg-gray-900 border border-gray-700 rounded-lg text-sm text-gray-200" />
-          </div>
-          <div>
-            <label className="block text-[10px] uppercase text-gray-500 mb-1">até</label>
-            <input type="date" value={periodEnd} onChange={(e) => onPeriodChange(periodStart, e.target.value)}
-              className="px-3 py-1.5 bg-gray-900 border border-gray-700 rounded-lg text-sm text-gray-200" />
-          </div>
           <button onClick={onRefresh} disabled={refreshing}
-            className="flex items-center gap-2 px-4 py-1.5 bg-purple-700 hover:bg-purple-600 disabled:opacity-50 text-white rounded-lg text-sm font-medium">
+            className="flex items-center gap-2 px-4 py-2 bg-purple-700 hover:bg-purple-600 disabled:opacity-50 text-white rounded-lg text-sm font-medium">
             <RefreshCw className={`w-4 h-4 ${refreshing ? "animate-spin" : ""}`} />
             {refreshing ? "Atualizando…" : "Atualizar dados"}
           </button>
           <button onClick={onExport} disabled={!snapshot}
-            className="flex items-center gap-2 px-4 py-1.5 bg-gray-800 hover:bg-gray-700 border border-gray-700 disabled:opacity-50 text-gray-200 rounded-lg text-sm font-medium">
+            className="flex items-center gap-2 px-4 py-2 bg-gray-800 hover:bg-gray-700 border border-gray-700 disabled:opacity-50 text-gray-200 rounded-lg text-sm font-medium">
             <Download className="w-4 h-4" /> Exportar
           </button>
         </div>
@@ -45,6 +36,14 @@ export default function ConversionHeader({
       {error && (
         <div className="flex items-center gap-2 rounded-lg border border-red-800/50 bg-red-950/40 px-4 py-2.5 text-red-300 text-xs">
           <AlertTriangle className="w-4 h-4 shrink-0" /> {error}
+        </div>
+      )}
+
+      {mismatch && (
+        <div className="flex items-center gap-2 rounded-lg border border-amber-800 bg-amber-900/20 px-4 py-2.5 text-amber-300 text-xs">
+          <AlertTriangle className="w-4 h-4 shrink-0" />
+          Esta versão foi calculada de {snapshot.period_start} a {snapshot.period_end}, diferente do período do filtro
+          global ({periodStart} → {periodEnd}). Clique em “Atualizar dados” para recalcular na janela selecionada.
         </div>
       )}
 

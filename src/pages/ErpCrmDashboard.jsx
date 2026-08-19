@@ -1,6 +1,5 @@
 import { useState, useEffect } from "react";
 import { useLocation } from "react-router-dom";
-import { ErpSnapshotProvider } from "@/lib/ErpSnapshotContext";
 import RefreshHeader from "@/components/erp/RefreshHeader";
 import QueryRunner from "@/components/erp/QueryRunner";
 import SchemaExplorer from "@/components/erp/SchemaExplorer";
@@ -15,9 +14,7 @@ import TabClassificacao from "@/components/erp/TabClassificacao";
 import TabDicionario from "@/components/erp/TabDicionario";
 import { Link } from "react-router-dom";
 import { Settings2 } from "lucide-react";
-import { EmpresaFilterProvider } from "@/lib/EmpresaFilterContext";
 import { useAuth } from "@/lib/AuthContext";
-import { GlobalFilterProvider } from "@/lib/GlobalFilterContext";
 import TabExecutiva from "@/components/erp/TabExecutiva";
 import TabCliente360 from "@/components/erp/TabCliente360";
 import TabOnboardingFonte from "@/components/erp/TabOnboardingFonte";
@@ -124,13 +121,7 @@ function ErpCrmDashboardContent() {
 }
 
 export default function ErpCrmDashboard() {
-  return (
-    <ErpSnapshotProvider>
-      <EmpresaFilterProvider>
-        <GlobalFilterProvider>
-          <ErpCrmDashboardContent />
-        </GlobalFilterProvider>
-      </EmpresaFilterProvider>
-    </ErpSnapshotProvider>
-  );
+  // Fonte, empresa, período e snapshot vêm dos provedores globais (App.jsx),
+  // para que todas as páginas compartilhem o mesmo seletor de período.
+  return <ErpCrmDashboardContent />;
 }

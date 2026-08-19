@@ -17,6 +17,9 @@ import ProjecaoLongoPrazo from './pages/ProjecaoLongoPrazo.jsx';
 import AtivosCustos from './pages/AtivosCustos.jsx';
 import DetalhamentoFinanceiro from './pages/DetalhamentoFinanceiro.jsx';
 import { ErpSourceProvider } from '@/lib/ErpSourceContext';
+import { ErpSnapshotProvider } from '@/lib/ErpSnapshotContext';
+import { EmpresaFilterProvider } from '@/lib/EmpresaFilterContext';
+import { GlobalFilterProvider } from '@/lib/GlobalFilterContext';
 
 const { Pages, Layout, mainPage } = pagesConfig;
 const mainPageKey = mainPage ?? Object.keys(Pages)[0];
@@ -52,6 +55,9 @@ const AuthenticatedApp = () => {
   // Render the main app
   return (
     <ErpSourceProvider>
+    <ErpSnapshotProvider>
+    <EmpresaFilterProvider>
+    <GlobalFilterProvider>
     <Routes>
       <Route path="/" element={
         <LayoutWrapper currentPageName="BrainHome">
@@ -121,6 +127,9 @@ const AuthenticatedApp = () => {
       } />
       <Route path="*" element={<PageNotFound />} />
     </Routes>
+    </GlobalFilterProvider>
+    </EmpresaFilterProvider>
+    </ErpSnapshotProvider>
     </ErpSourceProvider>
   );
 };

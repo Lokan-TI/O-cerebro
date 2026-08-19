@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { base44 } from "@/api/base44Client";
 import { useErpSource } from "@/lib/ErpSourceContext";
+import { useGlobalFilter } from "@/lib/GlobalFilterContext";
 import ConversionHeader from "@/components/conversao/ConversionHeader";
 import ConversionKpis from "@/components/conversao/ConversionKpis";
 import ConversionFunnel from "@/components/conversao/ConversionFunnel";
@@ -9,13 +10,6 @@ import ConversionBreakdowns from "@/components/conversao/ConversionBreakdowns";
 import ConversionClientsTable from "@/components/conversao/ConversionClientsTable";
 import ConversionQuality from "@/components/conversao/ConversionQuality";
 import ConversionDocsPanel from "@/components/conversao/ConversionDocsPanel";
-
-function defaultPeriod() {
-  const now = new Date();
-  const start = `${now.getFullYear()}-01-01`;
-  const end = new Date(now.getTime() + 86400000).toISOString().slice(0, 10);
-  return { start, end };
-}
 
 function toCsv(clients) {
   const cols = ["gid", "cd_pessoa", "nome", "doc", "doc_tipo", "dt_cad", "coorte", "nm_empresa", "vendedor_ficha",
@@ -28,11 +22,12 @@ function toCsv(clients) {
 
 export default function ConversaoNovosClientes() {
   const { selectedSource } = useErpSource();
+  // Período do filtro global — mesma janela usada em todas as abas.
+  const { period } = useGlobalFilter();
   const [snapshot, setSnapshot] = useState(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(null);
-  const [period, setPeriod] = useState(defaultPeriod());
 
   const load = useCallback(async () => {
     if (!selectedSource) return;
@@ -40,9 +35,7 @@ export default function ConversaoNovosClientes() {
     const list = await base44.entities.ClientConversionSnapshot.filter(
       { source_id: selectedSource.id, is_current: true }, "-created_date", 1
     );
-    const snap = list[0] || null;
-    setSnapshot(snap);
-    if (snap?.period_start) setPeriod({ start: snap.period_start, end: snap.period_end });
+    setSnapshot(list[0] || null);
     setLoading(false);
   }, [selectedSource]);
 
@@ -87,14 +80,12 @@ export default function ConversaoNovosClientes() {
   return (
     <div className="p-6 space-y-6 max-w-[1600px] mx-auto">
       <ConversionHeader
-        sourceName={selectedSource?.name}
         snapshot={snapshot}
         loading={loading}
         refreshing={refreshing}
         error={error}
         periodStart={period.start}
         periodEnd={period.end}
-        onPeriodChange={(start, end) => setPeriod({ start, end })}
         onRefresh={handleRefresh}
         onExport={handleExport}
       />
