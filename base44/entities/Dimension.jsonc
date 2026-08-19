@@ -22,10 +22,14 @@
     "description": {
       "type": "string"
     },
+    "notes": {
+      "type": "string",
+      "description": "Observa\u00e7\u00f5es"
+    },
     "status": {
       "type": "string",
       "default": "DISCOVERED",
-      "description": "VERIFIED, INFERRED, DISCOVERED"
+      "description": "VERIFIED, INFERRED_HIGH, INFERRED, DISCOVERED, UNKNOWN"
     }
   },
   "required": [

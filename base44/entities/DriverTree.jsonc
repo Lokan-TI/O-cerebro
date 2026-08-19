@@ -15,15 +15,19 @@
     },
     "decomposition": {
       "type": "string",
-      "description": "JSON descrevendo a \u00e1rvore de drivers"
+      "description": "JSON ou lista descrevendo a \u00e1rvore de drivers"
     },
     "domain": {
       "type": "string"
     },
+    "notes": {
+      "type": "string",
+      "description": "Observa\u00e7\u00f5es"
+    },
     "status": {
       "type": "string",
       "default": "DISCOVERED",
-      "description": "VERIFIED, INFERRED, DISCOVERED"
+      "description": "VERIFIED, INFERRED_HIGH, INFERRED, DISCOVERED"
     }
   },
   "required": [

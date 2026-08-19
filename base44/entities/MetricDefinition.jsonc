@@ -13,6 +13,10 @@
       "type": "string",
       "description": "Refer\u00eancia ao BusinessTerm (ex.: BTR-001)"
     },
+    "business_term": {
+      "type": "string",
+      "description": "Nome can\u00f4nico do termo de neg\u00f3cio associado"
+    },
     "domain": {
       "type": "string",
       "description": "FINANCIAL, COMMERCIAL, FLEET, CUSTOMER, BRANCH"
@@ -51,6 +55,10 @@
     "physical_source_column": {
       "type": "string"
     },
+    "physical_source": {
+      "type": "string",
+      "description": "Origem f\u00edsica completa (multi-fonte)"
+    },
     "source_of_truth": {
       "type": "string"
     },
@@ -60,6 +68,10 @@
     "status": {
       "type": "string",
       "description": "VERIFIED, INFERRED_HIGH, INFERRED_LOW, DERIVED, UNKNOWN"
+    },
+    "notes": {
+      "type": "string",
+      "description": "Observa\u00e7\u00f5es e hist\u00f3rico de mudan\u00e7a sem\u00e2ntica"
     },
     "version": {
       "type": "number",
