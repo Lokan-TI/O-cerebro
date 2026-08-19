@@ -1,7 +1,8 @@
 import { useState, useEffect, useCallback } from "react";
 import { base44 } from "@/api/base44Client";
 import { useErpSource } from "@/lib/ErpSourceContext";
-import { RefreshCw, Database } from "lucide-react";
+import { useGlobalFilter } from "@/lib/GlobalFilterContext";
+import { RefreshCw, Database, AlertTriangle } from "lucide-react";
 import Cliente360Kpis from "./Cliente360Kpis";
 import Cliente360Table from "./Cliente360Table";
 
@@ -9,6 +10,7 @@ const brl = (v) => (Number(v) || 0).toLocaleString("pt-BR", { style: "currency",
 
 export default function TabCliente360() {
   const { selectedSource } = useErpSource();
+  const { period } = useGlobalFilter();
   const [snapshot, setSnapshot] = useState(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -31,7 +33,11 @@ export default function TabCliente360() {
     setRefreshing(true);
     setError(null);
     try {
-      const res = await base44.functions.invoke("refreshClienteDim", { source_id: selectedSource.id });
+      const res = await base44.functions.invoke("refreshClienteDim", {
+        source_id: selectedSource.id,
+        start_date: period.start,
+        end_date: period.end,
+      });
       const result = res?.data || res;
       if (!result?.success) setError(result?.error || "Falha ao atualizar a camada de clientes.");
       else await load();
@@ -67,6 +73,14 @@ export default function TabCliente360() {
 
       {error && (
         <div className="bg-red-900/30 border border-red-700 rounded-lg p-4 text-red-300 text-sm">{error}</div>
+      )}
+
+      {snapshot && (snapshot.period_start !== period.start || snapshot.period_end !== period.end) && (
+        <div className="bg-amber-900/20 border border-amber-800 rounded-lg p-3 text-amber-300 text-xs flex items-center gap-2">
+          <AlertTriangle className="w-4 h-4 shrink-0" />
+          Esta versão foi calculada de {snapshot.period_start} a {snapshot.period_end}, diferente do filtro global
+          ({period.start} → {period.end}). Clique em “Atualizar dados” para recalcular no período selecionado.
+        </div>
       )}
 
       {loading || refreshing ? (

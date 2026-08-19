@@ -1,18 +1,19 @@
 import { useState, useEffect, useCallback } from "react";
 import { base44 } from "@/api/base44Client";
 import { useErpSource } from "@/lib/ErpSourceContext";
+import { useGlobalFilter } from "@/lib/GlobalFilterContext";
 import QueryInspector from "@/components/erp/QueryInspector";
 import { Download, RefreshCw, Search, FileSpreadsheet } from "lucide-react";
 import { fmtDoc, onlyDigits } from "@/lib/erpFormat";
 
 export default function TabClientesCar() {
   const { selectedSource } = useErpSource();
+  const { period } = useGlobalFilter();
   const [clients, setClients] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [search, setSearch] = useState("");
   const [onlyOpen, setOnlyOpen] = useState(false);
-  const [year, setYear] = useState(new Date().getFullYear());
   const [summary, setSummary] = useState({ total_clients: 0, total_value: 0, total_open: 0, total_vencido: 0, total_provisorio: 0, total_juros_multa: 0 });
   const [queries, setQueries] = useState(null);
 
@@ -23,8 +24,8 @@ export default function TabClientesCar() {
     try {
       const res = await base44.functions.invoke("listActiveCarClients", {
         source_id: selectedSource.id,
-        start_date: `${year}-01-01`,
-        end_date: `${year + 1}-01-01`,
+        start_date: period.start,
+        end_date: period.end,
         only_open: onlyOpen,
       });
       const result = res?.data || res;
@@ -47,12 +48,12 @@ export default function TabClientesCar() {
     } finally {
       setLoading(false);
     }
-  }, [selectedSource, year, onlyOpen]);
+  }, [selectedSource, period.start, period.end, onlyOpen]);
 
   useEffect(() => {
     fetchClients();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedSource?.id, year, onlyOpen]);
+  }, [selectedSource?.id, period.start, period.end, onlyOpen]);
 
   const filtered = (clients || []).filter(c => {
     if (!search) return true;
@@ -126,7 +127,7 @@ export default function TabClientesCar() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `clientes_car_${year}_${new Date().toISOString().slice(0, 10)}.csv`;
+    a.download = `clientes_car_${period.start}_${period.end}.csv`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -137,17 +138,9 @@ export default function TabClientesCar() {
     <div className="space-y-4">
       {/* Controles */}
       <div className="bg-gray-900 border border-gray-800 rounded-xl p-4 flex flex-wrap items-center gap-3">
-        <div className="flex items-center gap-2">
-          <label className="text-gray-400 text-xs font-medium">Ano</label>
-          <select
-            value={year}
-            onChange={(e) => setYear(Number(e.target.value))}
-            className="bg-gray-800 border border-gray-700 rounded-lg px-3 py-1.5 text-sm text-white"
-          >
-            {[2026, 2025, 2024, 2023].map(y => (
-              <option key={y} value={y}>{y}</option>
-            ))}
-          </select>
+        <div className="text-xs text-gray-400">
+          Período do filtro global: <span className="text-white font-medium">{period.start}</span> →{" "}
+          <span className="text-white font-medium">{period.end}</span>
         </div>
 
         <label className="flex items-center gap-2 cursor-pointer">
