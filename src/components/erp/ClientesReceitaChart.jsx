@@ -3,7 +3,7 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, Responsi
 import { fmtCur, fmtNum, fmtMonthLabel } from "@/lib/erpFormat";
 import { periodMonths } from "@/lib/periodScope";
 
-export default function ClientesReceitaChart({ monthlyRevenue, selectedEmpresa, period }) {
+export default function ClientesReceitaChart({ monthlyRevenue, carMonthly, selectedEmpresa, period }) {
   const data = useMemo(() => {
     const win = periodMonths(period);
     const rows = (monthlyRevenue || []).filter((r) => {
@@ -19,10 +19,19 @@ export default function ClientesReceitaChart({ monthlyRevenue, selectedEmpresa, 
       map[key].receita += Number(r.valor) || 0;
       map[key].clientes += Number(r.clientes) || 0;
     }
+    // Inadimplência (CAR vencido) por mês de emissão — série consolidada do snapshot
+    for (const r of carMonthly || []) {
+      if (r.vl_vencido == null) continue;
+      const key = `${r.ano}-${String(r.mes).padStart(2, "0")}`;
+      if (!map[key]) continue;
+      map[key].inadimplencia = (map[key].inadimplencia || 0) + (Number(r.vl_vencido) || 0);
+    }
     return Object.values(map)
       .sort((a, b) => a.key.localeCompare(b.key))
       .map((m) => ({ ...m, label: fmtMonthLabel(m.mes, m.ano) }));
-  }, [monthlyRevenue, selectedEmpresa, period]);
+  }, [monthlyRevenue, carMonthly, selectedEmpresa, period]);
+
+  const hasInadimplencia = data.some((m) => m.inadimplencia != null);
 
   if (data.length === 0) return null;
 
@@ -31,6 +40,7 @@ export default function ClientesReceitaChart({ monthlyRevenue, selectedEmpresa, 
       <h3 className="text-white font-semibold text-sm mb-1">Evolução da receita — clientes ativos</h3>
       <p className="text-xs text-gray-500 mb-4">
         Receita mensal gerada pela base ativa e nº de clientes faturados no mês
+        {hasInadimplencia ? " · inadimplência = títulos vencidos em aberto (consolidado, por mês de emissão)" : ""}
         {period ? ` · ${period.start} → ${period.end}` : ""}
       </p>
       <div className="h-72">
@@ -52,7 +62,7 @@ export default function ClientesReceitaChart({ monthlyRevenue, selectedEmpresa, 
               contentStyle={{ background: "#111827", border: "1px solid #374151", borderRadius: 8, fontSize: 12 }}
               labelStyle={{ color: "#e5e7eb" }}
               formatter={(value, name) =>
-                name === "Receita" ? [fmtCur(value), "Receita"] : [fmtNum(value), "Clientes ativos"]
+                name === "Clientes ativos" ? [fmtNum(value), "Clientes ativos"] : [fmtCur(value), name]
               }
             />
             <Legend wrapperStyle={{ fontSize: 12 }} />
@@ -75,6 +85,17 @@ export default function ClientesReceitaChart({ monthlyRevenue, selectedEmpresa, 
               strokeDasharray="4 3"
               dot={false}
             />
+            {hasInadimplencia && (
+              <Line
+                yAxisId="receita"
+                type="monotone"
+                dataKey="inadimplencia"
+                name="Inadimplência"
+                stroke="#ef4444"
+                strokeWidth={2}
+                dot={{ r: 3, fill: "#ef4444" }}
+              />
+            )}
           </LineChart>
         </ResponsiveContainer>
       </div>

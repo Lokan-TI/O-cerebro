@@ -114,7 +114,7 @@ export default function TabClientesPessoa() {
       </div>
 
       {/* Evolução mensal da receita da base ativa */}
-      <ClientesReceitaChart monthlyRevenue={snapshot.monthly_revenue} selectedEmpresa={selectedEmpresa} period={period} />
+      <ClientesReceitaChart monthlyRevenue={snapshot.monthly_revenue} carMonthly={snapshot?.analytics?.car_monthly} selectedEmpresa={selectedEmpresa} period={period} />
 
       {/* Lista completa de clientes ativos — consulta ao vivo + exportação */}
       <ClientesAtivosTable onSelectClient={setSelectedClient} />

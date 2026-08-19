@@ -143,6 +143,7 @@ export async function computeAnalytics({ source, wrap, startDate, endDate, lastY
       ISNULL(SUM(CASE WHEN c.fl_status <> 40 AND NOT (c.fl_status = 5 AND c.dt_bai_car IS NULL AND c.dt_ven_car >= CAST(GETDATE() AS date)) THEN v.val ELSE 0 END),0) AS vl_total,
       ISNULL(SUM(CASE WHEN c.fl_status IN (5,10) AND c.dt_bai_car IS NULL THEN v.val ELSE 0 END),0) AS vl_aberto,
       ISNULL(SUM(CASE WHEN c.fl_status IN (25,30) OR (c.fl_status <> 40 AND c.dt_bai_car IS NOT NULL) THEN v.val ELSE 0 END),0) AS vl_baixado,
+      ISNULL(SUM(CASE WHEN c.fl_status IN (5,10) AND c.dt_bai_car IS NULL AND c.dt_ven_car < CAST(GETDATE() AS date) THEN v.val ELSE 0 END),0) AS vl_vencido,
       ISNULL(SUM(ISNULL(c.vl_juros,0)+ISNULL(c.vl_multa,0)),0) AS vl_juros_multa,
       COUNT(*) AS qtd
       FROM car c WITH (NOLOCK)
@@ -154,6 +155,7 @@ export async function computeAnalytics({ source, wrap, startDate, endDate, lastY
       ano: Number(r.ano), mes: Number(r.mes),
       vl_total: Number(r.vl_total) || 0, vl_aberto: Number(r.vl_aberto) || 0,
       vl_baixado: Number(r.vl_baixado) || 0,
+      vl_vencido: Number(r.vl_vencido) || 0,
       vl_juros_multa: Number(r.vl_juros_multa) || 0,
       qtd: Number(r.qtd) || 0,
     }));
