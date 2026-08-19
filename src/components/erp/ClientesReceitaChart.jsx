@@ -1,12 +1,17 @@
 import { useMemo } from "react";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
 import { fmtCur, fmtNum, fmtMonthLabel } from "@/lib/erpFormat";
+import { periodMonths } from "@/lib/periodScope";
 
-export default function ClientesReceitaChart({ monthlyRevenue, selectedEmpresa }) {
+export default function ClientesReceitaChart({ monthlyRevenue, selectedEmpresa, period }) {
   const data = useMemo(() => {
-    const rows = (monthlyRevenue || []).filter(
-      (r) => selectedEmpresa == null || Number(r.cd_empresa) === selectedEmpresa
-    );
+    const win = periodMonths(period);
+    const rows = (monthlyRevenue || []).filter((r) => {
+      if (selectedEmpresa != null && Number(r.cd_empresa) !== selectedEmpresa) return false;
+      if (!win) return true;
+      const i = Number(r.ano) * 12 + (Number(r.mes) - 1);
+      return i >= win.from && i <= win.to;
+    });
     const map = {};
     for (const r of rows) {
       const key = `${r.ano}-${String(r.mes).padStart(2, "0")}`;
@@ -17,14 +22,17 @@ export default function ClientesReceitaChart({ monthlyRevenue, selectedEmpresa }
     return Object.values(map)
       .sort((a, b) => a.key.localeCompare(b.key))
       .map((m) => ({ ...m, label: fmtMonthLabel(m.mes, m.ano) }));
-  }, [monthlyRevenue, selectedEmpresa]);
+  }, [monthlyRevenue, selectedEmpresa, period]);
 
   if (data.length === 0) return null;
 
   return (
     <div className="bg-gray-900 border border-gray-800 rounded-xl p-5">
       <h3 className="text-white font-semibold text-sm mb-1">Evolução da receita — clientes ativos</h3>
-      <p className="text-xs text-gray-500 mb-4">Receita mensal gerada pela base ativa e nº de clientes faturados no mês</p>
+      <p className="text-xs text-gray-500 mb-4">
+        Receita mensal gerada pela base ativa e nº de clientes faturados no mês
+        {period ? ` · ${period.start} → ${period.end}` : ""}
+      </p>
       <div className="h-72">
         <ResponsiveContainer width="100%" height="100%">
           <LineChart data={data} margin={{ top: 5, right: 10, left: 0, bottom: 0 }}>

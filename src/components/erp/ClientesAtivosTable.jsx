@@ -1,7 +1,8 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import { base44 } from "@/api/base44Client";
 import { useErpSource, ALL_SOURCES_ID } from "@/lib/ErpSourceContext";
 import { useEmpresaFilter } from "@/lib/EmpresaFilterContext";
+import { useGlobalFilter } from "@/lib/GlobalFilterContext";
 import { fmtCur, fmtNum } from "@/lib/erpFormat";
 import { exportClientesAtivosCsv } from "@/components/erp/clientesAtivosExport";
 import QueryInspector from "@/components/erp/QueryInspector";
@@ -12,13 +13,32 @@ import { Users, Download, RefreshCw, Search, Repeat } from "lucide-react";
 export default function ClientesAtivosTable({ onSelectClient }) {
   const { selectedSource } = useErpSource();
   const { selectedEmpresa } = useEmpresaFilter();
+  const { period } = useGlobalFilter();
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [search, setSearch] = useState("");
-  const [start, setStart] = useState(`${new Date().getFullYear()}-01-01`);
-  const [end, setEnd] = useState(new Date().toISOString().slice(0, 10));
+  const [start, setStart] = useState(period.start);
+  const [end, setEnd] = useState(period.end);
   const [limit, setLimit] = useState(300);
+  const loadedRange = useRef(null);
+
+  // O período do filtro global define a janela inicial; o usuário ainda pode
+  // ajustar data a data aqui — a consulta é refeita automaticamente.
+  useEffect(() => {
+    setStart(period.start);
+    setEnd(period.end);
+  }, [period.start, period.end]);
+
+  // Depois da primeira consulta, qualquer mudança de data recarrega o ERP
+  // (antes as datas só tinham efeito se o usuário clicasse em "Recarregar").
+  useEffect(() => {
+    if (!loadedRange.current) return;
+    if (loadedRange.current === `${start}|${end}`) return;
+    const t = setTimeout(() => { load(); }, 400);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [start, end, selectedSource?.id]);
 
   const load = async () => {
     setLoading(true);
@@ -29,6 +49,7 @@ export default function ClientesAtivosTable({ onSelectClient }) {
       const res = await base44.functions.invoke("listClientesAtivos", payload);
       if (res.data?.success === false) throw new Error(res.data.error);
       setData(res.data);
+      loadedRange.current = `${start}|${end}`;
     } catch (e) {
       setError(e?.response?.data?.error || e.message || "Falha ao carregar clientes");
     } finally {
@@ -56,7 +77,7 @@ export default function ClientesAtivosTable({ onSelectClient }) {
       <div className="flex items-center justify-between flex-wrap gap-3">
         <h3 className="text-white font-semibold text-sm flex items-center gap-2">
           <Users className="w-4 h-4 text-purple-400" /> Todos os clientes ativos
-          {data && <span className="text-gray-500 font-normal">· {fmtNum(rows.length)} clientes · {fmtCur(totals.receita)}</span>}
+          {data && <span className="text-gray-500 font-normal">· {fmtNum(rows.length)} clientes · {fmtCur(totals.receita)} · {start} → {end}</span>}
         </h3>
         <div className="flex items-center gap-2">
           <QueryInspector queries={data?.sql ? [data.sql] : null} title="Query — Clientes ativos" />

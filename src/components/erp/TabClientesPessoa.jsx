@@ -1,6 +1,8 @@
 import { useState, useMemo } from "react";
 import { useErpSnapshot } from "@/lib/ErpSnapshotContext";
 import { useEmpresaFilter } from "@/lib/EmpresaFilterContext";
+import { useGlobalFilter } from "@/lib/GlobalFilterContext";
+import { scopeByPeriod } from "@/lib/periodScope";
 import { useAnalyticsView } from "@/lib/analyticsView";
 import { getEmpresaLabel } from "@/lib/empresaLabels";
 import { fmtCur, fmtNum } from "@/lib/erpFormat";
@@ -13,6 +15,7 @@ export default function TabClientesPessoa() {
   const { snapshot, loading } = useErpSnapshot();
   const { selectedEmpresa, empresaList } = useEmpresaFilter();
   const { analytics } = useAnalyticsView();
+  const { period } = useGlobalFilter();
   const [search, setSearch] = useState("");
   const [selectedClient, setSelectedClient] = useState(null);
 
@@ -26,7 +29,10 @@ export default function TabClientesPessoa() {
     ? (snapshot?.top_clients || [])
     : (snapshot?.top_clients_by_empresa || []).filter((c) => Number(c.cd_empresa) === selectedEmpresa);
 
-  const receitaTotal = isAll ? k.fat_ano : empRow?.fat_ano || 0;
+  // Receita do período do filtro global (série mensal); fallback no ano civil do snapshot.
+  const ps = scopeByPeriod(snapshot, period, selectedEmpresa);
+  const receitaAnual = isAll ? k.fat_ano : empRow?.fat_ano || 0;
+  const receitaTotal = ps.hasData ? ps.receita : receitaAnual;
 
   // Cross-ref: contratos ativos por cliente (fich_loc top 20 do analytics)
   const contratosMap = useMemo(() => {
@@ -46,13 +52,13 @@ export default function TabClientesPessoa() {
         receita: Number(c.total) || 0,
         nfs: Number(c.nfs) || 0,
         ultima_nf: c.ultima_nf || null,
-        share: receitaTotal > 0 ? ((Number(c.total) || 0) / receitaTotal) * 100 : 0,
+        share: receitaAnual > 0 ? ((Number(c.total) || 0) / receitaAnual) * 100 : 0,
         contratos_ativos: contratos?.ativas ?? null,
         contratos_total: contratos?.qtd ?? null,
       };
     });
     return list.sort((a, b) => b.receita - a.receita);
-  }, [rawClients, contratosMap, receitaTotal]);
+  }, [rawClients, contratosMap, receitaAnual]);
 
   if (loading && !snapshot) return <div className="text-gray-500 p-8 text-center">Carregando clientes…</div>;
   if (!snapshot) return <div className="text-gray-500 p-8 text-center">Sem snapshot. Clique em "Atualizar dados" para carregar.</div>;
@@ -66,7 +72,7 @@ export default function TabClientesPessoa() {
   // Clientes ativos = contagem distinta apurada no banco (não o tamanho da lista carregada)
   const clientesAtivos = (isAll ? k.clientes_ano : empRow?.clientes_ano) || clients.length;
   const top10Receita = clients.slice(0, 10).reduce((s, c) => s + c.receita, 0);
-  const concentracao = receitaTotal > 0 ? (top10Receita / receitaTotal) * 100 : 0;
+  const concentracao = receitaAnual > 0 ? (top10Receita / receitaAnual) * 100 : 0;
   const ticketMedio = clientesAtivos > 0 ? receitaTotal / clientesAtivos : 0;
   const comContratosAtivos = clients.filter((c) => c.contratos_ativos != null && c.contratos_ativos > 0).length;
 
@@ -78,7 +84,8 @@ export default function TabClientesPessoa() {
           <span className="text-white font-medium">
             {isAll ? "Todas (consolidado)" : getEmpresaLabel(selectedEmpresa, empRow?.nm_empresa)}
           </span>
-          {" · "}dados até {snapshot.max_date || "—"}
+          {" · "}período <span className="text-white font-medium">{period.start} → {period.end}</span>
+          {" · "}base do snapshot até {snapshot.max_date || "—"}
         </div>
       </div>
 
@@ -92,12 +99,12 @@ export default function TabClientesPessoa() {
         <div className="rounded-xl border border-green-700/40 bg-green-950/30 p-4">
           <div className="flex items-center gap-2 mb-2"><TrendingUp className="w-4 h-4 text-green-400" /><span className="text-xs text-gray-400 uppercase">Receita total</span></div>
           <div className="text-2xl font-bold text-white">{fmtCur(receitaTotal)}</div>
-          <div className="text-xs text-gray-500 mt-1">Período acumulado</div>
+          <div className="text-xs text-gray-500 mt-1">{ps.hasData ? `Acumulado de ${ps.monthly.length} meses do período` : "Período acumulado"}</div>
         </div>
         <div className="rounded-xl border border-amber-700/40 bg-amber-950/30 p-4">
           <div className="flex items-center gap-2 mb-2"><Percent className="w-4 h-4 text-amber-400" /><span className="text-xs text-gray-400 uppercase">Concentração Top 10</span></div>
           <div className="text-2xl font-bold text-white">{concentracao.toFixed(1)}%</div>
-          <div className="text-xs text-gray-500 mt-1">{fmtCur(top10Receita)} no top 10</div>
+          <div className="text-xs text-gray-500 mt-1">{fmtCur(top10Receita)} no top 10 (ano civil)</div>
         </div>
         <div className="rounded-xl border border-blue-700/40 bg-blue-950/30 p-4">
           <div className="flex items-center gap-2 mb-2"><FileText className="w-4 h-4 text-blue-400" /><span className="text-xs text-gray-400 uppercase">Ticket médio/cliente</span></div>
@@ -107,7 +114,7 @@ export default function TabClientesPessoa() {
       </div>
 
       {/* Evolução mensal da receita da base ativa */}
-      <ClientesReceitaChart monthlyRevenue={snapshot.monthly_revenue} selectedEmpresa={selectedEmpresa} />
+      <ClientesReceitaChart monthlyRevenue={snapshot.monthly_revenue} selectedEmpresa={selectedEmpresa} period={period} />
 
       {/* Lista completa de clientes ativos — consulta ao vivo + exportação */}
       <ClientesAtivosTable onSelectClient={setSelectedClient} />
