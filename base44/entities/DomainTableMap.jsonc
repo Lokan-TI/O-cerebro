@@ -1,0 +1,56 @@
+{
+  "name": "DomainTableMap",
+  "type": "object",
+  "properties": {
+    "map_id": {
+      "type": "string",
+      "description": "Identificador do mapeamento (ex.: DM-001)"
+    },
+    "canonical_domain": {
+      "type": "string",
+      "description": "Dom\u00ednio can\u00f4nico (refer\u00eancia a CanonicalDomain)"
+    },
+    "physical_table": {
+      "type": "string",
+      "description": "Tabela f\u00edsica no ERP"
+    },
+    "mapping_type": {
+      "type": "string",
+      "description": "PRIMARY, SECONDARY, SHARED, CONCEPTUAL_NO_TABLE"
+    },
+    "mapping_confidence": {
+      "type": "string",
+      "description": "VERIFIED, DISCOVERED, INFERRED_HIGH, UNKNOWN"
+    },
+    "evidence": {
+      "type": "string",
+      "description": "Fonte da evid\u00eancia do mapeamento"
+    },
+    "notes": {
+      "type": "string",
+      "description": "Observa\u00e7\u00f5es"
+    }
+  },
+  "required": [
+    "map_id",
+    "canonical_domain"
+  ],
+  "rls": {
+    "read": {},
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}
