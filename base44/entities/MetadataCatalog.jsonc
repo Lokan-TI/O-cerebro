@@ -1,0 +1,85 @@
+{
+  "name": "MetadataCatalog",
+  "type": "object",
+  "properties": {
+    "system_id": {
+      "type": "string",
+      "description": "Sistema de origem (ex.: LOKAN_ERP)"
+    },
+    "table_name": {
+      "type": "string",
+      "description": "Nome f\u00edsico da tabela"
+    },
+    "column_name": {
+      "type": "string",
+      "description": "Nome f\u00edsico da coluna"
+    },
+    "ordinal_position": {
+      "type": "number",
+      "default": 0,
+      "description": "Posi\u00e7\u00e3o da coluna"
+    },
+    "caption": {
+      "type": "string",
+      "description": "Descri\u00e7\u00e3o da view v_Dicionario_Dados"
+    },
+    "data_type": {
+      "type": "string",
+      "description": "Tipo de dados"
+    },
+    "foreign_key": {
+      "type": "string",
+      "description": "Chave estrangeira declarada"
+    },
+    "domain": {
+      "type": "string",
+      "description": "FINANCIAL, FLEET, CUSTOMER, BRANCH, INVOICING, LOGISTICS, COMMERCIAL, INVENTORY, OTHER"
+    },
+    "semantic_type": {
+      "type": "string",
+      "description": "IDENTIFIER, MONEY, DATE, STATUS, DOCUMENT, QUANTITY, PERCENTAGE, DESCRIPTION, BOOLEAN, OTHER"
+    },
+    "pii_flag": {
+      "type": "boolean",
+      "default": false,
+      "description": "Coluna cont\u00e9m dado pessoal"
+    },
+    "is_core_table": {
+      "type": "boolean",
+      "default": false,
+      "description": "Tabela cr\u00edtica de neg\u00f3cio"
+    },
+    "last_discovered_at": {
+      "type": "string",
+      "description": "Timestamp da extra\u00e7\u00e3o"
+    },
+    "validation_status": {
+      "type": "string",
+      "default": "DISCOVERED",
+      "description": "DISCOVERED, VERIFIED, DEPRECATED"
+    }
+  },
+  "required": [
+    "system_id",
+    "table_name",
+    "column_name"
+  ],
+  "rls": {
+    "read": {},
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}
