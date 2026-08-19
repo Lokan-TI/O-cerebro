@@ -37,9 +37,9 @@ export default function ClientesReceitaChart({ monthlyRevenue, carMonthly, selec
 
   return (
     <div className="bg-gray-900 border border-gray-800 rounded-xl p-5">
-      <h3 className="text-white font-semibold text-sm mb-1">Evolução da receita — clientes ativos</h3>
+      <h3 className="text-white font-semibold text-sm mb-1">Evolução do faturamento bruto (NF) — clientes ativos</h3>
       <p className="text-xs text-gray-500 mb-4">
-        Receita mensal gerada pela base ativa e nº de clientes faturados no mês
+        Faturamento bruto de NF (nf.vl_faturamento) da base ativa e nº de clientes faturados no mês · não é receita por grupo Sisloc
         {hasInadimplencia ? " · inadimplência = títulos vencidos em aberto (consolidado, por mês de emissão)" : ""}
         {period ? ` · ${period.start} → ${period.end}` : ""}
       </p>
@@ -70,7 +70,7 @@ export default function ClientesReceitaChart({ monthlyRevenue, carMonthly, selec
               yAxisId="receita"
               type="monotone"
               dataKey="receita"
-              name="Receita"
+              name="Faturamento bruto (NF)"
               stroke="#22c55e"
               strokeWidth={2}
               dot={{ r: 3, fill: "#22c55e" }}

@@ -80,7 +80,7 @@ export default function TabClientesPessoa() {
     <div className="space-y-6">
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div className="text-sm text-gray-400">
-          Clientes ativos gerando receita ·{" "}
+          Clientes ativos com faturamento bruto de NF ·{" "}
           <span className="text-white font-medium">
             {isAll ? "Todas (consolidado)" : getEmpresaLabel(selectedEmpresa, empRow?.nm_empresa)}
           </span>
@@ -94,22 +94,22 @@ export default function TabClientesPessoa() {
         <div className="rounded-xl border border-purple-700/40 bg-purple-950/30 p-4">
           <div className="flex items-center gap-2 mb-2"><Users className="w-4 h-4 text-purple-400" /><span className="text-xs text-gray-400 uppercase">Clientes ativos</span></div>
           <div className="text-2xl font-bold text-white">{fmtNum(clientesAtivos)}</div>
-          <div className="text-xs text-gray-500 mt-1">Com receita no período</div>
+          <div className="text-xs text-gray-500 mt-1">Com faturamento de NF no período</div>
         </div>
         <div className="rounded-xl border border-green-700/40 bg-green-950/30 p-4">
-          <div className="flex items-center gap-2 mb-2"><TrendingUp className="w-4 h-4 text-green-400" /><span className="text-xs text-gray-400 uppercase">Receita total</span></div>
+          <div className="flex items-center gap-2 mb-2"><TrendingUp className="w-4 h-4 text-green-400" /><span className="text-xs text-gray-400 uppercase">Faturamento bruto (NF)</span></div>
           <div className="text-2xl font-bold text-white">{fmtCur(receitaTotal)}</div>
-          <div className="text-xs text-gray-500 mt-1">{ps.hasData ? `Acumulado de ${ps.monthly.length} meses do período` : "Período acumulado"}</div>
+          <div className="text-xs text-gray-500 mt-1">{ps.hasData ? `nf.vl_faturamento · ${ps.monthly.length} meses do período` : "nf.vl_faturamento · período acumulado"}</div>
         </div>
         <div className="rounded-xl border border-amber-700/40 bg-amber-950/30 p-4">
           <div className="flex items-center gap-2 mb-2"><Percent className="w-4 h-4 text-amber-400" /><span className="text-xs text-gray-400 uppercase">Concentração Top 10</span></div>
           <div className="text-2xl font-bold text-white">{concentracao.toFixed(1)}%</div>
-          <div className="text-xs text-gray-500 mt-1">{fmtCur(top10Receita)} no top 10 (ano civil)</div>
+          <div className="text-xs text-gray-500 mt-1">{fmtCur(top10Receita)} no top 10 · faturamento bruto NF (ano civil)</div>
         </div>
         <div className="rounded-xl border border-blue-700/40 bg-blue-950/30 p-4">
           <div className="flex items-center gap-2 mb-2"><FileText className="w-4 h-4 text-blue-400" /><span className="text-xs text-gray-400 uppercase">Ticket médio/cliente</span></div>
           <div className="text-2xl font-bold text-white">{fmtCur(ticketMedio)}</div>
-          <div className="text-xs text-gray-500 mt-1">Receita ÷ clientes ativos</div>
+          <div className="text-xs text-gray-500 mt-1">Faturamento bruto NF ÷ clientes ativos</div>
         </div>
       </div>
 
@@ -125,7 +125,7 @@ export default function TabClientesPessoa() {
 
       {/* Distribuição por faixa de receita */}
       <div className="bg-gray-900 border border-gray-800 rounded-xl p-5">
-        <h3 className="text-white font-semibold mb-4 text-sm">Distribuição por faixa de receita</h3>
+        <h3 className="text-white font-semibold mb-4 text-sm">Distribuição por faixa de faturamento bruto (NF)</h3>
         {(() => {
           const faixas = [
             { label: "Top 5", min: 0, max: 5 },
