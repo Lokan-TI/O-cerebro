@@ -1,0 +1,54 @@
+{
+  "name": "CanonicalEntity",
+  "type": "object",
+  "properties": {
+    "canonical_entity": {
+      "type": "string",
+      "description": "CUSTOMER, INVOICE, EQUIPMENT, BRANCH, RECEIVABLE, PAYABLE, FLEET"
+    },
+    "system_id": {
+      "type": "string",
+      "description": "Sistema de origem (ex.: LOKAN_ERP)"
+    },
+    "system_entity": {
+      "type": "string",
+      "description": "Nome f\u00edsico da tabela/coluna no ERP"
+    },
+    "mapping_type": {
+      "type": "string",
+      "description": "DIRECT, AGGREGATED, DERIVED"
+    },
+    "mapping_confidence": {
+      "type": "string",
+      "description": "VERIFIED, INFERRED_HIGH, INFERRED_LOW"
+    },
+    "validation_status": {
+      "type": "string",
+      "default": "DISCOVERED",
+      "description": "DISCOVERED, VERIFIED, UNKNOWN"
+    }
+  },
+  "required": [
+    "canonical_entity",
+    "system_id",
+    "system_entity"
+  ],
+  "rls": {
+    "read": {},
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

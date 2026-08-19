@@ -1,0 +1,53 @@
+{
+  "name": "Dimension",
+  "type": "object",
+  "properties": {
+    "dimension_id": {
+      "type": "string",
+      "description": "Identificador da dimens\u00e3o (ex.: DIM-001)"
+    },
+    "dimension_name": {
+      "type": "string"
+    },
+    "dimension_type": {
+      "type": "string",
+      "description": "TIME, ENTITY, GEOGRAPHY, CATEGORY, STATUS"
+    },
+    "physical_source_table": {
+      "type": "string"
+    },
+    "physical_source_column": {
+      "type": "string"
+    },
+    "description": {
+      "type": "string"
+    },
+    "status": {
+      "type": "string",
+      "default": "DISCOVERED",
+      "description": "VERIFIED, INFERRED, DISCOVERED"
+    }
+  },
+  "required": [
+    "dimension_id",
+    "dimension_name"
+  ],
+  "rls": {
+    "read": {},
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

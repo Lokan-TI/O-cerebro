@@ -1,0 +1,91 @@
+{
+  "name": "MetricDefinition",
+  "type": "object",
+  "properties": {
+    "metric_id": {
+      "type": "string",
+      "description": "Identificador da m\u00e9trica (ex.: METRIC-001)"
+    },
+    "metric_name": {
+      "type": "string"
+    },
+    "business_term_id": {
+      "type": "string",
+      "description": "Refer\u00eancia ao BusinessTerm (ex.: BTR-001)"
+    },
+    "domain": {
+      "type": "string",
+      "description": "FINANCIAL, COMMERCIAL, FLEET, CUSTOMER, BRANCH"
+    },
+    "formula": {
+      "type": "string"
+    },
+    "grain": {
+      "type": "string"
+    },
+    "date_field": {
+      "type": "string",
+      "description": "Campo que define a dimens\u00e3o temporal"
+    },
+    "date_role": {
+      "type": "string",
+      "description": "ISSUE_DATE, DUE_DATE, SETTLEMENT_DATE, ACQUISITION_DATE"
+    },
+    "dimensions": {
+      "type": "string",
+      "description": "Dimens\u00f5es dispon\u00edveis, separadas por v\u00edrgula"
+    },
+    "inclusions": {
+      "type": "string"
+    },
+    "exclusions": {
+      "type": "string"
+    },
+    "unit": {
+      "type": "string",
+      "description": "BRL, percent, count, days, years"
+    },
+    "physical_source_table": {
+      "type": "string"
+    },
+    "physical_source_column": {
+      "type": "string"
+    },
+    "source_of_truth": {
+      "type": "string"
+    },
+    "owner": {
+      "type": "string"
+    },
+    "status": {
+      "type": "string",
+      "description": "VERIFIED, INFERRED_HIGH, INFERRED_LOW, DERIVED, UNKNOWN"
+    },
+    "version": {
+      "type": "number",
+      "default": 1
+    }
+  },
+  "required": [
+    "metric_id",
+    "metric_name"
+  ],
+  "rls": {
+    "read": {},
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}
