@@ -30,7 +30,7 @@ export type MetricDef = {
   version: string;
   formula: string;
   grain: string;
-  unit: 'BRL' | 'count' | 'percent';
+  unit: 'BRL' | 'count' | 'percent' | 'days';
   time_dimension: string;
   business_owner: string;
   technical_owner: string;
@@ -50,7 +50,8 @@ const REVENUE_BLOCKERS = [
 export const METRICS: MetricDef[] = [
   {
     metric_id: 'MTR-001',
-    business_name: 'Receita',
+    // Glossário BTR-001 — equivalente a fat_ano do snapshot (mesma métrica).
+    business_name: 'Receita Faturada',
     version: '0.1',
     formula: 'Σ vl_faturamento sobre NF de saída válida no período',
     grain: 'invoice',
@@ -246,7 +247,7 @@ METRICS.push(
     version: '0.1',
     formula: '(Recebíveis em aberto emitidos no período / Receita do período) × dias da janela',
     grain: 'period',
-    unit: 'count',
+    unit: 'days',
     time_dimension: 'dt_emi_car / dt_emi_nf',
     business_owner: PENDING_OWNER,
     technical_owner: 'Data Platform',
