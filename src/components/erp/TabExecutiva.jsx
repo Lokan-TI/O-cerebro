@@ -3,6 +3,8 @@ import AnnualGrowthChart from "@/components/erp/AnnualGrowthChart";
 import ChurnMetricPanel from "@/components/erp/ChurnMetricPanel";
 import ChurnEmpresaRanking from "@/components/erp/ChurnEmpresaRanking";
 import { useEmpresaFilter } from "@/lib/EmpresaFilterContext";
+import { useGlobalFilter } from "@/lib/GlobalFilterContext";
+import { scopeByPeriod } from "@/lib/periodScope";
 import { getEmpresaLabel, compareEmpresa } from "@/lib/empresaLabels";
 import { fmtCur, fmtNum } from "@/lib/erpFormat";
 import {
@@ -38,6 +40,7 @@ function KpiCard({ icon: Icon, label, value, sub, color }) {
 export default function TabExecutiva() {
   const { snapshot, loading } = useErpSnapshot();
   const { selectedEmpresa, empresaList, setSelectedEmpresa } = useEmpresaFilter();
+  const { period } = useGlobalFilter();
 
   if (loading) return <div className="text-gray-500 p-8 text-center">Carregando visão executiva…</div>;
   if (!snapshot) return (
@@ -51,10 +54,14 @@ export default function TabExecutiva() {
   const isAll = selectedEmpresa == null;
   const empRow = !isAll ? byEmp.find((e) => e.cd_empresa === selectedEmpresa) : null;
 
-  const receita = isAll ? k.fat_ano : empRow?.fat_ano || 0;
-  const receitaAnt = isAll ? k.fat_ano_ant : empRow?.fat_ano_ant || 0;
-  const crescimento = isAll ? k.crescimento_ano : empRow?.crescimento_ano ?? null;
-  const ticket = isAll ? k.ticket_ano : empRow?.ticket_ano || 0;
+  // Receita, ticket e crescimento são recalculados na janela do filtro global
+  // (com a janela anterior de mesma duração como comparação). Sem série mensal
+  // no período, cai para os valores do ano civil do snapshot.
+  const ps = scopeByPeriod(snapshot, period, selectedEmpresa);
+  const receita = ps.hasData ? ps.receita : isAll ? k.fat_ano : empRow?.fat_ano || 0;
+  const receitaAnt = ps.hasData ? ps.receitaAnt : isAll ? k.fat_ano_ant : empRow?.fat_ano_ant || 0;
+  const crescimento = ps.hasData ? ps.crescimento : isAll ? k.crescimento_ano : empRow?.crescimento_ano ?? null;
+  const ticket = ps.hasData ? ps.ticket : isAll ? k.ticket_ano : empRow?.ticket_ano || 0;
   const clientes = isAll ? k.clientes_ano : empRow?.clientes_ano || 0;
   const clientesMes = isAll ? k.clientes_mes : empRow?.clientes_mes || 0;
   const receitaPorCliente = isAll ? k.receita_por_cliente : empRow?.receita_por_cliente || 0;
@@ -75,7 +82,7 @@ export default function TabExecutiva() {
 
   const MONTHS = ["", "Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
   const allMonthly = snapshot.monthly_revenue || [];
-  const monthlyRaw = isAll
+  const monthlyBase = isAll
     ? Object.values(allMonthly.reduce((acc, r) => {
         const k = `${r.ano}-${r.mes}`;
         acc[k] = acc[k] || { ano: r.ano, mes: r.mes, valor: 0, nfs: 0, clientes: 0 };
@@ -85,6 +92,7 @@ export default function TabExecutiva() {
         return acc;
       }, {})).sort((a, b) => a.ano - b.ano || a.mes - b.mes)
     : allMonthly.filter((r) => Number(r.cd_empresa) === selectedEmpresa);
+  const monthlyRaw = ps.hasData ? ps.monthly : monthlyBase;
   const monthly = monthlyRaw.map((r) => ({
     label: `${MONTHS[r.mes] || r.mes}/${String(r.ano).slice(2)}`,
     valor: r.valor,
@@ -113,17 +121,27 @@ export default function TabExecutiva() {
           <span className="text-white font-medium">
             {isAll ? "Todas (consolidado)" : getEmpresaLabel(selectedEmpresa, empRow?.nm_empresa)}
           </span>
-          {" · "}Período dos dados: até {snapshot.max_date || "—"}
+          {" · "}Período analisado:{" "}
+          <span className="text-white font-medium">{period.start} → {period.end}</span>
+          {" · "}Base do snapshot: até {snapshot.max_date || "—"}
         </div>
       </div>
+
+      {ps.hasData && ps.monthly.length < ps.months && (
+        <div className="flex items-start gap-2 rounded-lg border border-amber-800 bg-amber-900/20 px-4 py-2.5 text-amber-300 text-xs">
+          <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
+          O snapshot atual guarda {ps.monthly.length} de {ps.months} meses do período selecionado. Use “Atualizar dados”
+          para recarregar a série completa do ERP.
+        </div>
+      )}
 
       {/* Receita */}
       <div>
         <h3 className="text-purple-300 text-xs font-semibold uppercase tracking-wider mb-3">Receita</h3>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <KpiCard icon={TrendingUp} label="Receita do período" value={fmtCur(receita)} sub={`Ano anterior: ${fmtCur(receitaAnt)}`} color="green" />
-          <KpiCard icon={Percent} label="Crescimento" value={fmtPct(crescimento)} sub="vs. período anterior" color={cresColor} />
-          <KpiCard icon={FileText} label="Ticket médio" value={fmtCur(ticket)} sub="Por nota fiscal" color="blue" />
+          <KpiCard icon={TrendingUp} label="Receita do período" value={fmtCur(receita)} sub={`Período anterior: ${fmtCur(receitaAnt)}`} color="green" />
+          <KpiCard icon={Percent} label="Crescimento" value={fmtPct(crescimento)} sub={ps.hasData ? `vs. ${ps.months} meses anteriores` : "vs. período anterior"} color={cresColor} />
+          <KpiCard icon={FileText} label="Ticket médio" value={fmtCur(ticket)} sub={ps.hasData ? `${fmtNum(ps.nfs)} notas no período` : "Por nota fiscal"} color="blue" />
           <KpiCard icon={Wallet} label="Receita por cliente" value={fmtCur(receitaPorCliente)} sub={`${fmtNum(clientes)} clientes`} color="purple" />
         </div>
       </div>
@@ -193,7 +211,7 @@ export default function TabExecutiva() {
             <thead>
               <tr className="text-gray-500 text-xs uppercase border-b border-gray-800">
                 <th className="text-left py-2 px-3">Empresa</th>
-                <th className="text-right py-2 px-3">Receita (ano civil)</th>
+                <th className="text-right py-2 px-3">Receita (período)</th>
                 <th className="text-right py-2 px-3">Crescimento</th>
                 <th className="text-right py-2 px-3">Clientes (ano)</th>
                 <th className="text-right py-2 px-3">Churn 12m</th>
@@ -205,15 +223,19 @@ export default function TabExecutiva() {
             <tbody>
               {byEmp.map((e) => {
                 const active = e.cd_empresa === selectedEmpresa;
+                const pe = ps.hasData ? ps.byEmpresa.get(Number(e.cd_empresa)) : null;
+                const fat = pe ? pe.receita : e.fat_ano;
+                const cres = pe ? pe.crescimento : e.crescimento_ano;
+                const tkt = pe ? pe.ticket : e.ticket_ano;
                 const c12 = churn12Map.get(e.cd_empresa);
                 const churnRate = c12?.base_clients > 0 ? c12.churn_rate : null;
                 const retRate = c12?.base_clients > 0 ? c12.retention_rate : null;
                 return (
                   <tr key={e.cd_empresa} className={`border-b border-gray-800/50 hover:bg-gray-800/30 ${active ? "bg-purple-950/40" : ""}`}>
                     <td className="py-2 px-3 text-white font-medium">{getEmpresaLabel(e.cd_empresa, e.nm_empresa)}</td>
-                    <td className="py-2 px-3 text-right text-green-400">{fmtCur(e.fat_ano)}</td>
-                    <td className={`py-2 px-3 text-right ${e.crescimento_ano == null ? "text-gray-500" : e.crescimento_ano >= 0 ? "text-green-400" : "text-red-400"}`}>
-                      {e.crescimento_ano == null ? "—" : `${e.crescimento_ano.toFixed(1)}%`}
+                    <td className="py-2 px-3 text-right text-green-400">{fmtCur(fat)}</td>
+                    <td className={`py-2 px-3 text-right ${cres == null ? "text-gray-500" : cres >= 0 ? "text-green-400" : "text-red-400"}`}>
+                      {cres == null ? "—" : `${cres.toFixed(1)}%`}
                     </td>
                     <td className="py-2 px-3 text-right text-purple-400">{fmtNum(e.clientes_ano)}</td>
                     <td className={`py-2 px-3 text-right ${churnRate == null ? "text-gray-500" : churnRate >= 30 ? "text-red-400" : churnRate >= 15 ? "text-amber-400" : "text-green-400"}`}>
@@ -221,7 +243,7 @@ export default function TabExecutiva() {
                       {churnRate != null && <span className="text-gray-600 text-xs ml-1">({fmtNum(c12.churned_clients)})</span>}
                     </td>
                     <td className={`py-2 px-3 text-right ${retRate == null ? "text-gray-500" : "text-green-400"}`}>{fmtPct(retRate)}</td>
-                    <td className="py-2 px-3 text-right text-blue-400">{fmtCur(e.ticket_ano)}</td>
+                    <td className="py-2 px-3 text-right text-blue-400">{fmtCur(tkt)}</td>
                     <td className="py-2 px-3 text-right text-gray-300">{fmtCur(e.receita_por_cliente)}</td>
                   </tr>
                 );
@@ -233,7 +255,8 @@ export default function TabExecutiva() {
           </table>
         </div>
         <p className="text-[11px] text-gray-500 mt-3 leading-relaxed">
-          Receita, crescimento e clientes são do ano civil (jan até {snapshot.max_date || "hoje"}). Churn e retenção usam
+          Receita, crescimento e ticket seguem o período do filtro ({period.start} → {period.end}), comparados com a
+          janela anterior de mesma duração. Clientes são do ano civil do snapshot. Churn e retenção usam
           a janela móvel de 12 meses — os mesmos números da tabela "Churn por empresa" acima, para não haver duas
           leituras diferentes do mesmo indicador. Filiais sem base nos 12 meses anteriores aparecem com "—".
         </p>
@@ -247,7 +270,7 @@ export default function TabExecutiva() {
           {monthly.length > 0 && (
             <div className="bg-gray-900 border border-gray-800 rounded-xl p-5">
               <h3 className="text-white font-semibold mb-4 text-sm flex items-center gap-2">
-                <Calendar className="w-4 h-4 text-purple-400" /> Receita mensal (12 meses)
+                <Calendar className="w-4 h-4 text-purple-400" /> Receita mensal · {period.start} → {period.end}
               </h3>
               <ResponsiveContainer width="100%" height={280}>
                 <ComposedChart data={monthly}>
