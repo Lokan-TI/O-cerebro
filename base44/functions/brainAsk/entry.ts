@@ -160,7 +160,7 @@ REGRAS OBRIGATÓRIAS:
 - Se a pergunta pede qualquer número, quantidade, valor, lista, ranking ou período específico, needs_query = true SEMPRE (o resumo executivo não substitui a consulta).
 - Perguntas com várias partes: cada parte é um indicador INDEPENDENTE. Gere UMA consulta no formato SELECT (SELECT COUNT(*) ... ) AS parte1, (SELECT COUNT(*) ... ) AS parte2. É PROIBIDO ligar indicadores independentes com JOIN/LEFT JOIN (gera duplicação e números errados).
 - Para "quantos X converteram em Y", use EXISTS dentro do COUNT: SELECT COUNT(*) FROM pessoa p WHERE <filtros> AND EXISTS (SELECT 1 FROM <tabelaY> y WHERE y.<fk> = p.cd_pessoa).
-- Sem período informado na pergunta: use o ano corrente (>= '${today.slice(0, 4)}-01-01').
+- Sem período informado na pergunta: use o ano corrente (>= '${today.slice(0, 4)}-01-01'). EXCEÇÃO: perguntas de segmentação/carteira de clientes (quem nunca orçou, orçou e sumiu, alugou e devolveu, listas para planilha) NÃO levam filtro de data — considere a base inteira, salvo período explícito na pergunta.
 - Filtros de data SEMPRE sargáveis: coluna >= 'AAAA-MM-DD' AND coluna < 'AAAA-MM-DD'. NUNCA use YEAR()/MONTH() na coluna. Para dia da semana, combine o intervalo sargável com DATEPART(WEEKDAY, coluna) (domingo=1, sábado=7).
 - REGRA DURA: só é permitido usar tabelas e colunas que aparecem no DICIONÁRIO DE DADOS acima (com colunas listadas). A lista "TABELAS DISPONÍVEIS" serve apenas para você saber o que existe — se precisar de uma tabela que não está no dicionário detalhado, escolha um caminho alternativo com as tabelas do dicionário ou retorne needs_query=false explicando na nota qual tabela falta.
 - Nunca invente nomes como nf_itens, nf_item, orcamento, patrimonio: se não está no dicionário, não existe.
@@ -180,6 +180,18 @@ SEMÂNTICA CANÔNICA (obrigatória — é a mesma dos dashboards):
 - É PROIBIDO inventar tabela/coluna: use somente o que está no dicionário. Orçamento é SEMPRE mkt_orcamento e contrato é SEMPRE fich_loc — nunca use car/cap para isso.
 - CONVERSÃO de cadastro novo: cadastro virou ORÇAMENTO se existe mkt_orcamento com cd_pessoa_cli = pessoa.cd_pessoa; virou CONTRATO se existe fich_loc com cd_pessoa = pessoa.cd_pessoa; virou FATURADO se existe nf (universo válido) com cd_pessoa = pessoa.cd_pessoa. Conte com EXISTS/LEFT JOIN + COUNT(DISTINCT), nunca com TOP.
 - FINAL DE SEMANA = DATEPART(WEEKDAY, coluna) IN (1, 7) combinado ao intervalo de datas.
+
+SEGMENTOS DE CICLO DE VIDA DO CLIENTE (use EXATAMENTE estas definições quando o gestor citar esses comportamentos):
+- "Criou cadastro e não tem nenhum orçamento" = pessoa com fl_cliente_pessoa = 1 e NOT EXISTS (mkt_orcamento com cd_pessoa_cli = pessoa.cd_pessoa).
+- "Pediu orçamento e sumiu" = EXISTS mkt_orcamento (cd_pessoa_cli) e NOT EXISTS fich_loc (cd_pessoa) — orçou e nunca abriu contrato de locação.
+- "Já alugou e devolveu equipamento" = EXISTS fich_loc com cd_pessoa = pessoa.cd_pessoa e dt_enc_ficha IS NOT NULL (contrato encerrado) e NOT EXISTS fich_loc em aberto (dt_enc_ficha IS NULL) para o mesmo cliente.
+
+QUANDO O GESTOR PEDE CRUZAMENTO, LISTA, PLANILHA, RELATÓRIO OU EXCEL:
+- Retorne LINHAS DE DETALHE (um cliente por linha), não apenas contagens.
+- Inclua sempre uma coluna de classificação chamada segmento (valor textual do segmento) + colunas identificadoras: cd_pessoa, nm_pessoa, dt_cad_pessoa e as datas/valores relevantes ao segmento.
+- Vários segmentos na mesma pergunta: use UNION ALL, um SELECT por segmento, cada um com sua constante em segmento (ex.: 'Cadastro sem orçamento' AS segmento). Nunca junte segmentos com JOIN.
+- Nesses casos é permitido e recomendado usar TOP 200 por segmento com ORDER BY dt_cad_pessoa DESC.
+- Formate valores monetários como número (não texto) e datas como data — a planilha é gerada a partir dessas colunas.
 
 ${convo ? `CONVERSA ANTERIOR (esta pergunta pode ser CONTINUAÇÃO dela):
 ${convo}
@@ -266,6 +278,7 @@ PERGUNTA ORIGINAL: ${question}`,
 Responda em português do Brasil, direto e objetivo, citando números reais. Use markdown leve. Máximo ~120 palavras.
 REGRA ESSENCIAL: responda EXCLUSIVAMENTE o que foi perguntado. NÃO adicione insights extras, riscos, análises paralelas, recomendações, próximos passos, sugestões de ação nem observações não solicitadas. Sem seções adicionais. Apenas a resposta da dúvida, com os números que a sustentam.
 Lembre: nf.vl_faturamento = faturamento bruto de NF (não é "receita por grupo Sisloc").
+Se o gestor pedir planilha/Excel/CSV/relatório: a própria tela já oferece os botões de download (Excel, CSV, PDF, JSON) logo abaixo da sua resposta. NUNCA diga que não pode gerar arquivo — apenas resuma os números por segmento e diga que a planilha está disponível nos botões abaixo.
 
 ${convo ? `CONVERSA ANTERIOR (mantenha a continuidade; não repita o que já foi dito, apenas responda o novo pedido no mesmo contexto/período):\n${convo}\n` : ''}
 RESUMO EXECUTIVO (snapshot pré-calculado):
