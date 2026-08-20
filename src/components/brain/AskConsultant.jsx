@@ -18,6 +18,11 @@ export default function AskConsultant({ snapshot, sourceName }) {
     if (!text || thinking) return;
     setQuestion("");
     setThinking(true);
+    const priorTurns = history.slice(-6).map((m) => ({
+      role: m.role,
+      text: m.text,
+      sql: m.sql || "",
+    }));
     setHistory((h) => [...h, { role: "user", text }]);
     const context = buildBrainContext(snapshot, sourceName);
     // Caminho principal: backend consulta o banco ao vivo (SQL somente leitura) e responde com dados reais.
@@ -28,6 +33,7 @@ export default function AskConsultant({ snapshot, sourceName }) {
         question: text,
         source_id: sourceId,
         context: context || "",
+        conversation: priorTurns,
       });
       if (res?.data?.answer) {
         setHistory((h) => [
@@ -55,6 +61,7 @@ Responda em português do Brasil, de forma direta e objetiva, citando números r
 REGRA ESSENCIAL: responda EXCLUSIVAMENTE o que foi perguntado. NÃO adicione insights extras, riscos, benchmarks, análises paralelas, recomendações, próximos passos nem observações não solicitadas.
 Use markdown leve (negrito, listas curtas). Máximo ~120 palavras. Se os dados não cobrirem a pergunta, diga o que falta e sugira onde olhar (abas ERP: Visão Executiva, Financeiro, Retenção & Churn, Clientes).
 
+${priorTurns.length ? `CONVERSA ANTERIOR (a pergunta pode ser continuação dela — mantenha o mesmo contexto e período):\n${priorTurns.map((t) => `${t.role === "user" ? "GESTOR" : "CÉREBRO"}: ${t.text}`).join("\n")}\n` : ""}
 DADOS ATUAIS DO NEGÓCIO (snapshot pré-calculado):
 ${context || "Sem dados carregados — oriente o usuário a atualizar os dados no Dashboard ERP."}
 

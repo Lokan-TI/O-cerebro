@@ -12,13 +12,28 @@ const MAX_ROWS_FOR_ANSWER = 150;
 const MAX_ROWS_FOR_REPORT = 5000;
 
 // Passo 0 — o Cérebro escolhe, no índice de TODAS as tabelas conectadas, quais precisa consultar.
-async function selectTables(base44: any, question: string, index: any[]): Promise<string[]> {
+// Histórico curto da conversa → texto para o LLM entender perguntas de continuidade ("e desses, quantos...").
+function renderConversation(turns: any[]): string {
+  if (!Array.isArray(turns) || turns.length === 0) return '';
+  return turns
+    .slice(-6)
+    .map((t: any) => {
+      const who = t?.role === 'user' ? 'GESTOR' : 'CÉREBRO';
+      const txt = String(t?.text || '').slice(0, 900);
+      const sql = t?.sql ? `\n  (SQL usado: ${String(t.sql).slice(0, 900)})` : '';
+      return `${who}: ${txt}${sql}`;
+    })
+    .join('\n');
+}
+
+async function selectTables(base44: any, question: string, index: any[], convo = ''): Promise<string[]> {
   if (index.length === 0) return [];
   try {
     const pick = await base44.asServiceRole.integrations.Core.InvokeLLM({
       prompt: `Banco do ERP Sisloc (SQL Server). Lista COMPLETA de tabelas disponíveis:
 ${renderTableIndex(index)}
 
+${convo ? `CONVERSA ANTERIOR (a pergunta pode ser continuação dela):\n${convo}\n` : ''}
 Pergunta do gestor: ${question}
 
 Liste de 1 a 10 nomes EXATOS de tabelas dessa lista necessários para responder (inclua tabelas de apoio para cruzamento de dados, ex.: cadastros, grupos, filiais). Não invente nomes.`,
@@ -84,7 +99,8 @@ Deno.serve(async (req) => {
     }
 
     const [tableIndex, lessons] = await Promise.all([loadTableIndex(base44), loadLessons(base44)]);
-    const chosenTables = await selectTables(base44, question, tableIndex);
+    const convo = renderConversation(body?.conversation);
+    const chosenTables = await selectTables(base44, question, tableIndex, convo);
     let schemaBrief = await loadColumnsFor(base44, chosenTables);
     const today = new Date().toISOString().slice(0, 10);
 
@@ -129,6 +145,11 @@ SEMÂNTICA CANÔNICA (obrigatória — é a mesma dos dashboards):
 - CONVERSÃO de cadastro novo: cadastro virou ORÇAMENTO se existe mkt_orcamento com cd_pessoa_cli = pessoa.cd_pessoa; virou CONTRATO se existe fich_loc com cd_pessoa = pessoa.cd_pessoa; virou FATURADO se existe nf (universo válido) com cd_pessoa = pessoa.cd_pessoa. Conte com EXISTS/LEFT JOIN + COUNT(DISTINCT), nunca com TOP.
 - FINAL DE SEMANA = DATEPART(WEEKDAY, coluna) IN (1, 7) combinado ao intervalo de datas.
 
+${convo ? `CONVERSA ANTERIOR (esta pergunta pode ser CONTINUAÇÃO dela):
+${convo}
+
+REGRA DE CONTEXTO: se a pergunta atual for de continuidade ("e desses", "detalhe isso", "abre por empresa", "no mesmo período", "com mais profundidade"), REAPROVEITE os filtros, período, universo e SQL da conversa anterior e apenas aplique o novo recorte pedido. Nunca reinicie do zero nem troque o período por conta própria.
+` : ''}
 PERGUNTA DO GESTOR: ${question}`,
       response_json_schema: {
         type: 'object',
@@ -208,6 +229,7 @@ Responda em português do Brasil, direto e objetivo, citando números reais. Use
 REGRA ESSENCIAL: responda EXCLUSIVAMENTE o que foi perguntado. NÃO adicione insights extras, riscos, análises paralelas, recomendações, próximos passos, sugestões de ação nem observações não solicitadas. Sem seções adicionais. Apenas a resposta da dúvida, com os números que a sustentam.
 Lembre: nf.vl_faturamento = faturamento bruto de NF (não é "receita por grupo Sisloc").
 
+${convo ? `CONVERSA ANTERIOR (mantenha a continuidade; não repita o que já foi dito, apenas responda o novo pedido no mesmo contexto/período):\n${convo}\n` : ''}
 RESUMO EXECUTIVO (snapshot pré-calculado):
 ${context || '(sem snapshot carregado)'}
 
