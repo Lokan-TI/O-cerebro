@@ -26,6 +26,37 @@ function renderConversation(turns: any[]): string {
     .join('\n');
 }
 
+// Passo -1 — resolve referências ("desses", "esse valor", "detalhe isso") transformando a pergunta
+// em uma pergunta autocontida. Se o pedido for só de apresentação/recorte do MESMO dado, reaproveita o SQL anterior.
+async function resolveFollowUp(base44: any, question: string, convo: string, lastSql: string) {
+  if (!convo) return { question, reuseSql: '' };
+  try {
+    const r = await base44.asServiceRole.integrations.Core.InvokeLLM({
+      prompt: `CONVERSA ANTERIOR entre um gestor e um analista de dados:
+${convo}
+
+NOVA MENSAGEM DO GESTOR: ${question}
+
+Tarefas:
+1) Reescreva a nova mensagem como uma pergunta AUTOCONTIDA em português, substituindo todos os pronomes e referências ("desses", "isso", "esse valor", "no mesmo período") pelos filtros, período, universo e entidades explícitos da conversa anterior. Se a mensagem já for autocontida, repita-a igual.
+2) same_data = true se o gestor apenas quer o MESMO conjunto de dados de outra forma (formatação, ordenação, mais colunas de apresentação, exportar) sem alterar filtros nem o cálculo. Caso contrário, false.`,
+      response_json_schema: {
+        type: 'object',
+        properties: {
+          standalone_question: { type: 'string' },
+          same_data: { type: 'boolean' },
+        },
+      },
+    });
+    return {
+      question: (r?.standalone_question || '').trim() || question,
+      reuseSql: r?.same_data && lastSql ? lastSql : '',
+    };
+  } catch {
+    return { question, reuseSql: '' };
+  }
+}
+
 async function selectTables(base44: any, question: string, index: any[], convo = ''): Promise<string[]> {
   if (index.length === 0) return [];
   try {
@@ -100,7 +131,12 @@ Deno.serve(async (req) => {
 
     const [tableIndex, lessons] = await Promise.all([loadTableIndex(base44), loadLessons(base44)]);
     const convo = renderConversation(body?.conversation);
-    const chosenTables = await selectTables(base44, question, tableIndex, convo);
+    const lastSql = [...(Array.isArray(body?.conversation) ? body.conversation : [])]
+      .reverse()
+      .find((t: any) => t?.sql)?.sql || '';
+    const resolved = await resolveFollowUp(base44, question, convo, lastSql);
+    const effectiveQuestion = resolved.question;
+    const chosenTables = await selectTables(base44, effectiveQuestion, tableIndex, convo);
     let schemaBrief = await loadColumnsFor(base44, chosenTables);
     const today = new Date().toISOString().slice(0, 10);
 
@@ -149,8 +185,9 @@ ${convo ? `CONVERSA ANTERIOR (esta pergunta pode ser CONTINUAÇÃO dela):
 ${convo}
 
 REGRA DE CONTEXTO: se a pergunta atual for de continuidade ("e desses", "detalhe isso", "abre por empresa", "no mesmo período", "com mais profundidade"), REAPROVEITE os filtros, período, universo e SQL da conversa anterior e apenas aplique o novo recorte pedido. Nunca reinicie do zero nem troque o período por conta própria.
-` : ''}
-PERGUNTA DO GESTOR: ${question}`,
+${lastSql ? `SQL DA ÚLTIMA RESPOSTA (base para continuidade):\n${lastSql}\n` : ''}` : ''}
+MENSAGEM ORIGINAL DO GESTOR: ${question}
+PERGUNTA (já resolvida com o contexto da conversa — responda a esta): ${effectiveQuestion}`,
       response_json_schema: {
         type: 'object',
         properties: {
@@ -166,8 +203,9 @@ PERGUNTA DO GESTOR: ${question}`,
     let truncated = false;
     let queryError: string | null = null;
 
-    if (plan?.needs_query && plan?.sql) {
-      let candidate = plan.sql;
+    const sqlToRun = resolved.reuseSql || (plan?.needs_query ? plan?.sql : '');
+    if (sqlToRun) {
+      let candidate = sqlToRun;
       for (let attempt = 0; attempt < 3; attempt++) {
         try {
           executedSql = assertReadOnlyQuery(candidate);
@@ -237,9 +275,10 @@ ${rows.length > 0 ? `RESULTADO DA CONSULTA AO BANCO (ao vivo, ${rows.length} lin
 SQL: ${executedSql}
 DADOS: ${JSON.stringify(rows).slice(0, 12000)}` : ''}
 ${queryError ? `OBS: a consulta ao banco falhou (${queryError}). Responda com o que o resumo permite e diga o que não foi possível apurar.` : ''}
-${!plan?.needs_query ? 'OBS: pergunta respondível sem consulta ao banco.' : ''}
+${!sqlToRun ? 'OBS: pergunta respondível sem consulta ao banco.' : ''}
 
-PERGUNTA DO GESTOR: ${question}`,
+MENSAGEM ORIGINAL DO GESTOR: ${question}
+${effectiveQuestion !== question ? `INTERPRETAÇÃO COM O CONTEXTO DA CONVERSA (responda a esta): ${effectiveQuestion}` : ''}`,
     });
 
     return Response.json({
