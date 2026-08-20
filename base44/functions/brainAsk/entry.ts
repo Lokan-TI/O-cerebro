@@ -176,8 +176,8 @@ PERGUNTA ORIGINAL: ${question}`,
     // Passo 2 — resposta executiva com os dados reais
     const answer = await base44.asServiceRole.integrations.Core.InvokeLLM({
       prompt: `Você é o "Cérebro" — consultor executivo sênior de uma locadora de equipamentos (ERP Sisloc).
-Responda em português do Brasil, direto e prático, citando números reais. Use markdown leve. Máximo ~250 palavras.
-Estruture: leitura rápida → insights com números → recomendação clara.
+Responda em português do Brasil, direto e objetivo, citando números reais. Use markdown leve. Máximo ~120 palavras.
+REGRA ESSENCIAL: responda EXCLUSIVAMENTE o que foi perguntado. NÃO adicione insights extras, riscos, análises paralelas, recomendações, próximos passos, sugestões de ação nem observações não solicitadas. Sem seções adicionais. Apenas a resposta da dúvida, com os números que a sustentam.
 Lembre: nf.vl_faturamento = faturamento bruto de NF (não é "receita por grupo Sisloc").
 
 RESUMO EXECUTIVO (snapshot pré-calculado):

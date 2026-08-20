@@ -2,7 +2,6 @@ import { useState } from "react";
 import { base44 } from "@/api/base44Client";
 import ReactMarkdown from "react-markdown";
 import { buildBrainContext, SUGGESTED_QUESTIONS } from "@/components/brain/buildBrainContext";
-import { RENTAL_INDUSTRY_BRIEF } from "@/lib/rentalIndustry";
 import { useErpSource, ALL_SOURCES_ID } from "@/lib/ErpSourceContext";
 import { BrainCircuit, Send, Loader2, Sparkles, User, Database } from "lucide-react";
 
@@ -39,11 +38,9 @@ export default function AskConsultant({ snapshot, sourceName }) {
     try {
       const answer = await base44.integrations.Core.InvokeLLM({
         prompt: `Você é o "Cérebro" — um consultor executivo sênior de uma locadora de equipamentos que usa o ERP Sisloc.
-Responda em português do Brasil, de forma direta e prática, citando números reais dos dados abaixo.
-Estruture: leitura rápida do cenário → 2 a 4 insights com números → recomendação de ação clara.
-Compare sempre com as práticas e benchmarks do setor abaixo quando fizer sentido.
-${RENTAL_INDUSTRY_BRIEF}
-Use markdown leve (negrito, listas curtas). Máximo ~250 palavras. Se os dados não cobrirem a pergunta, diga o que falta e sugira onde olhar (abas ERP: Visão Executiva, Financeiro, Retenção & Churn, Clientes).
+Responda em português do Brasil, de forma direta e objetiva, citando números reais dos dados abaixo.
+REGRA ESSENCIAL: responda EXCLUSIVAMENTE o que foi perguntado. NÃO adicione insights extras, riscos, benchmarks, análises paralelas, recomendações, próximos passos nem observações não solicitadas.
+Use markdown leve (negrito, listas curtas). Máximo ~120 palavras. Se os dados não cobrirem a pergunta, diga o que falta e sugira onde olhar (abas ERP: Visão Executiva, Financeiro, Retenção & Churn, Clientes).
 
 DADOS ATUAIS DO NEGÓCIO (snapshot pré-calculado):
 ${context || "Sem dados carregados — oriente o usuário a atualizar os dados no Dashboard ERP."}
