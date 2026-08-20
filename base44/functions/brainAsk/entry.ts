@@ -2,62 +2,34 @@ import { createClientFromRequest } from 'npm:@base44/sdk@0.8.40';
 import { execRead } from '../../shared/erpConnection.ts';
 import { assertReadOnlyQuery, SqlGuardError } from '../../shared/sqlGuard.ts';
 import { INVOICE_UNIVERSE, INVOICE_DATE_FIELD } from '../../shared/metricRegistry.ts';
+import { loadTableIndex, renderTableIndex, loadColumnsFor } from '../../shared/brainSchema.ts';
+import { loadLessons, saveLesson, hasLesson } from '../../shared/brainMemory.ts';
 
 // "Cérebro" — pergunta em linguagem natural → SQL somente leitura → resposta com dados reais.
 // Reusa o SqlGuard (P0-02) e a conexão isolada por fonte. Toda consulta é auditada.
 
 const MAX_ROWS_FOR_ANSWER = 150;
 
-// Fallback mínimo caso o MetadataCatalog esteja vazio.
-const FALLBACK_SCHEMA = `
-nf (notas fiscais): cd_empresa, cd_pessoa, dt_emissao, vl_faturamento
-pessoa (clientes/fornecedores): cd_pessoa, nm_pessoa
-car (contas a receber): consultar dicionário antes de usar
-cap (contas a pagar): consultar dicionário antes de usar
-fich_loc (contratos de locação): cd_pessoa
-patrimonio (ativos/equipamentos): consultar dicionário antes de usar`;
-
-// Tabelas sempre incluídas no dicionário do Cérebro, mesmo se não marcadas como core.
-const KEY_TABLES = ['fich_loc', 'mkt_orcamento', 'nf', 'pessoa', 'car', 'cap', 'patrimon'];
-
-async function buildSchemaBrief(base44: any): Promise<string> {
+// Passo 0 — o Cérebro escolhe, no índice de TODAS as tabelas conectadas, quais precisa consultar.
+async function selectTables(base44: any, question: string, index: any[]): Promise<string[]> {
+  if (index.length === 0) return [];
   try {
-    const core = await base44.asServiceRole.entities.MetadataCatalog.filter(
-      { is_core_table: true },
-      'table_name',
-      2000,
-    );
-    const extraLists = await Promise.all(
-      KEY_TABLES.map((t) =>
-        base44.asServiceRole.entities.MetadataCatalog.filter({ table_name: t }, 'ordinal_position', 300),
-      ),
-    );
-    const rows = [...(core || []), ...extraLists.flat()];
-    if (rows.length === 0) return FALLBACK_SCHEMA;
-    const byTable: Record<string, string[]> = {};
-    const seen = new Set<string>();
-    for (const r of rows) {
-      const key = `${r.table_name}.${r.column_name}`;
-      if (seen.has(key)) continue;
-      seen.add(key);
-      const t = r.table_name;
-      if (!byTable[t]) byTable[t] = [];
-      if (byTable[t].length < 45) {
-        byTable[t].push(r.caption ? `${r.column_name} (${String(r.caption).slice(0, 60)})` : r.column_name);
-      }
-    }
-    let brief = '';
-    const ordered = Object.entries(byTable).sort(
-      (a, b) => (KEY_TABLES.includes(b[0]) ? 1 : 0) - (KEY_TABLES.includes(a[0]) ? 1 : 0),
-    );
-    for (const [table, cols] of ordered) {
-      const line = `${table}: ${cols.join(', ')}\n`;
-      if (brief.length + line.length > 14000) break;
-      brief += line;
-    }
-    return brief || FALLBACK_SCHEMA;
+    const pick = await base44.asServiceRole.integrations.Core.InvokeLLM({
+      prompt: `Banco do ERP Sisloc (SQL Server). Lista COMPLETA de tabelas disponíveis:
+${renderTableIndex(index)}
+
+Pergunta do gestor: ${question}
+
+Liste de 1 a 10 nomes EXATOS de tabelas dessa lista necessários para responder (inclua tabelas de apoio para cruzamento de dados, ex.: cadastros, grupos, filiais). Não invente nomes.`,
+      response_json_schema: {
+        type: 'object',
+        properties: { tables: { type: 'array', items: { type: 'string' } } },
+      },
+    });
+    const valid = new Set(index.map((t: any) => t.table_name));
+    return (pick?.tables || []).filter((t: string) => valid.has(t)).slice(0, 10);
   } catch {
-    return FALLBACK_SCHEMA;
+    return [];
   }
 }
 
@@ -110,7 +82,9 @@ Deno.serve(async (req) => {
       source = { credential_reference: 'env' };
     }
 
-    const schemaBrief = await buildSchemaBrief(base44);
+    const [tableIndex, lessons] = await Promise.all([loadTableIndex(base44), loadLessons(base44)]);
+    const chosenTables = await selectTables(base44, question, tableIndex);
+    let schemaBrief = await loadColumnsFor(base44, chosenTables);
     const today = new Date().toISOString().slice(0, 10);
 
     // Passo 1 — gerar SQL (ou decidir que o snapshot basta)
@@ -118,8 +92,13 @@ Deno.serve(async (req) => {
       prompt: `Você gera consultas SQL Server (T-SQL) somente leitura para o ERP Sisloc de uma locadora de equipamentos.
 Data de hoje: ${today}.
 
-DICIONÁRIO DE DADOS (tabela: colunas):
+DICIONÁRIO DE DADOS (tabela: colunas [tipo] (descrição)):
 ${schemaBrief}
+
+TABELAS DISPONÍVEIS NO BANCO (use apenas o dicionário acima; se faltar tabela, diga na nota):
+${renderTableIndex(tableIndex, 400)}
+
+${lessons || '(sem aprendizado registrado ainda)'}
 
 REGRAS OBRIGATÓRIAS:
 - Uma única instrução SELECT (pode usar WITH). Nunca use INSERT/UPDATE/DELETE/EXEC/DECLARE/SET/INTO/variáveis/tabelas temporárias/comentários.
@@ -130,7 +109,8 @@ REGRAS OBRIGATÓRIAS:
 - Para "quantos X converteram em Y", use EXISTS dentro do COUNT: SELECT COUNT(*) FROM pessoa p WHERE <filtros> AND EXISTS (SELECT 1 FROM <tabelaY> y WHERE y.<fk> = p.cd_pessoa).
 - Sem período informado na pergunta: use o ano corrente (>= '${today.slice(0, 4)}-01-01').
 - Filtros de data SEMPRE sargáveis: coluna >= 'AAAA-MM-DD' AND coluna < 'AAAA-MM-DD'. NUNCA use YEAR()/MONTH() na coluna. Para dia da semana, combine o intervalo sargável com DATEPART(WEEKDAY, coluna) (domingo=1, sábado=7).
-- Use apenas tabelas e colunas do dicionário acima ou da semântica canônica abaixo.
+- REGRA DURA: só é permitido usar tabelas e colunas que aparecem no DICIONÁRIO DE DADOS acima (com colunas listadas). A lista "TABELAS DISPONÍVEIS" serve apenas para você saber o que existe — se precisar de uma tabela que não está no dicionário detalhado, escolha um caminho alternativo com as tabelas do dicionário ou retorne needs_query=false explicando na nota qual tabela falta.
+- Nunca invente nomes como nf_itens, nf_item, orcamento, patrimonio: se não está no dicionário, não existe.
 - Se a pergunta não precisa do banco (é conceitual ou já respondível pelo resumo executivo), retorne needs_query=false.
 
 SEMÂNTICA CANÔNICA (obrigatória — é a mesma dos dashboards):
@@ -174,12 +154,28 @@ PERGUNTA DO GESTOR: ${question}`,
           rows = truncated ? all.slice(0, MAX_ROWS_FOR_ANSWER) : all;
           queryError = null;
           await audit({ outcome: 'allowed', row_count: rows.length, truncated });
+          if (!(await hasLesson(base44, question))) {
+            await saveLesson(base44, {
+              question,
+              sql: executedSql,
+              tables: chosenTables.join(', '),
+              kind: 'success',
+              source_id: sourceId || '',
+              weight: 1,
+            });
+          }
           break;
         } catch (e) {
           queryError = e?.message || String(e);
           if (e instanceof SqlGuardError || attempt === 2) {
             await audit({ outcome: 'error', block_reason: queryError });
             break;
+          }
+          // Se faltou uma tabela que existe no banco, carrega o dicionário dela e tenta de novo.
+          const missing = /Invalid object name '([^']+)'/.exec(queryError || '')?.[1]?.replace(/^dbo\./i, '');
+          if (missing && tableIndex.some((t: any) => t.table_name === missing) && !chosenTables.includes(missing)) {
+            chosenTables.push(missing);
+            schemaBrief = await loadColumnsFor(base44, chosenTables);
           }
           // Uma retentativa: pede correção ao LLM com o erro real.
           const fix = await base44.asServiceRole.integrations.Core.InvokeLLM({
@@ -224,6 +220,7 @@ PERGUNTA DO GESTOR: ${question}`,
     return Response.json({
       answer,
       sql: rows.length > 0 ? executedSql : null,
+      tables: chosenTables,
       rowCount: rows.length,
       truncated,
       queryError,

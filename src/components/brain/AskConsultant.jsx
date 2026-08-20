@@ -3,6 +3,7 @@ import { base44 } from "@/api/base44Client";
 import ReactMarkdown from "react-markdown";
 import { buildBrainContext, SUGGESTED_QUESTIONS } from "@/components/brain/buildBrainContext";
 import { useErpSource, ALL_SOURCES_ID } from "@/lib/ErpSourceContext";
+import BrainTeachBox from "@/components/brain/BrainTeachBox";
 import { BrainCircuit, Send, Loader2, Sparkles, User, Database } from "lucide-react";
 
 export default function AskConsultant({ snapshot, sourceName }) {
@@ -28,7 +29,17 @@ export default function AskConsultant({ snapshot, sourceName }) {
         context: context || "",
       });
       if (res?.data?.answer) {
-        setHistory((h) => [...h, { role: "brain", text: res.data.answer, queried: !!res.data.sql }]);
+        setHistory((h) => [
+          ...h,
+          {
+            role: "brain",
+            text: res.data.answer,
+            queried: !!res.data.sql,
+            sql: res.data.sql || "",
+            tables: res.data.tables || [],
+            question: text,
+          },
+        ]);
         setThinking(false);
         return;
       }
@@ -76,9 +87,19 @@ PERGUNTA DO GESTOR: ${text}`,
                   <div className="prose prose-invert prose-sm max-w-none [&_strong]:text-purple-300 [&_li]:my-0.5">
                     <ReactMarkdown>{m.text}</ReactMarkdown>
                     {m.queried && (
-                      <div className="not-prose flex items-center gap-1.5 mt-2 pt-2 border-t border-gray-800 text-[11px] text-gray-500">
-                        <Database className="w-3 h-3 text-purple-500" /> Consultado ao vivo no banco do ERP
+                      <div className="not-prose mt-2 pt-2 border-t border-gray-800">
+                        <div className="flex items-center gap-1.5 text-[11px] text-gray-500">
+                          <Database className="w-3 h-3 text-purple-500" /> Consultado ao vivo no banco do ERP
+                          {m.tables?.length > 0 && <span className="text-gray-600">· {m.tables.join(", ")}</span>}
+                        </div>
                       </div>
+                    )}
+                    {m.question && (
+                      <BrainTeachBox
+                        question={m.question}
+                        sql={m.sql}
+                        sourceId={selectedSource?.id !== ALL_SOURCES_ID ? selectedSource?.id : null}
+                      />
                     )}
                   </div>
                 ) : m.text}
