@@ -4,6 +4,7 @@ import ReactMarkdown from "react-markdown";
 import { buildBrainContext, SUGGESTED_QUESTIONS } from "@/components/brain/buildBrainContext";
 import { useErpSource, ALL_SOURCES_ID } from "@/lib/ErpSourceContext";
 import BrainTeachBox from "@/components/brain/BrainTeachBox";
+import BrainReportDownload from "@/components/brain/BrainReportDownload";
 import { BrainCircuit, Send, Loader2, Sparkles, User, Database } from "lucide-react";
 
 export default function AskConsultant({ snapshot, sourceName }) {
@@ -37,6 +38,7 @@ export default function AskConsultant({ snapshot, sourceName }) {
             queried: !!res.data.sql,
             sql: res.data.sql || "",
             tables: res.data.tables || [],
+            rows: res.data.rows || [],
             question: text,
           },
         ]);
@@ -94,6 +96,7 @@ PERGUNTA DO GESTOR: ${text}`,
                         </div>
                       </div>
                     )}
+                    <BrainReportDownload rows={m.rows} question={m.question} answer={m.text} />
                     {m.question && (
                       <BrainTeachBox
                         question={m.question}

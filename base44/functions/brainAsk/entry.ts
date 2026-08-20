@@ -9,6 +9,7 @@ import { loadLessons, saveLesson, hasLesson } from '../../shared/brainMemory.ts'
 // Reusa o SqlGuard (P0-02) e a conexão isolada por fonte. Toda consulta é auditada.
 
 const MAX_ROWS_FOR_ANSWER = 150;
+const MAX_ROWS_FOR_REPORT = 5000;
 
 // Passo 0 — o Cérebro escolhe, no índice de TODAS as tabelas conectadas, quais precisa consultar.
 async function selectTables(base44: any, question: string, index: any[]): Promise<string[]> {
@@ -140,6 +141,7 @@ PERGUNTA DO GESTOR: ${question}`,
     });
 
     let rows: any[] = [];
+    let reportRows: any[] = [];
     let truncated = false;
     let queryError: string | null = null;
 
@@ -152,6 +154,7 @@ PERGUNTA DO GESTOR: ${question}`,
           const all = result.recordset || [];
           truncated = all.length > MAX_ROWS_FOR_ANSWER;
           rows = truncated ? all.slice(0, MAX_ROWS_FOR_ANSWER) : all;
+          reportRows = all.slice(0, MAX_ROWS_FOR_REPORT);
           queryError = null;
           await audit({ outcome: 'allowed', row_count: rows.length, truncated });
           if (!(await hasLesson(base44, question))) {
@@ -221,7 +224,9 @@ PERGUNTA DO GESTOR: ${question}`,
       answer,
       sql: rows.length > 0 ? executedSql : null,
       tables: chosenTables,
+      rows: reportRows,
       rowCount: rows.length,
+      reportRowCount: reportRows.length,
       truncated,
       queryError,
       duration_ms: Date.now() - started,
