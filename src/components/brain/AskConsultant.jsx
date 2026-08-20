@@ -3,9 +3,11 @@ import { base44 } from "@/api/base44Client";
 import ReactMarkdown from "react-markdown";
 import { buildBrainContext, SUGGESTED_QUESTIONS } from "@/components/brain/buildBrainContext";
 import { RENTAL_INDUSTRY_BRIEF } from "@/lib/rentalIndustry";
-import { BrainCircuit, Send, Loader2, Sparkles, User } from "lucide-react";
+import { useErpSource, ALL_SOURCES_ID } from "@/lib/ErpSourceContext";
+import { BrainCircuit, Send, Loader2, Sparkles, User, Database } from "lucide-react";
 
 export default function AskConsultant({ snapshot, sourceName }) {
+  const { selectedSource } = useErpSource() || {};
   const [question, setQuestion] = useState("");
   const [history, setHistory] = useState([]);
   const [thinking, setThinking] = useState(false);
@@ -17,6 +19,23 @@ export default function AskConsultant({ snapshot, sourceName }) {
     setThinking(true);
     setHistory((h) => [...h, { role: "user", text }]);
     const context = buildBrainContext(snapshot, sourceName);
+    // Caminho principal: backend consulta o banco ao vivo (SQL somente leitura) e responde com dados reais.
+    try {
+      const sourceId =
+        selectedSource?.id && selectedSource.id !== ALL_SOURCES_ID ? selectedSource.id : null;
+      const res = await base44.functions.invoke("brainAsk", {
+        question: text,
+        source_id: sourceId,
+        context: context || "",
+      });
+      if (res?.data?.answer) {
+        setHistory((h) => [...h, { role: "brain", text: res.data.answer, queried: !!res.data.sql }]);
+        setThinking(false);
+        return;
+      }
+    } catch {
+      // cai para o modo somente-snapshot abaixo
+    }
     try {
       const answer = await base44.integrations.Core.InvokeLLM({
         prompt: `Você é o "Cérebro" — um consultor executivo sênior de uma locadora de equipamentos que usa o ERP Sisloc.
@@ -59,6 +78,11 @@ PERGUNTA DO GESTOR: ${text}`,
                 {m.role === "brain" ? (
                   <div className="prose prose-invert prose-sm max-w-none [&_strong]:text-purple-300 [&_li]:my-0.5">
                     <ReactMarkdown>{m.text}</ReactMarkdown>
+                    {m.queried && (
+                      <div className="not-prose flex items-center gap-1.5 mt-2 pt-2 border-t border-gray-800 text-[11px] text-gray-500">
+                        <Database className="w-3 h-3 text-purple-500" /> Consultado ao vivo no banco do ERP
+                      </div>
+                    )}
                   </div>
                 ) : m.text}
               </div>

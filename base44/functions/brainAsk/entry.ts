@@ -1,6 +1,7 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.40';
 import { execRead } from '../../shared/erpConnection.ts';
 import { assertReadOnlyQuery, SqlGuardError } from '../../shared/sqlGuard.ts';
+import { INVOICE_UNIVERSE, INVOICE_DATE_FIELD } from '../../shared/metricRegistry.ts';
 
 // "Cérebro" — pergunta em linguagem natural → SQL somente leitura → resposta com dados reais.
 // Reusa o SqlGuard (P0-02) e a conexão isolada por fonte. Toda consulta é auditada.
@@ -109,8 +110,14 @@ REGRAS OBRIGATÓRIAS:
 - Sempre limite com TOP (máx. TOP 200).
 - Filtros de data SEMPRE sargáveis: coluna >= 'AAAA-MM-DD' AND coluna < 'AAAA-MM-DD'. NUNCA use YEAR()/MONTH() na coluna.
 - Use apenas tabelas e colunas do dicionário acima.
-- Valores monetários: nf.vl_faturamento é FATURAMENTO BRUTO de NF (não é receita por grupo).
 - Se a pergunta não precisa do banco (é conceitual ou já respondível pelo resumo executivo), retorne needs_query=false.
+
+SEMÂNTICA CANÔNICA (obrigatória — é a mesma dos dashboards):
+- Notas fiscais / faturamento → tabela nf. Valor = vl_faturamento (FATURAMENTO BRUTO de NF, não é "receita por grupo"). Data = ${INVOICE_DATE_FIELD}.
+- Universo válido de NF de saída: ${INVOICE_UNIVERSE}. Aplique SEMPRE este filtro ao contar/somar notas.
+- Cliente da nota = nf.cd_pessoa; nome em pessoa.nm_pessoa (JOIN por cd_pessoa). Empresa/filial = nf.cd_empresa.
+- Contas a receber → car: valor vl_pre_car, emissão dt_emi_car, vencimento dt_ven_car, baixa dt_bai_car, cancelado dt_cancelamento IS NOT NULL, empresa cd_empresa_gestora. Vencido = dt_bai_car IS NULL AND dt_ven_car < GETDATE().
+- Contas a pagar → cap. Contratos de locação → fich_loc. Ativos → patrimonio.
 
 PERGUNTA DO GESTOR: ${question}`,
       response_json_schema: {
