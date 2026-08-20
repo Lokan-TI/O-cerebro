@@ -108,8 +108,8 @@ ${schemaBrief}
 REGRAS OBRIGATÓRIAS:
 - Uma única instrução SELECT (pode usar WITH). Nunca use INSERT/UPDATE/DELETE/EXEC/DECLARE/SET/INTO/variáveis/tabelas temporárias/comentários.
 - Sempre limite com TOP (máx. TOP 200).
-- Filtros de data SEMPRE sargáveis: coluna >= 'AAAA-MM-DD' AND coluna < 'AAAA-MM-DD'. NUNCA use YEAR()/MONTH() na coluna.
-- Use apenas tabelas e colunas do dicionário acima.
+- Filtros de data SEMPRE sargáveis: coluna >= 'AAAA-MM-DD' AND coluna < 'AAAA-MM-DD'. NUNCA use YEAR()/MONTH() na coluna. Para dia da semana, combine o intervalo sargável com DATEPART(WEEKDAY, coluna) (domingo=1, sábado=7).
+- Use apenas tabelas e colunas do dicionário acima ou da semântica canônica abaixo.
 - Se a pergunta não precisa do banco (é conceitual ou já respondível pelo resumo executivo), retorne needs_query=false.
 
 SEMÂNTICA CANÔNICA (obrigatória — é a mesma dos dashboards):
@@ -117,7 +117,10 @@ SEMÂNTICA CANÔNICA (obrigatória — é a mesma dos dashboards):
 - Universo válido de NF de saída: ${INVOICE_UNIVERSE}. Aplique SEMPRE este filtro ao contar/somar notas.
 - Cliente da nota = nf.cd_pessoa; nome em pessoa.nm_pessoa (JOIN por cd_pessoa). Empresa/filial = nf.cd_empresa.
 - Contas a receber → car: valor vl_pre_car, emissão dt_emi_car, vencimento dt_ven_car, baixa dt_bai_car, cancelado dt_cancelamento IS NOT NULL, empresa cd_empresa_gestora. Vencido = dt_bai_car IS NULL AND dt_ven_car < GETDATE().
-- Contas a pagar → cap. Contratos de locação → fich_loc. Ativos → patrimonio.
+- Contas a pagar → cap. Ativos → patrimonio.
+- ORÇAMENTOS comerciais → tabela mkt_orcamento: data do orçamento = dt_orcamento (criação; alternativa dt_emissao), cliente = cd_pessoa_cli (nome via JOIN pessoa por cd_pessoa), empresa = cd_empresa, aprovação = dt_aprovacao, cancelado = dt_cancelamento IS NOT NULL, número = numero.
+- CONTRATOS de locação → tabela fich_loc: abertura do contrato = dt_pedido, cliente = cd_pessoa (nome via JOIN pessoa), empresa = cd_empresa, período = dt_fai_ficha/dt_faf_ficha, encerrado = dt_enc_ficha IS NOT NULL, controle = cd_controle.
+- "Gerados/criados em X" para orçamentos usa dt_orcamento; para contratos usa dt_pedido. NUNCA use lad_ins_date ou fl_remessa para isso.
 
 PERGUNTA DO GESTOR: ${question}`,
       response_json_schema: {
