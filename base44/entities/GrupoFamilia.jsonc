@@ -1,0 +1,66 @@
+{
+  "name": "GrupoFamilia",
+  "type": "object",
+  "properties": {
+    "cd_grupo": {
+      "type": "number",
+      "description": "C\u00f3digo do grupo no ERP Sisloc (grupo.cd_grupo)"
+    },
+    "nm_grupo": {
+      "type": "string",
+      "description": "Nome do grupo no ERP"
+    },
+    "familia": {
+      "type": "string",
+      "description": "Fam\u00edlia can\u00f4nica atribu\u00edda (classifica\u00e7\u00e3o do C\u00e9rebro)"
+    },
+    "tipo": {
+      "type": "string",
+      "enum": [
+        "LOCAVEL",
+        "INSUMO",
+        "SERVICO",
+        "FROTA",
+        "VENDA",
+        "INTERNO"
+      ],
+      "description": "Natureza do grupo: loc\u00e1vel, insumo/pe\u00e7a, servi\u00e7o, frota, venda ou uso interno"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "PROPOSTO",
+        "VALIDADO"
+      ],
+      "default": "PROPOSTO",
+      "description": "PROPOSTO = sugerido pelo C\u00e9rebro; VALIDADO = confirmado pelo gestor"
+    },
+    "notes": {
+      "type": "string",
+      "description": "Observa\u00e7\u00f5es"
+    }
+  },
+  "required": [
+    "cd_grupo",
+    "nm_grupo",
+    "familia"
+  ],
+  "rls": {
+    "read": {},
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}
