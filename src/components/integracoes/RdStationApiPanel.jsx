@@ -4,7 +4,9 @@ import { Radio, Play, AlertTriangle, CheckCircle2 } from "lucide-react";
 
 export default function RdStationApiPanel() {
   const [catalog, setCatalog] = useState([]);
-  const [product, setProduct] = useState("crm");
+  const [product, setProduct] = useState(
+    new URLSearchParams(window.location.search).get("product") || "crm",
+  );
   const [endpoint, setEndpoint] = useState("");
   const [result, setResult] = useState(null);
   const [error, setError] = useState(null);
@@ -16,7 +18,8 @@ export default function RdStationApiPanel() {
       .then((r) => {
         const list = r.data?.catalog || [];
         setCatalog(list);
-        setEndpoint(list[0]?.endpoints?.[0]?.path || "");
+        const initial = list.find((c) => c.product === product) || list[0];
+        setEndpoint(initial?.endpoints?.[0]?.path || "");
       })
       .catch(() => setCatalog([]));
   }, []);

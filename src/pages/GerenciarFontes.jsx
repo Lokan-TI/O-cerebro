@@ -7,6 +7,7 @@ import AdicionarFonteModal from "@/components/erp/AdicionarFonteModal";
 import SchemaValidationResult from "@/components/erp/SchemaValidationResult";
 import VerConfigModal from "@/components/erp/VerConfigModal";
 import DicionarioExtractPanel from "@/components/erp/DicionarioExtractPanel";
+import ApiFontesPanel from "@/components/erp/ApiFontesPanel";
 import { Plus, Pencil, Wifi, Loader2, Eye, Power, ChevronLeft, RefreshCw, CheckCircle2, AlertTriangle, Clock, ShieldCheck, FileText } from "lucide-react";
 import { pollRun } from "@/lib/erpSync";
 
@@ -142,6 +143,8 @@ export default function GerenciarFontes() {
             </button>
           </div>
         </div>
+
+        <ApiFontesPanel />
 
         <DicionarioExtractPanel />
 

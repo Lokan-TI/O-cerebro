@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { DEPARTMENTS } from "@/lib/departmentsMenu";
 import { Menu, X } from "lucide-react";
 import SourceSelector from "./SourceSelector";
+import ApiConnectionsNav from "./ApiConnectionsNav";
 
 export default function DepartmentMenu() {
   const [open, setOpen] = useState(false);
@@ -35,6 +36,7 @@ export default function DepartmentMenu() {
             <div className="mx-5 my-4 border-t border-gray-800" />
 
             <nav className="px-3 pb-4 space-y-5">
+              <ApiConnectionsNav onNavigate={() => setOpen(false)} />
               {DEPARTMENTS.map((d) => (
                 <div key={d.id}>
                   <p className="px-2 text-[10px] uppercase tracking-widest text-purple-500/80 mb-1.5">{d.label}</p>
