@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { base44 } from "@/api/base44Client";
 import IntegrationForm from "@/components/integracoes/IntegrationForm";
+import RdStationApiPanel from "@/components/integracoes/RdStationApiPanel";
 import { Plug, Plus, Pencil, Trash2 } from "lucide-react";
 
 const LABEL = {
@@ -80,6 +81,8 @@ export default function Integracoes() {
             ))}
           </div>
         )}
+
+        <RdStationApiPanel />
       </div>
 
       {editing && (
