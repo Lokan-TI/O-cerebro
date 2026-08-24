@@ -5,6 +5,7 @@ import { summarizeCap, ownershipRanking, familyCompare } from "@/lib/capexOpex";
 import AtivosKpiCards from "@/components/ativos/AtivosKpiCards";
 import AtivosHierarquia from "@/components/ativos/AtivosHierarquia";
 import FamiliaComparativo from "@/components/ativos/FamiliaComparativo";
+import EstoqueEstruturasPanel from "@/components/ativos/EstoqueEstruturasPanel";
 import CapexOpexPanel from "@/components/ativos/CapexOpexPanel";
 import ManutencaoVsDepreciacao from "@/components/ativos/ManutencaoVsDepreciacao";
 import QueryInspector from "@/components/erp/QueryInspector";
@@ -81,6 +82,8 @@ export default function AtivosCustos() {
           <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" /> {error}
         </div>
       )}
+
+      <EstoqueEstruturasPanel sourceId={sourceId} />
 
       {loading && !data && (
         <div className="text-gray-500 text-center py-16">Levantando ativos, manutenções e contas pagas…</div>
