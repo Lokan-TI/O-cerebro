@@ -283,6 +283,30 @@ Deno.serve(async (req) => {
     const revenueAtRisk = churnedRows.reduce((s, r) => s + (Number(r.ref_revenue) || 0), 0);
     const activeRevenue = activeRows.reduce((s, r) => s + (Number(r.ref_revenue) || 0), 0);
     const churnRate = totalRef > 0 ? (churnedRows.length / totalRef * 100) : 0;
+    const retainedByContract = activeRows.filter(r => r.retention_reason === 'CONTRATO_VIGENTE');
+    const retainedByActivity = activeRows.filter(r => r.retention_reason === 'ATIVIDADE_RECENTE');
+    const preventedFalseChurn = activeRows.filter(r => Number(r.sem_remessa) === 1 && (
+      Number(r.contrato_aberto) === 1 || r.last_fatura || r.last_estmov || r.last_contract_billing
+    ));
+    const seasonalProtected = activeRows.filter(r => Number(r.days_since_last_activity) >= 365);
+    const longContractsActive = activeRows.filter(r => r.contract_horizon === '301_DIAS_OU_MAIS');
+    const monthlyOpenContracts = activeRows.filter(r => Number(r.contrato_aberto) === 1 && r.billing_cycle === 'MENSAL');
+
+    const summarize = (field) => {
+      const map = {};
+      for (const r of rows) {
+        const key = String(r[field] || 'NAO_CLASSIFICADO');
+        if (!map[key]) map[key] = { label: key, clients: 0, active: 0, churned: 0, revenue_ref: 0 };
+        map[key].clients += 1;
+        map[key].active += Number(r.is_churned) === 0 ? 1 : 0;
+        map[key].churned += Number(r.is_churned) === 1 ? 1 : 0;
+        map[key].revenue_ref += Number(r.ref_revenue) || 0;
+      }
+      return Object.values(map).sort((a, b) => b.clients - a.clients);
+    };
+    const growthSegments = summarize('growth_status');
+    const billingSegments = summarize('billing_cycle');
+    const horizonSegments = summarize('contract_horizon');
 
     // Monthly churn: when did churned clients last rent (rental-based universe)?
     const monthlyChurn = {};
@@ -406,13 +430,23 @@ Deno.serve(async (req) => {
         churned_clients: churnedRows.length,
         churn_rate: churnRate,
         inactivity_months: inactivityMonths,
-        // Clientes que não tiveram nova remessa na janela, mas seguem ativos por
-        // contrato em aberto ou movimentação recente na ficha de locação.
-        retained_by_contract: activeRows.filter(r => Number(r.sem_remessa) === 1).length,
+        inactivity_cutoff: inactivityCutoff,
+        as_of_date: asOfDate,
+        retained_by_contract: retainedByContract.length,
+        retained_by_activity: retainedByActivity.length,
         open_contract_clients: activeRows.filter(r => Number(r.contrato_aberto) === 1).length,
+        prevented_false_churn: preventedFalseChurn.length,
+        seasonal_protected_clients: seasonalProtected.length,
+        long_contract_active_clients: longContractsActive.length,
+        monthly_open_contract_clients: monthlyOpenContracts.length,
         revenue_at_risk: revenueAtRisk,
         active_revenue: activeRevenue,
         avg_churned_revenue: churnedRows.length > 0 ? revenueAtRisk / churnedRows.length : 0,
+      },
+      segments: {
+        growth_status: growthSegments,
+        billing_cycle: billingSegments,
+        contract_horizon: horizonSegments,
       },
       churned_clients: detailClients.map(r => {
         const p = pessoaMap[String(r.cd_pessoa)] || {};
@@ -435,6 +469,25 @@ Deno.serve(async (req) => {
           ref_fichas: Number(r.ref_fichas) || 0,
           ref_first_ficha: r.ref_first_ficha ? new Date(r.ref_first_ficha).toISOString().slice(0, 10) : null,
           ref_last_ficha: r.ref_last_ficha ? new Date(r.ref_last_ficha).toISOString().slice(0, 10) : null,
+          last_activity: r.last_activity ? new Date(r.last_activity).toISOString().slice(0, 10) : null,
+          days_since_last_activity: r.days_since_last_activity == null ? null : Number(r.days_since_last_activity),
+          last_remessa: r.last_remessa ? new Date(r.last_remessa).toISOString().slice(0, 10) : null,
+          last_fatura: r.last_fatura ? new Date(r.last_fatura).toISOString().slice(0, 10) : null,
+          last_estmov: r.last_estmov ? new Date(r.last_estmov).toISOString().slice(0, 10) : null,
+          retention_reason: r.retention_reason || null,
+          growth_status: r.growth_status || null,
+          billing_cycle: r.billing_cycle || 'NAO_CLASSIFICADO',
+          rental_period_description: r.rental_period_description || null,
+          rental_period_days: r.rental_period_days == null ? null : Number(r.rental_period_days),
+          contract_periods: r.contract_periods == null ? null : Number(r.contract_periods),
+          contract_horizon: r.contract_horizon || 'NAO_CLASSIFICADO',
+          contract_horizon_days: r.contract_horizon_days == null ? null : Number(r.contract_horizon_days),
+          latest_contract_id: r.latest_contract_id == null ? null : String(r.latest_contract_id),
+          latest_contract_start: r.latest_contract_start ? new Date(r.latest_contract_start).toISOString().slice(0, 10) : null,
+          latest_contract_end: r.latest_contract_end ? new Date(r.latest_contract_end).toISOString().slice(0, 10) : null,
+          latest_expected_return: r.latest_expected_return ? new Date(r.latest_expected_return).toISOString().slice(0, 10) : null,
+          last_contract_billing: r.last_contract_billing ? new Date(r.last_contract_billing).toISOString().slice(0, 10) : null,
+          next_contract_billing: r.next_contract_billing ? new Date(r.next_contract_billing).toISOString().slice(0, 10) : null,
           analysis_revenue: Number(r.analysis_revenue) || 0,
           analysis_nfs: Number(r.analysis_nfs) || 0,
           prim_dt_pedido: f.prim_dt_pedido ? new Date(f.prim_dt_pedido).toISOString().slice(0, 10) : null,
