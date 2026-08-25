@@ -3,12 +3,14 @@ import { base44 } from "@/api/base44Client";
 import ReactMarkdown from "react-markdown";
 import { buildBrainContext, SUGGESTED_QUESTIONS } from "@/components/brain/buildBrainContext";
 import { useErpSource, ALL_SOURCES_ID } from "@/lib/ErpSourceContext";
+import { useGlobalFilter } from "@/lib/GlobalFilterContext";
 import BrainTeachBox from "@/components/brain/BrainTeachBox";
 import BrainReportDownload from "@/components/brain/BrainReportDownload";
 import { BrainCircuit, Send, Loader2, Sparkles, User, Database } from "lucide-react";
 
 export default function AskConsultant({ snapshot, sourceName }) {
   const { selectedSource } = useErpSource() || {};
+  const { period } = useGlobalFilter() || {};
   const [question, setQuestion] = useState("");
   const [history, setHistory] = useState([]);
   const [thinking, setThinking] = useState(false);
@@ -34,6 +36,9 @@ export default function AskConsultant({ snapshot, sourceName }) {
         source_id: sourceId,
         context: context || "",
         conversation: priorTurns,
+        period_start: period?.start || null,
+        period_end_inclusive: period?.end || null,
+        period_end_exclusive: period?.endExclusive || null,
       });
       if (res?.data?.answer) {
         setHistory((h) => [
@@ -62,6 +67,9 @@ REGRA ESSENCIAL: responda EXCLUSIVAMENTE o que foi perguntado. NÃO adicione ins
 Use markdown leve (negrito, listas curtas). Máximo ~120 palavras. Se os dados não cobrirem a pergunta, diga o que falta e sugira onde olhar (abas ERP: Visão Executiva, Financeiro, Retenção & Churn, Clientes).
 
 ${priorTurns.length ? `CONVERSA ANTERIOR (a pergunta pode ser continuação dela — mantenha o mesmo contexto e período):\n${priorTurns.map((t) => `${t.role === "user" ? "GESTOR" : "CÉREBRO"}: ${t.text}`).join("\n")}\n` : ""}
+PERÍODO GLOBAL APLICADO NA TELA: ${period?.start || "não informado"} → ${period?.end || "não informado"} (fim exclusivo SQL: ${period?.endExclusive || "não informado"}).
+Se a pergunta não citar outro período, responda usando exatamente esta janela.
+
 DADOS ATUAIS DO NEGÓCIO (snapshot pré-calculado):
 ${context || "Sem dados carregados — oriente o usuário a atualizar os dados no Dashboard ERP."}
 

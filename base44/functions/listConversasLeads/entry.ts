@@ -52,8 +52,8 @@ function classify(l: any, now: number) {
   if (l.tabulations.includes('spam') || l.tabulations.includes('curriculo')) {
     return { stage: 'DESCARTADO', label: 'Fora do funil (spam/currículo)' };
   }
-  // Interagiu com atendente ou trocou mensagens → demonstrou interesse
-  if (l.attended || l.total_receive_messages >= 2 || l.tabulations.includes('novos_produtos')) {
+  // Trocou mensagens de fato → demonstrou interesse (visitou produtos / clicou no CTA / entrou em contato)
+  if (l.total_receive_messages >= 1 || l.total_send_messages >= 1 || l.tabulations.includes('novos_produtos')) {
     return { stage: 'INTERESSE', label: 'Visitou produtos ou clicou no CTA / Entrou em contato' };
   }
   return { stage: 'BOAS_VINDAS', label: 'Recebeu boas-vindas, não pediu orçamento' };
