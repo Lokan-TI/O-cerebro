@@ -1,5 +1,6 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.40';
 import { execRead } from '../../shared/erpConnection.ts';
+import { rateioGlobalSql, rateioGrupoSql, rateioComponenteSql } from './rateioSql.ts';
 
 // Reproduz a lógica de rateio do Sisloc TGersReceitaGrupoList para reconciliar
 // o Faturamento Bruto do Cérebro (SUM(nf.vl_faturamento)) com o valor exibido
@@ -72,22 +73,10 @@ export default async function (req: Request): Promise<Response> {
         AND ABS(nf.vl_faturamento - nft.vl_nffatur_total) > 0.01
       ORDER BY ABS(nf.vl_faturamento - nft.vl_nffatur_total) DESC`;
 
-    // SQL 5 — Rateio proporcional por grupo de equipamento (opcional)
-    const sqlRateioGrupo = `SELECT
-        grupo.cd_grupo,
-        grupo.nm_grupo,
-        SUM(ISNULL(fl_fatura.vl_fatura, 0) / NULLIF(nf.vl_faturamento, 0) * ISNULL(nffatur.vl_nffatur, 0)) AS vl_rateado
-      FROM fl_fatura WITH (NOLOCK)
-      JOIN nf WITH (NOLOCK) ON fl_fatura.cd_nf = nf.cd_nf
-      JOIN nffatur WITH (NOLOCK) ON nf.cd_nf = nffatur.cd_nf
-      JOIN fich_loc WITH (NOLOCK) ON fl_fatura.cd_controle = fich_loc.cd_controle
-      JOIN fl_fat_medidor WITH (NOLOCK) ON fl_fatura.cd_flfatura = fl_fat_medidor.cd_flfatura
-      JOIN patrimon WITH (NOLOCK) ON fl_fat_medidor.cd_patrimonio = patrimon.cd_patrimonio
-      JOIN equipto WITH (NOLOCK) ON patrimon.cd_equipto = equipto.cd_equipto
-      JOIN grupo WITH (NOLOCK) ON equipto.cd_grupo = grupo.cd_grupo
-      WHERE ${nfWhere}
-      GROUP BY grupo.cd_grupo, grupo.nm_grupo
-      ORDER BY vl_rateado DESC`;
+    // SQL 5 — Rateio completo do TGersReceitaGrupoRep (9 componentes de receita)
+    const sqlRateioGlobal = rateioGlobalSql(startDate, endDate);
+    const sqlRateioGrupo = rateioGrupoSql(startDate, endDate);
+    const sqlRateioComponente = rateioComponenteSql(startDate, endDate);
 
     // Filtro alternativo de período — hipótese: o ERP usa v_nf_emissao.dt_emissao
     const viewWhere = `nf.fl_ent_sai = 'S'
@@ -173,17 +162,24 @@ export default async function (req: Request): Promise<Response> {
     try { results.diferenca_datas = pick(await execRead(source, sqlDiferencaDatas, 60000)); }
     catch (e) { results.diferenca_datas_error = (e as Error)?.message; }
 
+    try { results.rateio_global = pick(await execRead(source, sqlRateioGlobal, 120000))[0] || null; }
+    catch (e) { results.rateio_global_error = (e as Error)?.message; }
+
+    try { results.rateio_por_componente = pick(await execRead(source, sqlRateioComponente, 120000)); }
+    catch (e) { results.rateio_componente_error = (e as Error)?.message; }
+
     if (breakdown === 'group') {
-      try { results.rateio_por_grupo = pick(await execRead(source, sqlRateioGrupo, 90000)); }
+      try { results.rateio_por_grupo = pick(await execRead(source, sqlRateioGrupo, 120000)); }
       catch (e) { results.rateio_grupo_error = (e as Error)?.message; }
     }
 
     results.resumo = {
       esperado_erp_sisloc: 38666349.68,
       periodo: `${startDate} a ${endDate}`,
-      correcoes_aplicadas: ['grupo.nm_grupo', 'nffatur.vl_nffatur', 'nf.dt_emi_nf'],
       formula_rateio_erp: '(valor_componente / nf.vl_faturamento) × nffatur.vl_nffatur',
-      objetivo: 'nffatur.vl_nffatur deve bater R$ 38.666.349,68',
+      periodo_filtro_rateio: 'v_nf_emissao.dt_emissao (INNER JOIN — conforme log do ERP)',
+      componentes: ['RENTAL_EQUIPMENT', 'RENTAL_COMPOSITION', 'METERED_ASSET', 'APPOINTMENT', 'SERVICE', 'SALE', 'MAINTENANCE_ORDER', 'MAINTENANCE_ORDER_PARTS', 'INDEMNIFICATION'],
+      objetivo: 'o total rateado deve bater R$ 38.666.349,68',
     };
     results.queries = {
       faturamento_bruto_nf: sqlFaturamentoBruto,

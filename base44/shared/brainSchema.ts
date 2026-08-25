@@ -1,12 +1,21 @@
 // Dicionário de dados do Cérebro — índice de TODAS as tabelas conectadas + colunas sob demanda.
 
 // Tabelas sempre presentes no dicionário enviado ao LLM.
-export const KEY_TABLES = ['nf', 'pessoa', 'car', 'cap', 'fich_loc', 'mkt_orcamento', 'patrimon'];
+export const KEY_TABLES = [
+  'nf', 'pessoa', 'car', 'cap', 'fich_loc', 'mkt_orcamento', 'patrimon',
+  'fl_fatura', 'nffatur', 'grupo', 'equipto',
+];
 
-export const FALLBACK_SCHEMA = `nf (notas fiscais): cd_empresa, cd_pessoa, dt_emissao, vl_faturamento
-pessoa (clientes): cd_pessoa, nm_pessoa, dt_cad_pessoa, fl_cliente_pessoa
-fich_loc (contratos de locação): cd_pessoa, dt_pedido
-mkt_orcamento (orçamentos): cd_pessoa_cli, dt_orcamento`;
+export const FALLBACK_SCHEMA = `REGRAS FÍSICAS SISLOC — não inventar aliases nem substituir campos entre objetos.
+nf (notas fiscais): cd_nf, cd_empresa, cd_pessoa, cd_pessoa_fun, dt_emi_nf, vl_faturamento, fl_ent_sai, fl_can_nf, dt_cancelamento, dt_anul_nf
+pessoa (cadastro de pessoas): cd_pessoa, nm_pessoa, nm_fan_pessoa, dt_cad_pessoa, fl_cliente_pessoa
+fich_loc (ficha de locação): cd_controle, cd_pessoa, cd_empresa, dt_pedido, dt_enc_ficha
+fl_fatura (fatura de locação): cd_flfatura, cd_controle, cd_nf, dt_geracao, vl_fatura
+nffatur (faturamento/parcelamento da NF): cd_nf, dt_ven_nffatur, vl_bruto, vl_nffatur
+grupo: cd_grupo, nm_grupo
+equipto: cd_equipto, nm_equipto, cd_grupo, cd_equfamilia
+mkt_orcamento (orçamento comercial): cd_controle, cd_empresa, cd_pessoa_cli, cd_pessoa_fun, dt_orcamento, dt_emissao, dt_aprovacao, dt_cancelamento
+OBSERVADO EM LOG ERP: v_nf_emissao é uma VIEW distinta; Receita por Grupo usa v_nf_emissao.cd_nf = nf.cd_nf e v_nf_emissao.dt_emissao. Não usar nf.dt_emissao — na tabela nf o campo físico confirmado é dt_emi_nf.`;
 
 export type TableIndexRow = { table_name: string; domain?: string };
 
