@@ -181,7 +181,7 @@ Deno.serve(async (req) => {
       CASE
         WHEN ISNULL(cp.contrato_aberto,0) = 1 THEN 'CONTRATO_VIGENTE'
         WHEN la.last_activity >= '${inactivityCutoff}' THEN 'ATIVIDADE_RECENTE'
-        ELSE 'SEM_ATIVIDADE_13M'
+        ELSE 'SEM_ATIVIDADE_${inactivityMonths}M'
       END AS retention_reason,
       CASE
         WHEN ISNULL(cp.contrato_aberto,0) = 1 THEN 0
@@ -243,6 +243,38 @@ Deno.serve(async (req) => {
       r.analysis_revenue = Number(rv.analysis_revenue) || 0;
       r.analysis_nfs = Number(rv.analysis_nfs) || 0;
       r.analysis_last_nf = rv.analysis_last_nf || null;
+    }
+
+    // Estados de Growth sobre a regra dura de churn. O limite final continua sendo
+    // inactivityMonths (13m por padrão), mas antes dele criamos faixas acionáveis.
+    const asOfMs = new Date(`${asOfDate}T00:00:00Z`).getTime();
+    const cutoffMs = new Date(`${inactivityCutoff}T00:00:00Z`).getTime();
+    const thresholdDays = Math.max(1, Math.round((asOfMs - cutoffMs) / 86400000));
+    const watchDays = Math.round(thresholdDays * 0.50);
+    const preChurnDays = Math.round(thresholdDays * 0.75);
+
+    const horizonBucket = (days) => {
+      const d = Number(days);
+      if (!Number.isFinite(d) || d < 0) return 'NAO_CLASSIFICADO';
+      if (d <= 2) return 'ATE_2_DIAS';
+      if (d <= 8) return '3_A_8_DIAS';
+      if (d <= 16) return '9_A_16_DIAS';
+      if (d <= 45) return '17_A_45_DIAS';
+      if (d <= 180) return '46_A_180_DIAS';
+      if (d <= 300) return '181_A_300_DIAS';
+      return '301_DIAS_OU_MAIS';
+    };
+
+    for (const r of rows) {
+      const last = r.last_activity ? new Date(r.last_activity).getTime() : null;
+      const daysSince = last && Number.isFinite(last) ? Math.max(0, Math.floor((asOfMs - last) / 86400000)) : null;
+      r.days_since_last_activity = daysSince;
+      r.contract_horizon = horizonBucket(r.contract_horizon_days);
+      if (Number(r.contrato_aberto) === 1) r.growth_status = 'ATIVO_CONTRATO';
+      else if (Number(r.is_churned) === 1) r.growth_status = 'CHURN_CONFIRMADO';
+      else if (daysSince != null && daysSince >= preChurnDays) r.growth_status = 'PRE_CHURN';
+      else if (daysSince != null && daysSince >= watchDays) r.growth_status = 'MONITORAR';
+      else r.growth_status = 'ATIVO_RECENTE';
     }
 
     const totalRef = rows.length;
