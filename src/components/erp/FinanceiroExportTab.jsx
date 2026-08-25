@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { base44 } from "@/api/base44Client";
 import { useErpSource, ALL_SOURCES_ID } from "@/lib/ErpSourceContext";
 import { getEmpresaLabel } from "@/lib/empresaLabels";
+import { toExclusiveEnd } from "@/lib/periodContract";
 import ExportColumnPicker from "@/components/erp/ExportColumnPicker";
 import { downloadFinCsv } from "@/components/erp/finExportCsv";
 import { Download, Search, Loader2, AlertTriangle } from "lucide-react";
@@ -69,6 +70,7 @@ export default function FinanceiroExportTab({ empresas = [] }) {
         columns: [...selected],
         start_date: start,
         end_date: end,
+        end_date_exclusive: toExclusiveEnd(end),
         status,
         cd_empresa: doc === "car" ? empresa : undefined,
         limit: 10000,
