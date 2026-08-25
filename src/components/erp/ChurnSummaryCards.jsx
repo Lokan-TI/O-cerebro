@@ -17,7 +17,7 @@ const AVAILABLE_METRICS = [
   { key: "active_revenue", label: "Receita Retida", format: "currency" },
   { key: "avg_churned_revenue", label: "Receita Média (Perdidos)", format: "currency" },
   { key: "retained_by_contract", label: "Retidos por contrato vigente", format: "number" },
-  { key: "retained_by_activity", label: "Retidos por atividade recente", format: "number" },
+  { key: "retained_by_activity", label: "Retidos por NF recente", format: "number" },
   { key: "prevented_false_churn", label: "Protegidos por ficha aberta", format: "number" },
   { key: "seasonal_protected_clients", label: "Sazonais protegidos (12–13m)", format: "number" },
   { key: "long_contract_active_clients", label: "Contratos longos ativos", format: "number" },
