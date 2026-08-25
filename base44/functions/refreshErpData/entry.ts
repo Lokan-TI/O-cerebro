@@ -4,6 +4,7 @@ import { approvedRemessaFrom, faturaFrom } from '../../shared/churnUniverse.ts';
 import { computeAnalytics } from '../../shared/analyticsBlock.ts';
 import { empFilter, EXCLUDED_EMPRESAS } from '../../shared/empresaScope.ts';
 import { invoiceUniverse } from '../../shared/invoiceUniverse.ts';
+import { assertIsoDate } from '../../shared/periodContract.ts';
 
 const STEPS = [
   { id: 'conectando', label: 'Conectando ao banco' },
@@ -249,15 +250,25 @@ async function processRefresh(base44, source, run, version, previousVersion, sta
     const nfFnf = invoiceUniverse('nf');
     await updateStep(2, 15);
 
-    // Fragmentos de data
-    const yearStart = 'DATEFROMPARTS(YEAR(GETDATE()),1,1)';
-    const yearEnd = 'DATEADD(year,1,DATEFROMPARTS(YEAR(GETDATE()),1,1))';
-    const lastYearStart = 'DATEFROMPARTS(YEAR(GETDATE())-1,1,1)';
+    // Fragmentos de data. Se o usuário atualizou com um período explícito, TODOS os
+    // KPIs principais do snapshot usam exatamente essa janela; sem período, preservamos
+    // o comportamento padrão do ano corrente/YTD.
+    if ((startDateIn && !endDateIn) || (!startDateIn && endDateIn)) {
+      throw new Error('Período de atualização incompleto: informe início e fim exclusivo.');
+    }
+    const requestedStart = startDateIn ? assertIsoDate(String(startDateIn), 'start_date') : null;
+    const requestedEnd = endDateIn ? assertIsoDate(String(endDateIn), 'end_date_exclusive') : null;
+    if (requestedStart && requestedEnd && requestedEnd <= requestedStart) {
+      throw new Error('Período de atualização inválido: fim deve ser posterior ao início.');
+    }
+    const yearStart = requestedStart ? `'${requestedStart}'` : 'DATEFROMPARTS(YEAR(GETDATE()),1,1)';
+    const yearEnd = requestedEnd ? `'${requestedEnd}'` : 'DATEADD(year,1,DATEFROMPARTS(YEAR(GETDATE()),1,1))';
+    const lastYearStart = requestedStart ? `DATEADD(year,-1,CAST('${requestedStart}' AS date))` : 'DATEFROMPARTS(YEAR(GETDATE())-1,1,1)';
     const monthStart = 'DATEFROMPARTS(YEAR(GETDATE()),MONTH(GETDATE()),1)';
     const monthEnd = 'DATEADD(month,1,DATEFROMPARTS(YEAR(GETDATE()),MONTH(GETDATE()),1))';
     const prevMonthStart = 'DATEADD(month,-1,DATEFROMPARTS(YEAR(GETDATE()),MONTH(GETDATE()),1))';
-    // YTD: mesmo período do ano anterior (jan até hoje, ano passado)
-    const lastYearEnd = 'DATEADD(year,-1,GETDATE())';
+    // Comparação anual: mesma janela deslocada em 1 ano quando há período explícito.
+    const lastYearEnd = requestedEnd ? `DATEADD(year,-1,CAST('${requestedEnd}' AS date))` : 'DATEADD(year,-1,GETDATE())';
     const lastMonthStart = 'DATEFROMPARTS(YEAR(GETDATE())-1,MONTH(GETDATE()),1)';
     const lastMonthEnd = 'DATEADD(month,1,DATEFROMPARTS(YEAR(GETDATE())-1,MONTH(GETDATE()),1))';
 
