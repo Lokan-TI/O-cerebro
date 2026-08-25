@@ -42,11 +42,19 @@ export default async function (req: Request): Promise<Response> {
     const end = resolvedPeriod.endInclusive;
     const endExcl = `'${resolvedPeriod.endExclusive}'`;
 
-    let source: Record<string, unknown> = { credential_reference: 'env' };
-    if (body?.source_id) {
+    let source: Record<string, unknown> | null = null;
+    if (body?.source_id && body.source_id !== '__all__') {
       source = await base44.asServiceRole.entities.ErpDataSource.get(body.source_id);
-      if (!source) return Response.json({ error: 'Fonte de dados não encontrada.' }, { status: 404 });
+    } else {
+      const sources = await base44.asServiceRole.entities.ErpDataSource.list();
+      const active = (sources || []).filter((s) => s?.is_active !== false);
+      source = active.find((s) => String(s?.status || '').toLowerCase() === 'connected')
+        || active.find((s) => String(s?.name || '').toLowerCase() === 'matriz')
+        || active.find((s) => s?.credential_reference === 'env')
+        || active[0]
+        || null;
     }
+    if (!source) return Response.json({ error: 'Nenhuma fonte ERP ativa e utilizável foi encontrada.' }, { status: 404 });
 
     const t0 = Date.now();
     const warnings: string[] = [];
@@ -157,6 +165,11 @@ export default async function (req: Request): Promise<Response> {
 
     return Response.json({
       generated_at: new Date().toISOString(),
+      source: {
+        id: source?.id || null,
+        name: source?.name || null,
+        status: source?.status || null,
+      },
       period: { start, end },
       demanda: {
         propostas,
