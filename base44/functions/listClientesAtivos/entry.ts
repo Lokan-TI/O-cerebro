@@ -45,7 +45,21 @@ export default async function (req: Request): Promise<Response> {
     GROUP BY n.cd_empresa, e.nm_fan_empresa, n.cd_pessoa, p.nm_fan_pessoa, p.nm_pessoa
     ORDER BY ISNULL(SUM(n.vl_faturamento), 0) DESC`;
 
-    // Consulta 2 — contratos de locação por cliente (executada em separado para
+    // Consulta 2 — total fiscal por empresa, SEM exigir cliente identificado.
+    // Este é o valor comparável ao KPI de faturamento do snapshot/MTR-001.
+    // A diferença para a soma das linhas de clientes representa NFs sem cd_pessoa.
+    const fiscalSql = `SELECT n.cd_empresa,
+        ISNULL(SUM(n.vl_faturamento),0) AS faturamento_fiscal,
+        COUNT(*) AS nfs_fiscais,
+        ISNULL(SUM(CASE WHEN n.cd_pessoa IS NULL THEN n.vl_faturamento ELSE 0 END),0) AS faturamento_sem_cliente,
+        SUM(CASE WHEN n.cd_pessoa IS NULL THEN 1 ELSE 0 END) AS nfs_sem_cliente
+      FROM nf n WITH (NOLOCK)
+      WHERE n.dt_emi_nf >= '${startDate}' AND n.dt_emi_nf < '${endDateExclusive}'
+        AND ${invoiceUniverse('n')}
+        ${empFilter('n')}
+      GROUP BY n.cd_empresa`;
+
+    // Consulta 3 — contratos de locação por cliente (executada em separado para
     // não cruzar fich_loc com nf no mesmo plano de execução, o que estourava o tempo)
     const contratosSql = `SELECT cd_pessoa,
         COUNT(*) AS qtd_total,
@@ -75,8 +89,22 @@ export default async function (req: Request): Promise<Response> {
     const t0 = Date.now();
     const raw = pick(await execRead(source, sql, 90000));
 
-    const contratos: Record<string, { ativas: number; total: number }> = {};
     const warnings: string[] = [];
+    let fiscalByEmpresa: Record<string, { faturamento_fiscal: number; nfs_fiscais: number; faturamento_sem_cliente: number; nfs_sem_cliente: number }> = {};
+    try {
+      for (const r of pick(await execRead(source, fiscalSql, 90000))) {
+        fiscalByEmpresa[String(Number(r.cd_empresa))] = {
+          faturamento_fiscal: Number(r.faturamento_fiscal) || 0,
+          nfs_fiscais: Number(r.nfs_fiscais) || 0,
+          faturamento_sem_cliente: Number(r.faturamento_sem_cliente) || 0,
+          nfs_sem_cliente: Number(r.nfs_sem_cliente) || 0,
+        };
+      }
+    } catch (e) {
+      warnings.push('Total fiscal não carregado: ' + ((e as Error)?.message || '').slice(0, 120));
+    }
+
+    const contratos: Record<string, { ativas: number; total: number }> = {};
     try {
       for (const r of pick(await execRead(source, contratosSql, 90000))) {
         contratos[String(r.cd_pessoa || '').trim()] = {
@@ -100,16 +128,31 @@ export default async function (req: Request): Promise<Response> {
       contratos_total: contratos[String(r.cd_pessoa || '').trim()]?.total ?? 0,
     }));
 
-    const receita_total = rows.reduce((s, r) => s + r.receita, 0);
+    const faturamento_atribuido_clientes = rows.reduce((s, r) => s + r.receita, 0);
+    const fiscal_by_empresa = Object.entries(fiscalByEmpresa).map(([cd_empresa, v]) => ({
+      cd_empresa: Number(cd_empresa),
+      ...v,
+    }));
+    const faturamento_fiscal_total = fiscal_by_empresa.reduce((s, r) => s + r.faturamento_fiscal, 0);
+    const faturamento_sem_cliente = fiscal_by_empresa.reduce((s, r) => s + r.faturamento_sem_cliente, 0);
+    const nfs_sem_cliente = fiscal_by_empresa.reduce((s, r) => s + r.nfs_sem_cliente, 0);
+
     return Response.json({
       success: true,
       rows,
       total: rows.length,
-      receita_total,
+      // Alias legado: mantém compatibilidade, mas agora o nome correto vem logo abaixo.
+      receita_total: faturamento_atribuido_clientes,
+      faturamento_atribuido_clientes,
+      faturamento_fiscal_total,
+      faturamento_sem_cliente,
+      nfs_sem_cliente,
+      fiscal_by_empresa,
       period: { start: startDate, end: endDate, end_exclusive: endDateExclusive },
       warnings,
       duration_ms: Date.now() - t0,
       sql,
+      fiscal_sql: fiscalSql,
     });
   } catch (error) {
     return Response.json({ success: false, error: (error as Error)?.message || String(error) }, { status: 500 });
