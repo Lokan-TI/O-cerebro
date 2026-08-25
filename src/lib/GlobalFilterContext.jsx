@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, useEffect, useCallback, useMemo } from "react";
 import { useErpSource } from "./ErpSourceContext";
 import { useEmpresaFilter } from "./EmpresaFilterContext";
+import { PERIOD_CONTRACT_VERSION, buildCanonicalPeriod } from "./periodContract";
 
 // Filtro GLOBAL unificado: Fonte → Empresa → Período. Persiste entre todas as abas.
 // - Fonte e Empresa aplicam imediatamente (preserva UX; trocar fonte reseta empresa).
@@ -21,39 +22,45 @@ export const PERIOD_PRESETS = [
 
 function isoDate(d) { return d.toISOString().slice(0, 10); }
 
-// Fim máximo = amanhã (fim exclusivo que cobre hoje). Períodos não se estendem para o
-// futuro: "Ano atual" vai de 1º de janeiro até hoje, e não até 31/12, evitando janelas
-// que o banco teria de varrer sem dados e que pareciam "todo o período".
-function maxEnd() {
-  const t = new Date();
-  t.setDate(t.getDate() + 1);
-  return isoDate(t);
+// A interface trabalha com fim INCLUSIVO; o contrato canônico deriva endExclusive.
+// Nenhum preset se estende para o futuro: o máximo visível é hoje.
+function maxEndInclusive() {
+  return isoDate(new Date());
 }
-function clampEnd(end) {
-  const cap = maxEnd();
+function clampEndInclusive(end) {
+  const cap = maxEndInclusive();
   return end > cap ? cap : end;
 }
 
 function presetRange(preset, customStart, customEnd) {
   const now = new Date();
   const y = now.getFullYear();
+  const today = maxEndInclusive();
   const range = (() => {
-    // "Todo o período": cobre todo o histórico operacional da base
-    if (preset === "tudo") return { start: "2000-01-01", end: `${y + 1}-01-01` };
-    if (preset === "ano_atual") return { start: `${y}-01-01`, end: `${y + 1}-01-01` };
-    if (preset === "ano_anterior") return { start: `${y - 1}-01-01`, end: `${y}-01-01` };
+    if (preset === "tudo") return { start: "2000-01-01", end: today };
+    if (preset === "ano_atual") return { start: `${y}-01-01`, end: today };
+    if (preset === "ano_anterior") return { start: `${y - 1}-01-01`, end: `${y - 1}-12-31` };
     if (preset === "ultimos_12") {
       const start = new Date(now.getFullYear() - 1, now.getMonth(), 1);
-      const end = new Date(now.getFullYear(), now.getMonth() + 1, 1);
-      return { start: isoDate(start), end: isoDate(end) };
+      return { start: isoDate(start), end: today };
     }
-    return { start: customStart || `${y}-01-01`, end: customEnd || `${y + 1}-01-01` };
+    return { start: customStart || `${y}-01-01`, end: customEnd || today };
   })();
-  return { start: range.start, end: clampEnd(range.end) };
+  return buildCanonicalPeriod(range.start, clampEndInclusive(range.end), preset);
 }
 
 function readStored() {
-  try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}"); } catch { return {}; }
+  try {
+    const parsed = JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}");
+    if (parsed?.version === PERIOD_CONTRACT_VERSION) return parsed;
+    // Migração v1 → v2: preserva escolha do usuário, mas recalcula a janela para
+    // eliminar o antigo end ambíguo (às vezes inclusivo, às vezes exclusivo).
+    return {
+      preset: parsed?.preset,
+      customStart: parsed?.customStart,
+      customEnd: parsed?.customEnd,
+    };
+  } catch { return {}; }
 }
 
 export function GlobalFilterProvider({ children }) {
@@ -70,13 +77,13 @@ export function GlobalFilterProvider({ children }) {
   });
 
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify({ preset: periodPreset, customStart, customEnd, applied: appliedPeriod }));
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ version: PERIOD_CONTRACT_VERSION, preset: periodPreset, customStart, customEnd, applied: appliedPeriod }));
   }, [periodPreset, customStart, customEnd, appliedPeriod]);
 
   const draftRange = useMemo(() => presetRange(periodPreset, customStart, customEnd), [periodPreset, customStart, customEnd]);
 
   const applyFilters = useCallback(() => {
-    setAppliedPeriod({ start: draftRange.start, end: draftRange.end, preset: periodPreset });
+    setAppliedPeriod({ ...draftRange, preset: periodPreset });
   }, [draftRange, periodPreset]);
 
   // Valor que os consumers leem (aplicado, não o draft).
@@ -88,7 +95,7 @@ export function GlobalFilterProvider({ children }) {
   }, [selectSource, setSelectedEmpresa]);
   const setEmpresa = useCallback((id) => setSelectedEmpresa(id == null || id === "" ? null : Number(id)), [setSelectedEmpresa]);
 
-  const hasPendingPeriod = appliedPeriod.start !== draftRange.start || appliedPeriod.end !== draftRange.end || appliedPeriod.preset !== periodPreset;
+  const hasPendingPeriod = appliedPeriod.start !== draftRange.start || appliedPeriod.endExclusive !== draftRange.endExclusive || appliedPeriod.preset !== periodPreset;
 
   return (
     <GlobalFilterContext.Provider value={{
