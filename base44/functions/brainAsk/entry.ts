@@ -254,7 +254,8 @@ PERGUNTA (já resolvida com o contexto da conversa — responda a esta): ${effec
           // Uma retentativa: pede correção ao LLM com o erro real.
           const fix = await base44.asServiceRole.integrations.Core.InvokeLLM({
             prompt: `A consulta T-SQL abaixo falhou. Corrija-a mantendo as mesmas regras (SELECT único, sem TOP em agregações, datas sargáveis, sem comentários/variáveis, indicadores independentes como subconsultas e não JOIN).
-Atenção a tipos: colunas fl_* costumam ser bit (use = 1 ou = 0, nunca 'S'/'N'); códigos cd_* são numéricos.
+REGRA FISCAL IMUTÁVEL: se a consulta usa nf para faturamento/cliente faturado, preserve literalmente este universo e não altere seus tipos/flags: ${INVOICE_UNIVERSE}. Data fiscal = ${INVOICE_DATE_FIELD}.
+Atenção a tipos: em nf, fl_ent_sai é textual ('S'); em pessoa, fl_cliente_pessoa é bit (= 1). Códigos cd_* são numéricos.
 Orçamento = mkt_orcamento (cliente cd_pessoa_cli, data dt_orcamento). Contrato = fich_loc (cliente cd_pessoa, abertura dt_pedido). Cadastro de cliente = pessoa (dt_cad_pessoa, fl_cliente_pessoa = 1).
 Use apenas o dicionário:
 ${schemaBrief.slice(0, 8000)}
