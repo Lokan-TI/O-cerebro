@@ -245,9 +245,9 @@ async function processRefresh(base44, source, run, version, previousVersion, sta
 
     // Etapa 2: universo fiscal canônico compartilhado.
     // CAST torna fl_can_nf robusto aos formatos S/N e 0/1 sem alterar a semântica.
-    const nfF = invoiceUniverse();
-    const nfFn = invoiceUniverse('n');
-    const nfFnf = invoiceUniverse('nf');
+    const nfF = `AND ${invoiceUniverse()}`;
+    const nfFn = `AND ${invoiceUniverse('n')}`;
+    const nfFnf = `AND ${invoiceUniverse('nf')}`;
     await updateStep(2, 15);
 
     // Fragmentos de data. Se o usuário atualizou com um período explícito, TODOS os
