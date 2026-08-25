@@ -1,5 +1,6 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.40';
 import { execRead } from '../../shared/erpConnection.ts';
+import { resolvePeriod } from '../../shared/periodContract.ts';
 
 // KPIs de Growth Marketing apurados diretamente no Sisloc, conforme o dicionário de dados:
 //  · fich_loc      → proposta/ficha de locação (dt_pedido, dt_validade, dt_aprovacao)
@@ -27,11 +28,18 @@ export default async function (req: Request): Promise<Response> {
     if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 });
 
     const body = await req.json().catch(() => ({}));
-    const end = String(body?.end_date || new Date().toISOString().slice(0, 10));
-    const start = String(
-      body?.start_date || new Date(new Date(end).getTime() - 365 * 86400000).toISOString().slice(0, 10)
-    );
-    const endExcl = `DATEADD(day, 1, CAST('${end}' AS date))`;
+    const today = new Date().toISOString().slice(0, 10);
+    const defaultStart = new Date(new Date(`${today}T12:00:00Z`).getTime() - 365 * 86400000).toISOString().slice(0, 10);
+    const resolvedPeriod = resolvePeriod({
+      start: body?.start_date,
+      endInclusive: body?.end_date,
+      endExclusive: body?.end_date_exclusive,
+      defaultStart,
+      defaultEndInclusive: today,
+    });
+    const start = resolvedPeriod.start;
+    const end = resolvedPeriod.endInclusive;
+    const endExcl = `'${resolvedPeriod.endExclusive}'`;
 
     let source: Record<string, unknown> = { credential_reference: 'env' };
     if (body?.source_id) {
