@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { base44 } from "@/api/base44Client";
 import { useErpSource, ALL_SOURCES_ID } from "@/lib/ErpSourceContext";
+import { toExclusiveEnd } from "@/lib/periodContract";
 import { buildTree, financeSummary, planIndex, ralos } from "@/lib/planoFinanceiro";
 import FinanceiroFiltros from "@/components/financeiro/FinanceiroFiltros";
 import NaturezaCards from "@/components/financeiro/NaturezaCards";
@@ -31,6 +32,7 @@ export default function DetalhamentoFinanceiro() {
       const res = await base44.functions.invoke("analyzeFinanceiro", {
         start_date: filtros.start,
         end_date: filtros.end,
+        end_date_exclusive: toExclusiveEnd(filtros.end),
         regime: filtros.regime,
         ...(sourceId ? { source_id: sourceId } : {}),
       });
