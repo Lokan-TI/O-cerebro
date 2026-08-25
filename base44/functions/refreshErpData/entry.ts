@@ -188,7 +188,7 @@ Deno.serve(async (req) => {
     });
 
     // Processar sincronamente — o frontend dispara sem aguardar e consulta o status
-    const result = await processRefresh(base44, source, run, version, previousVersion, body?.start_date, body?.end_date);
+    const result = await processRefresh(base44, source, run, version, previousVersion, body?.start_date, body?.end_date_exclusive || body?.end_date);
 
     return Response.json({
       success: result.status === 'success' || result.status === 'partial',
