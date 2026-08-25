@@ -1,6 +1,9 @@
-// Empresas fora do escopo de análise — unidades que não são mais movimentadas.
-// 5 = LLK RENTAL · 6 = JCK
+// Empresas fora do escopo analítico por regra de negócio aprovada em 25/08/2026.
+// 5 = LLK RENTAL · 6 = JCK.
+// Ambas estão inativas operacionalmente: não recebem novos cadastros, contratos nem
+// lançamentos. A exclusão é deliberada e deve permanecer rastreável nas reconciliações.
 export const EXCLUDED_EMPRESAS = [5, 6];
+export const EXCLUDED_EMPRESAS_REASON = 'Empresas 5 e 6 inativas: sem novos cadastros, contratos ou lançamentos.';
 
 const LIST = `(${EXCLUDED_EMPRESAS.join(',')})`;
 
