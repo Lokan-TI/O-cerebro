@@ -274,7 +274,7 @@ export default async function (req: Request): Promise<Response> {
           ${empFilter('c', 'cd_empresa_gestora')}
       ) x`;
 
-    const sqlTopOpen = `
+    const sqlTopOpen = `SELECT * FROM (
       SELECT TOP 30 'SAIDA' AS direcao,
         CONVERT(char(10), CAST(CASE WHEN c.dt_agendpagto >= '${today}' THEN c.dt_agendpagto ELSE c.dt_ven_cap END AS date),23) AS data,
         COALESCE(NULLIF(LTRIM(RTRIM(p.nm_pessoa)),''),'(sem fornecedor)') AS pessoa,
@@ -286,7 +286,10 @@ export default async function (req: Request): Promise<Response> {
       LEFT JOIN plano pl WITH (NOLOCK) ON pl.cd_planfin = c.cd_conta
       WHERE c.dt_bai_cap IS NULL AND COALESCE(c.fl_status_titulo,0) <> 40
         AND (c.dt_ven_cap < '${futureEnd}' OR c.dt_agendpagto < '${futureEnd}')
-      ORDER BY ${valCap} DESC;
+      ORDER BY ${valCap} DESC
+    ) cap_top
+    UNION ALL
+    SELECT * FROM (
       SELECT TOP 30 'ENTRADA' AS direcao,
         CONVERT(char(10), CAST(c.dt_ven_car AS date),23) AS data,
         COALESCE(NULLIF(LTRIM(RTRIM(p.nm_pessoa)),''),'(sem cliente)') AS pessoa,
@@ -298,7 +301,9 @@ export default async function (req: Request): Promise<Response> {
       LEFT JOIN plano pl WITH (NOLOCK) ON pl.cd_planfin = c.cd_conta
       WHERE c.dt_bai_car IS NULL AND COALESCE(c.fl_status,0) <> 40 AND c.dt_cancelamento IS NULL
         AND c.dt_ven_car < '${futureEnd}' ${empFilter('c', 'cd_empresa_gestora')}
-      ORDER BY ${valCar} DESC`;
+      ORDER BY ${valCar} DESC
+    ) car_top
+    ORDER BY direcao, valor DESC`;
 
     const warnings: string[] = [];
     const run = async (label: string, sql: string, timeout = 45000) => {
