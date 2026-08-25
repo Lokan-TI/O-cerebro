@@ -2,10 +2,10 @@ import { fmtCurrency, fmtNumber, fmtPercent } from "./AnalyticsKpiCard";
 import { getEmpresaLabel } from "@/lib/empresaLabels";
 
 const FINANCIAL_ROWS = [
-  { key: "fat_ano", label: "Receita Anual (YTD)", fmt: "currency", best: "max" },
-  { key: "fat_ano_ant", label: "Receita Ano Ant. (YTD)", fmt: "currency", best: "max" },
+  { key: "fat_ano", label: "Faturamento NF Anual (YTD)", fmt: "currency", best: "max" },
+  { key: "fat_ano_ant", label: "Faturamento NF Ano Ant. (YTD)", fmt: "currency", best: "max" },
   { key: "crescimento_ano", label: "Crescimento Anual (YTD)", fmt: "percent", best: "max" },
-  { key: "fat_mes", label: "Receita Mensal", fmt: "currency", best: "max" },
+  { key: "fat_mes", label: "Faturamento NF Mensal", fmt: "currency", best: "max" },
   { key: "crescimento_mes", label: "Crescimento Mensal (YoY)", fmt: "percent", best: "max" },
   { key: "ticket_ano", label: "Ticket Médio Anual", fmt: "currency", best: "max" },
   { key: "nfs_ano", label: "NFs Emitidas (Ano)", fmt: "number", best: "max" },
@@ -15,8 +15,8 @@ const FINANCIAL_ROWS = [
 const COMMERCIAL_ROWS = [
   { key: "clientes_ano", label: "Clientes Ativos (Ano)", fmt: "number", best: "max" },
   { key: "clientes_mes", label: "Clientes Ativos (Mês)", fmt: "number", best: "max" },
-  { key: "receita_por_cliente", label: "Receita por Cliente", fmt: "currency", best: "max" },
-  { key: "fat_ano", label: "Receita Total", fmt: "currency", best: "max" },
+  { key: "receita_por_cliente", label: "Faturamento por Cliente", fmt: "currency", best: "max" },
+  { key: "fat_ano", label: "Faturamento NF Total", fmt: "currency", best: "max" },
   { key: "nfs_ano", label: "Volume de Notas Fiscais", fmt: "number", best: "max" },
   { key: "ticket_ano", label: "Ticket Médio", fmt: "currency", best: "max" },
 ];
