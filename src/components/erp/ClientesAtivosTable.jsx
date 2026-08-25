@@ -82,10 +82,10 @@ export default function ClientesAtivosTable({ onSelectClient }) {
       <div className="flex items-center justify-between flex-wrap gap-3">
         <h3 className="text-white font-semibold text-sm flex items-center gap-2">
           <Users className="w-4 h-4 text-purple-400" /> Todos os clientes ativos
-          {data && <span className="text-gray-500 font-normal">· {fmtNum(rows.length)} clientes · {fmtCur(totals.receita)} · {start} → {end}</span>}
+          {data && <span className="text-gray-500 font-normal">· {fmtNum(rows.length)} clientes · {fmtCur(totals.receita)} atribuídos · {start} → {end}</span>}
         </h3>
         <div className="flex items-center gap-2">
-          <QueryInspector queries={data?.sql ? [data.sql] : null} title="Query — Clientes ativos" />
+          <QueryInspector queries={data?.sql ? [data.sql, data.fiscal_sql].filter(Boolean) : null} title="Queries — Clientes ativos e total fiscal" />
           <button onClick={() => load(true)} disabled={loading} className="flex items-center gap-1.5 px-3 py-1.5 bg-purple-600 hover:bg-purple-500 disabled:opacity-50 rounded-lg text-white text-xs font-medium">
             <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin" : ""}`} />
             {data ? "Recarregar" : "Carregar clientes"}
@@ -139,7 +139,7 @@ export default function ClientesAtivosTable({ onSelectClient }) {
                   <th className="text-left py-2 px-3">#</th>
                   <th className="text-left py-2 px-3">Cliente</th>
                   <th className="text-left py-2 px-3">Empresa Sisloc</th>
-                  <th className="text-right py-2 px-3">Receita</th>
+                  <th className="text-right py-2 px-3">Faturamento atribuído</th>
                   <th className="text-right py-2 px-3">%</th>
                   <th className="text-right py-2 px-3">NFs</th>
                   <th className="text-right py-2 px-3">Última NF</th>
@@ -180,6 +180,9 @@ export default function ClientesAtivosTable({ onSelectClient }) {
             </table>
           </div>
           <div className="text-xs text-gray-600">
+            Total fiscal do período: <span className="text-gray-400">{fmtCur(selectedEmpresa == null ? data.faturamento_fiscal_total : (data.fiscal_by_empresa || []).find((r) => Number(r.cd_empresa) === Number(selectedEmpresa))?.faturamento_fiscal || 0)}</span>
+            {" · "}Sem cliente identificado: <span className="text-amber-500">{fmtCur(selectedEmpresa == null ? data.faturamento_sem_cliente : (data.fiscal_by_empresa || []).find((r) => Number(r.cd_empresa) === Number(selectedEmpresa))?.faturamento_sem_cliente || 0)}</span>.
+            <br />
             {rows.length > limit
               ? `Exibindo ${fmtNum(limit)} de ${fmtNum(rows.length)} — a exportação inclui todos os ${fmtNum(rows.length)} clientes filtrados.`
               : `Todos os ${fmtNum(rows.length)} clientes do período estão listados.`}
