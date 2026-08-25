@@ -63,6 +63,11 @@ export default function TabReconciliacaoReceita() {
     }
   };
 
+  const mtrReference = (mtr?.candidates || []).find((c) => c.id === "A_vl_faturamento")?.total ?? null;
+  const sislocTotal = sisloc?.total ?? null;
+  const crossDiff = mtrReference != null && sislocTotal != null ? Number(mtrReference) - Number(sislocTotal) : null;
+  const crossDiffPct = sislocTotal ? (crossDiff / Number(sislocTotal)) * 100 : null;
+
   const lineage = (sisloc?.lineage || []).map((q) => ({
     label: BRANCH_LABELS[q.branch] || q.branch,
     description: "SQL reproduzida do full log do TGersReceitaGrupoList",
@@ -157,13 +162,41 @@ export default function TabReconciliacaoReceita() {
         </section>
       )}
 
+      {mtr && sisloc && (
+        <section className="space-y-3">
+          <h3 className="text-sm font-semibold text-white">Comparação direta · mesma janela</h3>
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+            <div className="bg-gray-900 border border-blue-800/50 rounded-xl p-4">
+              <p className="text-xs text-gray-500 uppercase">Faturamento NF</p>
+              <p className="text-lg font-bold text-white mt-1">{fmt(mtrReference)}</p>
+              <p className="text-[11px] text-gray-600 mt-1">Σ nf.vl_faturamento</p>
+            </div>
+            <div className="bg-gray-900 border border-purple-800/50 rounded-xl p-4">
+              <p className="text-xs text-gray-500 uppercase">Receita por Grupo SISLOC</p>
+              <p className="text-lg font-bold text-white mt-1">{fmt(sislocTotal)}</p>
+              <p className="text-[11px] text-gray-600 mt-1">TGersReceitaGrupoList</p>
+            </div>
+            <div className="bg-gray-900 border border-amber-800/50 rounded-xl p-4">
+              <p className="text-xs text-gray-500 uppercase">Diferença</p>
+              <p className="text-lg font-bold text-white mt-1">{fmt(crossDiff)}</p>
+              <p className="text-[11px] text-gray-600 mt-1">NF − Receita por Grupo</p>
+            </div>
+            <div className="bg-gray-900 border border-amber-800/50 rounded-xl p-4">
+              <p className="text-xs text-gray-500 uppercase">Diferença %</p>
+              <p className="text-lg font-bold text-white mt-1">{crossDiffPct == null ? "—" : `${crossDiffPct.toFixed(3)}%`}</p>
+              <p className="text-[11px] text-gray-600 mt-1">base = Receita por Grupo</p>
+            </div>
+          </div>
+        </section>
+      )}
+
       {sisloc && (
         <section className="space-y-4">
           <div className="flex items-start justify-between gap-3 flex-wrap">
             <div>
               <h3 className="text-sm font-semibold text-purple-300">2 · Receita por Grupo SISLOC</h3>
               <p className="text-xs text-gray-500 mt-0.5">
-                TGersReceitaGrupoList · tipo_periodo=1 · empresas 5 e 6 excluídas pela regra de negócio do Cérebro.
+                TGersReceitaGrupoList · tipo_periodo=1 · escopo de empresas reproduzido literalmente do full log do SISLOC.
               </p>
             </div>
             <span className={`text-xs px-2.5 py-1 rounded-full border ${sisloc.partial ? "border-amber-700 text-amber-300 bg-amber-950/30" : "border-green-700 text-green-300 bg-green-950/30"}`}>
@@ -239,7 +272,7 @@ export default function TabReconciliacaoReceita() {
 
           <div className="text-[11px] text-gray-500 leading-relaxed">
             Escopo temporal interno: [{sisloc.analysis_context?.period_start}, {sisloc.analysis_context?.period_end_exclusive}).
-            Data final exibida ao usuário: {sisloc.analysis_context?.period_end_inclusive}. Empresas excluídas: {(sisloc.analysis_context?.excluded_companies || []).join(", ")}.
+            Data final exibida ao usuário: {sisloc.analysis_context?.period_end_inclusive}. Empresas do relatório: {(sisloc.analysis_context?.report_companies || []).join(", ")}.
           </div>
         </section>
       )}

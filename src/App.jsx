@@ -8,6 +8,7 @@ import { AuthProvider, useAuth } from '@/lib/AuthContext';
 import UserNotRegisteredError from '@/components/UserNotRegisteredError';
 import ErpCrmDashboard from './pages/ErpCrmDashboard.jsx';
 import GerenciarFontes from './pages/GerenciarFontes.jsx';
+import ConversasLeads from './pages/ConversasLeads.jsx';
 import Integracoes from './pages/Integracoes.jsx';
 import ConversaoNovosClientes from './pages/ConversaoNovosClientes.jsx';
 import BrainHome from './pages/BrainHome.jsx';
@@ -118,6 +119,11 @@ const AuthenticatedApp = () => {
       <Route path="/Integracoes" element={
         <LayoutWrapper currentPageName="Integracoes">
           <Integracoes />
+        </LayoutWrapper>
+      } />
+      <Route path="/ConversasLeads" element={
+        <LayoutWrapper currentPageName="ConversasLeads">
+          <ConversasLeads />
         </LayoutWrapper>
       } />
       <Route path="/GerenciarFontes" element={
