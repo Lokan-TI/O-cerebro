@@ -153,14 +153,14 @@ export default function TabExecutiva() {
           <KpiCard icon={Users} label="Clientes ativos (ano)" value={fmtNum(clientes)} sub={`${fmtNum(clientesMes)} no mês`} color="purple" />
           <KpiCard icon={UserPlus} label="Novos clientes" value={fmtNum(newClients)} sub="Primeira compra no ano" color="green" />
           <KpiCard icon={Repeat} label="Recorrentes" value={fmtNum(retainedClients)} sub="Compraram ano anterior e atual" color="blue" />
-          <KpiCard icon={UserMinus} label="Em churn (12 meses)" value={churn12Scoped ? fmtNum(churn12Scoped.churned_clients) : "—"} sub={isAll ? "Sem faturar nos últimos 12 meses" : "Da filial selecionada — igual à tabela abaixo"} color="red" />
+          <KpiCard icon={UserMinus} label="Sem NF (comparativo 12m)" value={churn12Scoped ? fmtNum(churn12Scoped.churned_clients) : "—"} sub={isAll ? "Benchmark legado; churn oficial está em Retenção & Churn" : "Benchmark legado da filial"} color="red" />
         </div>
       </div>
 
       {/* Retenção */}
       <div>
         <h3 className="text-purple-300 text-xs font-semibold uppercase tracking-wider mb-3">
-          Retenção & Churn — janela móvel de 12 meses{" "}
+          Comparativo por NF — janela móvel de 12 meses (legado){" "}
           <span className="text-gray-500 normal-case">
             · {isAll ? "consolidado do grupo" : getEmpresaLabel(selectedEmpresa, empRow?.nm_empresa)}
           </span>
@@ -171,7 +171,7 @@ export default function TabExecutiva() {
       {/* Ranking de filiais por retenção — sempre visível para comparação */}
       <div>
         <h3 className="text-purple-300 text-xs font-semibold uppercase tracking-wider mb-3">
-          Churn por empresa — qual filial retém mais clientes
+          Comparativo por NF por empresa — não é o churn oficial
         </h3>
         <ChurnEmpresaRanking
           rows={k.churn12_by_empresa}
@@ -195,9 +195,9 @@ export default function TabExecutiva() {
           <KpiCard icon={TrendingDown} label="Receita retida" value={fmtCur(retainedRevenue)} sub="De clientes recorrentes no ano civil" color="amber" />
         </div>
         <p className="text-[11px] text-gray-500 mt-2 leading-relaxed">
-          Leitura por ano civil (compara quem faturou no ano anterior com quem faturou neste ano, ainda incompleto) —
-          por isso os percentuais divergem da janela móvel de 12 meses acima. O indicador oficial de churn e retenção é
-          o de 12 meses; este bloco serve apenas de contexto de sazonalidade.
+          Leitura por ano civil (compara quem faturou no ano anterior com quem faturou neste ano, ainda incompleto).
+          Este bloco e o comparativo móvel de 12 meses são leituras históricas por NF. O churn oficial de locação é o v3 da aba
+          Retenção & Churn: ficha aberta primeiro, última NF válida depois, janela de 13 meses por último.
         </p>
       </div>
 
@@ -214,8 +214,8 @@ export default function TabExecutiva() {
                 <th className="text-right py-2 px-3">Faturamento NF (período)</th>
                 <th className="text-right py-2 px-3">Crescimento</th>
                 <th className="text-right py-2 px-3">Clientes (ano)</th>
-                <th className="text-right py-2 px-3">Churn 12m</th>
-                <th className="text-right py-2 px-3">Retenção 12m</th>
+                <th className="text-right py-2 px-3">Sem NF 12m</th>
+                <th className="text-right py-2 px-3">Retenção NF 12m</th>
                 <th className="text-right py-2 px-3">Ticket médio</th>
                 <th className="text-right py-2 px-3">Receita/cliente</th>
               </tr>
@@ -256,9 +256,9 @@ export default function TabExecutiva() {
         </div>
         <p className="text-[11px] text-gray-500 mt-3 leading-relaxed">
           Faturamento NF, crescimento e ticket seguem o período do filtro ({period.start} → {period.end}), comparados com a
-          janela anterior de mesma duração. Clientes são do ano civil do snapshot. Churn e retenção usam
-          a janela móvel de 12 meses — os mesmos números da tabela "Churn por empresa" acima, para não haver duas
-          leituras diferentes do mesmo indicador. Filiais sem base nos 12 meses anteriores aparecem com "—".
+          janela anterior de mesma duração. Clientes são do ano civil do snapshot. As duas colunas de 12 meses são apenas
+          comparativos históricos por NF; não aplicam o status das fichas de locação. Para churn oficial, use Retenção & Churn (v3).
+          Filiais sem base nos 12 meses anteriores aparecem com "—".
         </p>
       </div>
 
