@@ -18,9 +18,12 @@ export const DEPARTMENTS = [
     id: "growth",
     label: "Growth Marketing",
     items: [
-      { label: "Painel de Growth", to: "/GrowthMarketing" },
-      { label: "Conversão de Novos Clientes", to: "/ConversaoNovosClientes" },
-      { label: "Leads RD Conversas (WhatsApp/Instagram)", to: "/ConversasLeads" },
+      { label: "Visão Geral", to: "/GrowthMarketing?tab=overview" },
+      { label: "Aquisição", to: "/GrowthMarketing?tab=aquisicao" },
+      { label: "Conversão", to: "/GrowthMarketing?tab=conversao" },
+      { label: "Retenção & Churn", to: "/GrowthMarketing?tab=churn" },
+      { label: "Reativação de Carteira", to: "/GrowthMarketing?tab=reativacao" },
+      { label: "Customer Health", to: "/GrowthMarketing?tab=health" },
     ],
   },
   {
@@ -31,7 +34,6 @@ export const DEPARTMENTS = [
       { label: "Clientes", to: "/ErpCrmDashboard?tab=clientes_pessoa" },
       { label: "Cliente 360", to: "/ErpCrmDashboard?tab=cliente360" },
       { label: "Classificação", to: "/ErpCrmDashboard?tab=classificacao" },
-      { label: "Retenção & Churn", to: "/ErpCrmDashboard?tab=churn" },
       { label: "Locações", to: "/ErpCrmDashboard?tab=locacoes" },
       { label: "Clientes CAR", to: "/ErpCrmDashboard?tab=car" },
     ],
