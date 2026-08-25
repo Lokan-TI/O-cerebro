@@ -1,3 +1,5 @@
+import { empFilter } from './empresaScope.ts';
+
 // Phase 4 · Semantic Layer — Metric Registry executável (doc 12 é a fonte normativa).
 // Regra: nenhum dashboard implementa fórmula. Toda métrica exibida passa por computeMetric.
 // Nenhuma métrica está TRUSTED enquanto o dono de negócio não aprovar via ADR.
@@ -19,7 +21,8 @@ export type AnalysisContext = {
 };
 
 function empresaClause(ctx: AnalysisContext) {
-  return ctx.cd_empresa ? ` AND cd_empresa = '${String(ctx.cd_empresa).replace(/'/g, '')}'` : '';
+  const selected = ctx.cd_empresa ? ` AND cd_empresa = '${String(ctx.cd_empresa).replace(/'/g, '')}'` : '';
+  return `${empFilter()}${selected}`;
 }
 
 function windowClause(ctx: AnalysisContext, start: string, end: string) {
@@ -181,7 +184,7 @@ export const METRICS: MetricDef[] = [
     ],
     build: (ctx) => ({
       queries: [
-        `SELECT COUNT(*) AS c FROM (SELECT DISTINCT a.cd_pessoa FROM nf a WHERE a.${INVOICE_DATE_FIELD} >= '${ctx.period_start}' AND a.${INVOICE_DATE_FIELD} < '${ctx.period_end}' AND a.fl_ent_sai = 'S' AND ISNULL(a.fl_can_nf, 'N') <> 'S' AND a.dt_cancelamento IS NULL AND a.dt_anul_nf IS NULL AND ISNULL(a.vl_faturamento,0) > 0${ctx.cd_empresa ? ` AND a.cd_empresa = '${String(ctx.cd_empresa).replace(/'/g, '')}'` : ''} AND NOT EXISTS (SELECT 1 FROM nf b WHERE b.cd_pessoa = a.cd_pessoa AND b.${INVOICE_DATE_FIELD} < '${ctx.period_start}' AND b.fl_ent_sai = 'S' AND ISNULL(b.fl_can_nf, 'N') <> 'S' AND b.dt_cancelamento IS NULL AND b.dt_anul_nf IS NULL AND ISNULL(b.vl_faturamento,0) > 0)) t`,
+        `SELECT COUNT(*) AS c FROM (SELECT DISTINCT a.cd_pessoa FROM nf a WHERE a.${INVOICE_DATE_FIELD} >= '${ctx.period_start}' AND a.${INVOICE_DATE_FIELD} < '${ctx.period_end}' AND a.fl_ent_sai = 'S' AND ISNULL(a.fl_can_nf, 'N') <> 'S' AND a.dt_cancelamento IS NULL AND a.dt_anul_nf IS NULL AND ISNULL(a.vl_faturamento,0) > 0 ${empFilter('a')}${ctx.cd_empresa ? ` AND a.cd_empresa = '${String(ctx.cd_empresa).replace(/'/g, '')}'` : ''} AND NOT EXISTS (SELECT 1 FROM nf b WHERE b.cd_pessoa = a.cd_pessoa AND b.${INVOICE_DATE_FIELD} < '${ctx.period_start}' AND b.fl_ent_sai = 'S' AND ISNULL(b.fl_can_nf, 'N') <> 'S' AND b.dt_cancelamento IS NULL AND b.dt_anul_nf IS NULL AND ISNULL(b.vl_faturamento,0) > 0 ${empFilter('b')})) t`,
       ],
       reduce: ([r]) => Number(r?.[0]?.c || 0),
     }),
@@ -191,7 +194,7 @@ export const METRICS: MetricDef[] = [
 // Universo canônico de recebíveis (mesmo usado no bloco analytics · CAR)
 function carWindowClause(ctx: AnalysisContext, start: string, end: string) {
   const emp = ctx.cd_empresa ? ` AND cd_empresa_gestora = '${String(ctx.cd_empresa).replace(/'/g, '')}'` : '';
-  return `dt_emi_car >= '${start}' AND dt_emi_car < '${end}' AND dt_cancelamento IS NULL${emp}`;
+  return `dt_emi_car >= '${start}' AND dt_emi_car < '${end}' AND dt_cancelamento IS NULL ${empFilter('', 'cd_empresa_gestora')}${emp}`;
 }
 
 function periodDays(ctx: AnalysisContext) {
