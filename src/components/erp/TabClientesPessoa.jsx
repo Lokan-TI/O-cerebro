@@ -10,6 +10,7 @@ import { getEmpresaLabel } from "@/lib/empresaLabels";
 import { fmtCur, fmtNum } from "@/lib/erpFormat";
 import ClientesReceitaChart from "@/components/erp/ClientesReceitaChart";
 import ClientesAtivosTable from "@/components/erp/ClientesAtivosTable";
+import ClientesMesPanel from "@/components/erp/ClientesMesPanel";
 import ClientePatrimoniosModal from "@/components/erp/ClientePatrimoniosModal";
 import { Users, TrendingUp, Search, Crown, FileText, Repeat, Percent } from "lucide-react";
 
@@ -21,6 +22,7 @@ export default function TabClientesPessoa() {
   const { selectedSource } = useErpSource();
   const [search, setSearch] = useState("");
   const [selectedClient, setSelectedClient] = useState(null);
+  const [selectedMonth, setSelectedMonth] = useState(null);
 
   // Consulta ao vivo do período aplicado — mesma query da tabela (cache compartilhado).
   const [liveRows, setLiveRows] = useState(null);
@@ -188,7 +190,11 @@ export default function TabClientesPessoa() {
       </div>
 
       {/* Evolução mensal da receita da base ativa */}
-      <ClientesReceitaChart monthlyRevenue={snapshot.monthly_revenue} carMonthly={snapshot?.analytics?.car_monthly} selectedEmpresa={selectedEmpresa} period={period} />
+      <ClientesReceitaChart monthlyRevenue={snapshot.monthly_revenue} carMonthly={snapshot?.analytics?.car_monthly} selectedEmpresa={selectedEmpresa} period={period} onSelectMonth={setSelectedMonth} />
+
+      {selectedMonth && (
+        <ClientesMesPanel ano={selectedMonth.ano} mes={selectedMonth.mes} onClose={() => setSelectedMonth(null)} />
+      )}
 
       {/* Lista completa de clientes ativos — consulta ao vivo + exportação */}
       <ClientesAtivosTable onSelectClient={setSelectedClient} />

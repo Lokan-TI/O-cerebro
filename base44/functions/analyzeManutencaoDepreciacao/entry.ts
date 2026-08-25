@@ -1,5 +1,6 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.40';
 import { execRead } from '../../shared/erpConnection.ts';
+import { resolvePeriod } from '../../shared/periodContract.ts';
 
 // Cruzamento item a item (por equipamento) entre custo de manutenção dos últimos
 // 12 meses e o valor imobilizado / idade real dos patrimônios daquele equipamento.
@@ -21,8 +22,17 @@ export default async function (req: Request): Promise<Response> {
     if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 });
 
     const body = await req.json().catch(() => ({}));
-    const end = String(body?.end_date || new Date().toISOString().slice(0, 10));
-    const start12 = new Date(new Date(end).getTime() - 365 * 86400000).toISOString().slice(0, 10);
+    const today = new Date().toISOString().slice(0, 10);
+    const resolvedPeriod = resolvePeriod({
+      start: body?.start_date,
+      endInclusive: body?.end_date,
+      endExclusive: body?.end_date_exclusive,
+      defaultStart: new Date(new Date(`${today}T12:00:00Z`).getTime() - 365 * 86400000).toISOString().slice(0, 10),
+      defaultEndInclusive: today,
+    });
+    const end = resolvedPeriod.endInclusive;
+    const endExclusive = resolvedPeriod.endExclusive;
+    const start12 = body?.start_date ? resolvedPeriod.start : new Date(new Date(`${end}T12:00:00Z`).getTime() - 365 * 86400000).toISOString().slice(0, 10);
 
     let source: Record<string, unknown> = { credential_reference: 'env' };
     if (body?.source_id) {
@@ -59,7 +69,7 @@ export default async function (req: Request): Promise<Response> {
         SUM(COALESCE(o.vl_custoos_terceiro, 0)) AS terceiro_12m,
         CONVERT(char(10), MAX(o.dt_abertura), 120) AS ultima_os
       FROM orcos o WITH (NOLOCK)
-      WHERE o.dt_abertura >= '${start12}' AND o.dt_abertura < DATEADD(day, 1, CAST('${end}' AS date))
+      WHERE o.dt_abertura >= '${start12}' AND o.dt_abertura < '${endExclusive}'
         AND UPPER(COALESCE(o.fl_propriedade, 'P')) = 'P'
       GROUP BY o.cd_equipto`;
 
@@ -102,7 +112,7 @@ export default async function (req: Request): Promise<Response> {
 
     return Response.json({
       generated_at: new Date().toISOString(),
-      period: { start: start12, end },
+      period: { start: start12, end, end_exclusive: endExclusive },
       items,
       warnings,
       duration_ms: Date.now() - t0,
