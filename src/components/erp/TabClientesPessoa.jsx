@@ -32,12 +32,12 @@ export default function TabClientesPessoa() {
     let alive = true;
     setLiveLoading(true);
     const sourceId = selectedSource?.id && selectedSource.id !== ALL_SOURCES_ID ? selectedSource.id : null;
-    fetchClientesAtivos(sourceId, period.start, period.end)
+    fetchClientesAtivos(sourceId, period.start, period.end, snapshot?.version)
       .then((d) => { if (alive) { setLiveRows(d?.rows || []); setLiveMeta(d || null); } })
       .catch(() => { if (alive) { setLiveRows(null); setLiveMeta(null); } })
       .finally(() => { if (alive) setLiveLoading(false); });
     return () => { alive = false; };
-  }, [period.start, period.end, selectedSource?.id]);
+  }, [period.start, period.end, selectedSource?.id, snapshot?.version]);
 
   // Agrega as linhas ao vivo (empresa × cliente) no escopo da empresa selecionada.
   const live = useMemo(() => {
