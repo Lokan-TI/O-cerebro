@@ -1,6 +1,7 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.40';
 import { execRead } from '../../shared/erpConnection.ts';
 import { getCatalog, buildExportSql } from '../../shared/finExportCatalog.ts';
+import { resolvePeriod } from '../../shared/periodContract.ts';
 
 // Exportação de CAP / CAR com filtros e seleção de colunas (whitelist do catálogo).
 // Modos: { mode: 'columns', doc } → catálogo de colunas · demais → extração.
@@ -17,11 +18,19 @@ export default async function (req: Request): Promise<Response> {
       return Response.json({ success: true, doc, catalog: getCatalog(doc) });
     }
 
+    const resolvedPeriod = resolvePeriod({
+      start: body?.start_date,
+      endInclusive: body?.end_date,
+      endExclusive: body?.end_date_exclusive,
+      defaultStart: `${new Date().getFullYear()}-01-01`,
+      defaultEndInclusive: new Date().toISOString().slice(0, 10),
+    });
+
     const sql = buildExportSql({
       doc,
       columns: Array.isArray(body?.columns) ? body.columns : [],
-      startDate: String(body?.start_date || ''),
-      endDate: String(body?.end_date || ''),
+      startDate: resolvedPeriod.start,
+      endDateExclusive: resolvedPeriod.endExclusive,
       status: String(body?.status || 'todos'),
       cdEmpresa: body?.cd_empresa,
       limit: body?.limit,
@@ -50,6 +59,7 @@ export default async function (req: Request): Promise<Response> {
       doc,
       rows,
       total: rows.length,
+      period: { start: resolvedPeriod.start, end: resolvedPeriod.endInclusive, end_exclusive: resolvedPeriod.endExclusive },
       duration_ms: Date.now() - t0,
       queries: [{ label: `Exportação ${doc.toUpperCase()}`, sql }],
     });
