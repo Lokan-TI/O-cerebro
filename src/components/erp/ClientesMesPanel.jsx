@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useErpSource, ALL_SOURCES_ID } from "@/lib/ErpSourceContext";
+import { useErpSnapshot } from "@/lib/ErpSnapshotContext";
 import { useEmpresaFilter } from "@/lib/EmpresaFilterContext";
 import { fetchClientesAtivos } from "@/components/erp/clientesAtivosCache";
 import { exportClientesAtivosCsv } from "@/components/erp/clientesAtivosExport";
@@ -12,6 +13,7 @@ const lastDay = (ano, mes) => new Date(ano, mes, 0).getDate();
 // Lista os clientes que geraram receita (NF) no mês clicado no gráfico.
 export default function ClientesMesPanel({ ano, mes, onClose }) {
   const { selectedSource } = useErpSource();
+  const { snapshot } = useErpSnapshot();
   const { selectedEmpresa } = useEmpresaFilter();
   const [rows, setRows] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -25,12 +27,12 @@ export default function ClientesMesPanel({ ano, mes, onClose }) {
     setLoading(true);
     setError(null);
     const sourceId = selectedSource?.id && selectedSource.id !== ALL_SOURCES_ID ? selectedSource.id : null;
-    fetchClientesAtivos(sourceId, start, end)
+    fetchClientesAtivos(sourceId, start, end, snapshot?.version)
       .then((d) => { if (alive) setRows(d?.rows || []); })
       .catch((e) => { if (alive) setError(e?.message || "Falha ao carregar clientes do mês"); })
       .finally(() => { if (alive) setLoading(false); });
     return () => { alive = false; };
-  }, [start, end, selectedSource?.id]);
+  }, [start, end, selectedSource?.id, snapshot?.version]);
 
   const list = useMemo(() => {
     let l = rows || [];
