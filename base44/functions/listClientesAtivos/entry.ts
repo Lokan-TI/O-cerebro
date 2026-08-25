@@ -2,6 +2,7 @@ import { createClientFromRequest } from 'npm:@base44/sdk@0.8.40';
 import { execRead } from '../../shared/erpConnection.ts';
 import { resolvePeriod } from '../../shared/periodContract.ts';
 import { empFilter } from '../../shared/empresaScope.ts';
+import { invoiceUniverse } from '../../shared/invoiceUniverse.ts';
 
 // Lista COMPLETA de clientes ativos (com faturamento no período), na granularidade
 // empresa Sisloc × cliente. Sem TOP: a lista não é mais limitada aos maiores clientes.
@@ -39,7 +40,7 @@ export default async function (req: Request): Promise<Response> {
     LEFT JOIN pessoa p WITH (NOLOCK) ON p.cd_pessoa = n.cd_pessoa
     WHERE n.dt_emi_nf >= '${startDate}' AND n.dt_emi_nf < '${endDateExclusive}'
       AND n.cd_pessoa IS NOT NULL
-      AND ISNULL(CAST(n.fl_can_nf AS varchar(5)), '') NOT IN ('S', '1')
+      AND ${invoiceUniverse('n')}
       ${empFilter('n')}
     GROUP BY n.cd_empresa, e.nm_fan_empresa, n.cd_pessoa, p.nm_fan_pessoa, p.nm_pessoa
     ORDER BY ISNULL(SUM(n.vl_faturamento), 0) DESC`;
