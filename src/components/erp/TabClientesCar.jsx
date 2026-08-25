@@ -25,7 +25,7 @@ export default function TabClientesCar() {
       const res = await base44.functions.invoke("listActiveCarClients", {
         source_id: selectedSource.id,
         start_date: period.start,
-        end_date: period.endExclusive,
+        end_date_exclusive: period.endExclusive,
         only_open: onlyOpen,
       });
       const result = res?.data || res;
