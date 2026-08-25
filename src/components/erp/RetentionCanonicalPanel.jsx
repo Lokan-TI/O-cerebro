@@ -6,7 +6,7 @@ import { Play, ShieldCheck } from "lucide-react";
 
 const METRIC_IDS = ["MTR-023", "MTR-024"];
 
-// Retenção e churn pelo registry (lifecycle v1 · NF). Roda em paralelo ao motor legado abaixo.
+// Benchmark técnico antigo por NF (lifecycle v1). Não representa o churn oficial de locação v2.
 export default function RetentionCanonicalPanel({ periodStart, periodEnd, periodEndInclusive, legacyRunning = false }) {
   const { selectedSource } = useErpSource();
   const [items, setItems] = useState(null);
@@ -45,18 +45,18 @@ export default function RetentionCanonicalPanel({ periodStart, periodEnd, period
         <div>
           <h3 className="text-white font-semibold flex items-center gap-2">
             <ShieldCheck className="w-4 h-4 text-purple-400" />
-            Retenção e churn pelo registry (MTR-023 / MTR-024)
+            Comparativo por NF — modelo anterior (MTR-023 / MTR-024)
           </h3>
           <p className="text-xs text-gray-500 mt-1 max-w-2xl">
-            Coorte 12m vs. 12m ancorada em {periodEndInclusive || periodEnd}, atividade por NF faturada (lifecycle v1 · doc 10),
-            com linhagem SQL e selo de confiança. O motor legado por remessa segue exibido abaixo, sem alteração.
+            Benchmark 12m vs. 12m ancorado em {periodEndInclusive || periodEnd}, usando somente NF faturada (lifecycle v1).
+            Não considera contrato vigente, faturamento recorrente da ficha nem movimentação operacional e, por isso, não deve ser usado como churn oficial da locação.
           </p>
         </div>
         <div className="text-right">
           <button onClick={run} disabled={loading || legacyRunning}
             className="flex items-center gap-2 px-4 py-2 rounded-lg bg-purple-600 hover:bg-purple-500 disabled:opacity-50 text-sm text-white">
             <Play className="w-4 h-4" />
-            {loading ? "Calculando..." : "Calcular oficial"}
+            {loading ? "Calculando..." : "Calcular comparativo NF"}
           </button>
           {legacyRunning && (
             <p className="text-[11px] text-amber-300/80 mt-1.5">Aguardando o motor legado liberar a conexão do ERP.</p>
