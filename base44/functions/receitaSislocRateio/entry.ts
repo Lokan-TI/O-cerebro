@@ -89,6 +89,54 @@ export default async function (req: Request): Promise<Response> {
       GROUP BY grupo.cd_grupo, grupo.nm_grupo
       ORDER BY vl_rateado DESC`;
 
+    // Filtro alternativo de período — hipótese: o ERP usa v_nf_emissao.dt_emissao
+    const viewWhere = `nf.fl_ent_sai = 'S'
+        AND ISNULL(CAST(nf.fl_can_nf AS varchar(5)), 'N') NOT IN ('S', '1')
+        AND nf.dt_cancelamento IS NULL
+        AND nf.dt_anul_nf IS NULL
+        AND v_nf_emissao.dt_emissao >= '${startDate}'
+        AND v_nf_emissao.dt_emissao < '${endDate}'`;
+
+    // SQL 6 — SUM(nf.vl_faturamento) filtrado por v_nf_emissao.dt_emissao
+    const sqlFaturamentoViaView = `SELECT SUM(ISNULL(nf.vl_faturamento, 0)) AS vl_faturamento_view,
+        COUNT(*) AS qtd_nfs
+      FROM nf WITH (NOLOCK)
+      INNER JOIN v_nf_emissao WITH (NOLOCK) ON nf.cd_nf = v_nf_emissao.cd_nf
+      WHERE ${viewWhere}`;
+
+    // SQL 7 — SUM(nffatur.vl_nffatur) filtrado por v_nf_emissao.dt_emissao
+    const sqlNffaturViaView = `SELECT
+        SUM(ISNULL(nffatur.vl_nffatur, 0)) AS vl_nffatur_view,
+        COUNT(DISTINCT nffatur.cd_nf) AS qtd_nfs_com_nffatur
+      FROM nffatur WITH (NOLOCK)
+      JOIN nf WITH (NOLOCK) ON nffatur.cd_nf = nf.cd_nf
+      INNER JOIN v_nf_emissao WITH (NOLOCK) ON nf.cd_nf = v_nf_emissao.cd_nf
+      WHERE ${viewWhere}`;
+
+    // SQL 8 — NFs sem correspondência na view ou com data divergente
+    const sqlDiferencaDatas = `SELECT TOP 50
+        nf.cd_nf,
+        nf.dt_emi_nf,
+        v.dt_emissao,
+        nf.vl_faturamento,
+        CASE
+          WHEN v.dt_emissao IS NULL THEN 'SEM_VIEW'
+          WHEN nf.dt_emi_nf <> v.dt_emissao THEN 'DATA_DIFERENTE'
+          ELSE 'IGUAL'
+        END AS status_data
+      FROM nf WITH (NOLOCK)
+      LEFT JOIN v_nf_emissao v WITH (NOLOCK) ON nf.cd_nf = v.cd_nf
+      WHERE nf.fl_ent_sai = 'S'
+        AND ISNULL(CAST(nf.fl_can_nf AS varchar(5)), 'N') NOT IN ('S', '1')
+        AND nf.dt_cancelamento IS NULL
+        AND nf.dt_anul_nf IS NULL
+        AND (
+          (nf.dt_emi_nf >= '${startDate}' AND nf.dt_emi_nf < '${endDate}')
+          OR (v.dt_emissao >= '${startDate}' AND v.dt_emissao < '${endDate}')
+        )
+        AND (v.cd_nf IS NULL OR nf.dt_emi_nf <> v.dt_emissao)
+      ORDER BY nf.cd_nf DESC`;
+
     const pick = (result: any): Record<string, unknown>[] => {
       if (Array.isArray(result?.recordset) && result.recordset.length > 0) return result.recordset;
       if (Array.isArray(result?.recordsets)) {
@@ -116,6 +164,15 @@ export default async function (req: Request): Promise<Response> {
     try { results.divergencias = pick(await execRead(source, sqlDivergencia, 60000)); }
     catch (e) { results.divergencias_error = (e as Error)?.message; }
 
+    try { results.faturamento_via_view = pick(await execRead(source, sqlFaturamentoViaView, 60000))[0] || null; }
+    catch (e) { results.faturamento_via_view_error = (e as Error)?.message; }
+
+    try { results.nffatur_via_view = pick(await execRead(source, sqlNffaturViaView, 60000))[0] || null; }
+    catch (e) { results.nffatur_via_view_error = (e as Error)?.message; }
+
+    try { results.diferenca_datas = pick(await execRead(source, sqlDiferencaDatas, 60000)); }
+    catch (e) { results.diferenca_datas_error = (e as Error)?.message; }
+
     if (breakdown === 'group') {
       try { results.rateio_por_grupo = pick(await execRead(source, sqlRateioGrupo, 90000)); }
       catch (e) { results.rateio_grupo_error = (e as Error)?.message; }
@@ -133,6 +190,9 @@ export default async function (req: Request): Promise<Response> {
       nffatur: sqlNffatur,
       nfs_sem_nffatur: sqlNfsSemNffatur,
       divergencias: sqlDivergencia,
+      faturamento_via_view: sqlFaturamentoViaView,
+      nffatur_via_view: sqlNffaturViaView,
+      diferenca_datas: sqlDiferencaDatas,
       ...(breakdown === 'group' ? { rateio_por_grupo: sqlRateioGrupo } : {}),
     };
     results.duration_ms = Date.now() - t0;
