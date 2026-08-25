@@ -130,7 +130,7 @@ export function getCatalog(doc) {
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
 // Monta o SELECT de exportação. Tudo validado contra o catálogo (whitelist).
-export function buildExportSql({ doc, columns, startDate, endDate, status, cdEmpresa, limit }) {
+export function buildExportSql({ doc, columns, startDate, endDateExclusive, status, cdEmpresa, limit }) {
   const isCap = doc === 'cap';
   const base = new Map(isCap ? CAP_BASE_COLUMNS : CAR_BASE_COLUMNS);
   const related = new Map((isCap ? CAP_RELATED_COLUMNS : CAR_RELATED_COLUMNS).map(([id, _label, expr, join]) => [id, { expr, join }]));
@@ -149,13 +149,13 @@ export function buildExportSql({ doc, columns, startDate, endDate, status, cdEmp
     }
   }
   if (selectParts.length === 0) throw new Error('Selecione ao menos uma coluna.');
-  if (!DATE_RE.test(startDate) || !DATE_RE.test(endDate)) throw new Error('Período inválido.');
+  if (!DATE_RE.test(startDate) || !DATE_RE.test(endDateExclusive)) throw new Error('Período inválido.');
 
   const emi = isCap ? 'dt_emi_cap' : 'dt_emi_car';
   const bai = isCap ? 'dt_bai_cap' : 'dt_bai_car';
   const ven = isCap ? 'dt_ven_cap' : 'dt_ven_car';
 
-  const where = [`c.${emi} >= '${startDate}' AND c.${emi} < DATEADD(day, 1, CAST('${endDate}' AS date))`];
+  const where = [`c.${emi} >= '${startDate}' AND c.${emi} < '${endDateExclusive}'`];
   const cancel = isCap ? '' : ' AND c.dt_cancelamento IS NULL';
   if (status === 'aberto') where.push(`c.${bai} IS NULL${cancel}`);
   else if (status === 'baixado') where.push(`c.${bai} IS NOT NULL`);
