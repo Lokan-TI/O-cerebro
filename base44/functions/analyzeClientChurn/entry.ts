@@ -38,10 +38,20 @@ Deno.serve(async (req) => {
 
     const body = await req.json();
     const sourceId = body?.source_id;
-    if (!sourceId) return Response.json({ success: false, error: 'source_id é obrigatório.' });
 
-    const source = await base44.asServiceRole.entities.ErpDataSource.get(sourceId);
-    if (!source) return Response.json({ success: false, error: 'Fonte de dados não encontrada.' });
+    let source;
+    if (sourceId && sourceId !== '__all__') {
+      source = await base44.asServiceRole.entities.ErpDataSource.get(sourceId);
+    } else {
+      const sources = await base44.asServiceRole.entities.ErpDataSource.list();
+      const active = (sources || []).filter((s) => s?.is_active !== false);
+      source = active.find((s) => String(s?.status || '').toLowerCase() === 'connected')
+        || active.find((s) => String(s?.name || '').toLowerCase() === 'matriz')
+        || active.find((s) => s?.credential_reference === 'env')
+        || active[0]
+        || null;
+    }
+    if (!source) return Response.json({ success: false, error: 'Nenhuma fonte ERP ativa e utilizável foi encontrada.' });
 
     const refStart = body?.ref_start;
     const refEnd = body?.ref_end;
