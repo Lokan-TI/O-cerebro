@@ -12,7 +12,7 @@ import { formatDateTime, formatDuration, daysSince } from "@/lib/erpSync";
 export default function RefreshHeader() {
   const { snapshot, latestRun, refreshing, refresh } = useErpSnapshot();
   const { selectedSource } = useErpSource();
-  const { draftRange } = useGlobalFilter();
+  const { period } = useGlobalFilter();
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
 
@@ -139,7 +139,7 @@ export default function RefreshHeader() {
         onClose={() => setConfirmOpen(false)}
         onConfirm={async () => {
           setConfirmOpen(false);
-          try { await refresh({ period: draftRange }); } catch (e) { /* erro já no estado */ }
+          try { await refresh({ period }); } catch (e) { /* erro já no estado */ }
         }}
         sourceName={selectedSource?.name}
         lastUpdate={lastUpdate}
