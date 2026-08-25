@@ -30,7 +30,8 @@ Deno.serve(async (req) => {
     const now = new Date();
     const year = now.getFullYear();
     const startDate = body?.start_date || `${year}-01-01`;
-    const endDate = body?.end_date || `${year + 1}-01-01`;
+    // end_date_exclusive é o contrato novo; end_date é mantido como alias legado exclusivo.
+    const endDate = body?.end_date_exclusive || body?.end_date || `${year + 1}-01-01`;
     const onlyOpen = body?.only_open === true;
 
     const config = buildConfig(source);
