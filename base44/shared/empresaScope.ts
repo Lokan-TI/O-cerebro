@@ -1,14 +1,13 @@
-// Empresas fora do escopo analítico por regra de negócio aprovada em 25/08/2026.
-// 5 = LLK RENTAL · 6 = JCK.
-// Ambas estão inativas operacionalmente: não recebem novos cadastros, contratos nem
-// lançamentos. A exclusão é deliberada e deve permanecer rastreável nas reconciliações.
-export const EXCLUDED_EMPRESAS = [5, 6];
-export const EXCLUDED_EMPRESAS_REASON = 'Empresas 5 e 6 inativas: sem novos cadastros, contratos ou lançamentos.';
-
-const LIST = `(${EXCLUDED_EMPRESAS.join(',')})`;
+// Escopo analítico padrão: não excluir empresas silenciosamente.
+// A fidelidade ao ERP exige preservar registros históricos inclusive de empresas hoje inativas.
+// Restrições de empresa devem vir do relatório SISLOC reproduzido ou de filtro explícito do usuário.
+export const EXCLUDED_EMPRESAS: number[] = [];
+export const EXCLUDED_EMPRESAS_REASON = 'Nenhuma exclusão global. Empresa inativa é atributo operacional, não filtro histórico implícito.';
 
 // Fragmento AND para consultas com coluna cd_empresa (opcionalmente com alias de tabela).
 export function empFilter(alias = '', column = 'cd_empresa') {
+  if (EXCLUDED_EMPRESAS.length === 0) return '';
   const prefix = alias ? `${alias}.` : '';
-  return `AND (${prefix}${column} IS NULL OR ${prefix}${column} NOT IN ${LIST})`;
+  const list = `(${EXCLUDED_EMPRESAS.join(',')})`;
+  return `AND (${prefix}${column} IS NULL OR ${prefix}${column} NOT IN ${list})`;
 }
