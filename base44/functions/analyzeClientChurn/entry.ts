@@ -386,6 +386,15 @@ Deno.serve(async (req) => {
     const longContractsActive = activeRows.filter(r => Number(r.contrato_aberto) === 1 && r.contract_horizon === '301_DIAS_OU_MAIS');
     const monthlyOpenContracts = activeRows.filter(r => Number(r.contrato_aberto) === 1 && r.billing_cycle === 'MENSAL');
     const openContractAlerts = activeRows.filter(r => Number(r.contrato_aberto) === 1 && r.contract_billing_alert);
+    const monitorRows = rows.filter(r => r.growth_status === 'MONITORAR');
+    const preChurnRows = rows.filter(r => r.growth_status === 'PRE_CHURN');
+    const actionRows = rows.filter(r => [
+      'MONITORAR',
+      'PRE_CHURN',
+      'CHURN_CONFIRMADO',
+      'ATIVO_CONTRATO_ALERTA',
+      'AUDITAR_SEM_NF',
+    ].includes(String(r.growth_status || '')));
 
     const summarize = (field) => {
       const map = {};
@@ -420,8 +429,9 @@ Deno.serve(async (req) => {
       })
       .sort((a, b) => a.ano === b.ano ? a.mes - b.mes : a.ano - b.ano);
 
-    // ---- Detailed enrichment for ALL churned clients (batched to respect DW_API 8000 char limit) ----
-    const detailClients = churnedRows;
+    // ---- Detailed enrichment for actionable Growth clients ----
+    // Reativação e Customer Health usam a mesma população classificada pelo churn v3.
+    const detailClients = actionRows;
     const pessoaCodes = detailClients.map(r => r.cd_pessoa).filter(v => v != null && v !== '');
 
     const pessoaMap = {};
