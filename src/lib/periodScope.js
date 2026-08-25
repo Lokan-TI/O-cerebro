@@ -15,9 +15,9 @@ export function periodMonths(period) {
   const b = ym(period?.end);
   if (!a.ano || !b.ano) return null;
   const from = idx(a.ano, a.mes);
-  // Fim no dia 1º é limite exclusivo (ex.: 2025-01-01 → 2026-01-01 = ano de 2025).
-  const endsOnFirst = String(period.end).slice(-2) === "01" && period.end !== period.start;
-  const to = idx(b.ano, b.mes) - (endsOnFirst ? 1 : 0);
+  // period.end é inclusivo na UX. Esta função trabalha em granularidade mensal,
+  // portanto qualquer dia do mês final inclui o mês inteiro na aproximação do snapshot.
+  const to = idx(b.ano, b.mes);
   const count = to - from + 1;
   return { from, to, count, prevFrom: from - count, prevTo: from - 1 };
 }
