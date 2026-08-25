@@ -1,5 +1,6 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.40';
 import { execRead } from '../../shared/erpConnection.ts';
+import { resolvePeriod } from '../../shared/periodContract.ts';
 
 // Lista COMPLETA de clientes ativos (com faturamento no período), na granularidade
 // empresa Sisloc × cliente. Sem TOP: a lista não é mais limitada aos maiores clientes.
@@ -12,8 +13,16 @@ export default async function (req: Request): Promise<Response> {
     if (!user) return Response.json({ success: false, error: 'Unauthorized' }, { status: 401 });
 
     const body = await req.json().catch(() => ({}));
-    const startDate = String(body?.start_date || '2000-01-01');
-    const endDate = String(body?.end_date || new Date().toISOString().slice(0, 10));
+    const resolvedPeriod = resolvePeriod({
+      start: body?.start_date,
+      endInclusive: body?.end_date,
+      endExclusive: body?.end_date_exclusive,
+      defaultStart: '2000-01-01',
+      defaultEndInclusive: new Date().toISOString().slice(0, 10),
+    });
+    const startDate = resolvedPeriod.start;
+    const endDate = resolvedPeriod.endInclusive;
+    const endDateExclusive = resolvedPeriod.endExclusive;
 
     // Consulta 1 — receita por empresa × cliente (leve, só nf + nomes)
     const sql = `SELECT
@@ -27,7 +36,7 @@ export default async function (req: Request): Promise<Response> {
     FROM nf n WITH (NOLOCK)
     LEFT JOIN empresa e WITH (NOLOCK) ON e.cd_empresa = n.cd_empresa
     LEFT JOIN pessoa p WITH (NOLOCK) ON p.cd_pessoa = n.cd_pessoa
-    WHERE n.dt_emi_nf >= '${startDate}' AND n.dt_emi_nf < DATEADD(day, 1, CAST('${endDate}' AS date))
+    WHERE n.dt_emi_nf >= '${startDate}' AND n.dt_emi_nf < '${endDateExclusive}'
       AND n.cd_pessoa IS NOT NULL
       AND ISNULL(CAST(n.fl_can_nf AS varchar(5)), '') NOT IN ('S', '1')
     GROUP BY n.cd_empresa, e.nm_fan_empresa, n.cd_pessoa, p.nm_fan_pessoa, p.nm_pessoa
@@ -93,7 +102,7 @@ export default async function (req: Request): Promise<Response> {
       rows,
       total: rows.length,
       receita_total,
-      period: { start: startDate, end: endDate },
+      period: { start: startDate, end: endDate, end_exclusive: endDateExclusive },
       warnings,
       duration_ms: Date.now() - t0,
       sql,
