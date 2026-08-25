@@ -55,6 +55,24 @@ export function scopeByPeriod(snapshot, period, selectedEmpresa) {
   const a = aggregate(cur);
   const b = aggregate(prev);
 
+  // Se o snapshot foi gerado para EXATAMENTE o período aplicado, use os KPIs
+  // extraídos diretamente da nf. Isso preserva dias parciais (ex.: 01/01 → 25/08)
+  // e evita reconstruir o total por meses inteiros.
+  const exactPeriod = snapshot?.analytics_period?.start === period?.start &&
+    snapshot?.analytics_period?.end === period?.endExclusive;
+  const exactEmpresaRow = selectedEmpresa == null
+    ? null
+    : (snapshot?.by_empresa || []).find((r) => Number(r.cd_empresa) === Number(selectedEmpresa));
+  const exactReceita = exactPeriod
+    ? Number(selectedEmpresa == null ? snapshot?.kpis?.fat_ano : exactEmpresaRow?.fat_ano)
+    : null;
+  const exactReceitaAnt = exactPeriod
+    ? Number(selectedEmpresa == null ? snapshot?.kpis?.fat_ano_ant : exactEmpresaRow?.fat_ano_ant)
+    : null;
+  const exactNfs = exactPeriod
+    ? Number(selectedEmpresa == null ? snapshot?.kpis?.nfs_ano : exactEmpresaRow?.nfs_ano)
+    : null;
+
   const monthlyMap = cur.reduce((acc, r) => {
     const key = `${r.ano}-${r.mes}`;
     acc[key] = acc[key] || { ano: Number(r.ano), mes: Number(r.mes), valor: 0, nfs: 0 };
@@ -95,14 +113,20 @@ export function scopeByPeriod(snapshot, period, selectedEmpresa) {
     ])
   );
 
+  const receita = exactPeriod && Number.isFinite(exactReceita) ? exactReceita : a.receita;
+  const receitaAnt = exactPeriod && Number.isFinite(exactReceitaAnt) ? exactReceitaAnt : b.receita;
+  const nfs = exactPeriod && Number.isFinite(exactNfs) ? exactNfs : a.nfs;
+
   return {
     hasData: true,
+    exact: exactPeriod,
+    approximate: !exactPeriod && (String(period?.start || '').slice(8, 10) !== '01' || String(period?.end || '').slice(8, 10) !== String(new Date(Number(String(period?.end || '').slice(0, 4)), Number(String(period?.end || '').slice(5, 7)), 0).getDate()).padStart(2, '0')),
     months: win.count,
-    receita: a.receita,
-    nfs: a.nfs,
-    ticket: a.nfs > 0 ? a.receita / a.nfs : 0,
-    receitaAnt: b.receita,
-    crescimento: b.receita > 0 ? ((a.receita - b.receita) / b.receita) * 100 : null,
+    receita,
+    nfs,
+    ticket: nfs > 0 ? receita / nfs : 0,
+    receitaAnt,
+    crescimento: receitaAnt > 0 ? ((receita - receitaAnt) / receitaAnt) * 100 : null,
     monthly: Object.values(monthlyMap).sort((x, y) => x.ano - y.ano || x.mes - y.mes),
     byEmpresa,
   };
