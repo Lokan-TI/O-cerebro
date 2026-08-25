@@ -97,7 +97,7 @@ Objetos físicos observados/confirmados para esse relatório: `fl_fatura`, `fl_f
 4. Regra de vendedor/comissionado quando há mais de uma pessoa associada ao mesmo documento.
 
 ## 8. Critério de aceite do onboarding
-- [ ] Perguntas da seção 6 respondidas e registradas em ADR
+- [ ] Perguntas da seção 7 respondidas e registradas em ADR
 - [ ] Métrica de Receita registrada no Metric Registry com dono e versão
 - [ ] Mapeamento Branch publicado
 - [ ] Reconciliação ERP × plataforma dentro de tolerância acordada
