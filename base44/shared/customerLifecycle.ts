@@ -2,6 +2,7 @@
 // Evento base de atividade: NF emitida (mesmo universo canônico de MTR-001).
 // Regra transversal: as_of_date explícito; proibido derivar estado de new Date().
 import { INVOICE_UNIVERSE, INVOICE_DATE_FIELD } from './metricRegistry.ts';
+import { empFilter } from './empresaScope.ts';
 
 export const LIFECYCLE_VERSION = 'v1';
 
@@ -30,6 +31,7 @@ export function buildLifecycleSql(asOf: string) {
     SUM(CASE WHEN ${F} >= '${d365}' THEN ISNULL(vl_faturamento, 0) ELSE 0 END) AS rev_12m
     FROM nf WITH (NOLOCK)
     WHERE ${INVOICE_UNIVERSE} AND ${F} < '${asOf}' AND ISNULL(vl_faturamento, 0) > 0
+      ${empFilter()}
     GROUP BY cd_pessoa`;
 }
 
