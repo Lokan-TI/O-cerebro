@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { base44 } from "@/api/base44Client";
 import { useErpSource, ALL_SOURCES_ID } from "@/lib/ErpSourceContext";
 import { useBrainSnapshot } from "@/components/brain/useBrainSnapshot";
+import { useGlobalFilter } from "@/lib/GlobalFilterContext";
 import { buildGrowthKpis } from "@/lib/growthKpis";
 import DecisionSection from "@/components/decision/DecisionSection";
 import QueryInspector from "@/components/erp/QueryInspector";
@@ -9,6 +10,7 @@ import { Loader2, Rocket, RefreshCw, AlertTriangle } from "lucide-react";
 
 export default function GrowthMarketing() {
   const { selectedSource } = useErpSource();
+  const { period } = useGlobalFilter();
   const { snapshot } = useBrainSnapshot();
   const [growth, setGrowth] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -23,6 +25,9 @@ export default function GrowthMarketing() {
     try {
       const res = await base44.functions.invoke("analyzeGrowth", {
         ...(sourceId ? { source_id: sourceId } : {}),
+        start_date: period.start,
+        end_date: period.end,
+        end_date_exclusive: period.endExclusive,
       });
       if (res.data?.error) setError(res.data.error);
       else setGrowth(res.data);
@@ -33,7 +38,7 @@ export default function GrowthMarketing() {
     }
   };
 
-  useEffect(() => { load(); }, [sourceId]);
+  useEffect(() => { load(); }, [sourceId, period.start, period.endExclusive]);
 
   const dept = useMemo(() => buildGrowthKpis(growth, snapshot), [growth, snapshot]);
 
