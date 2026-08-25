@@ -453,11 +453,11 @@ async function processRefresh(base44, source, run, version, previousVersion, sta
     }
     await updateStep(6, 65);
 
-    // Etapa 6: Série mensal (12 meses) — timeout estendido
+    // Etapa 6: Série mensal (36 meses) — cobre filtros que começam em anos anteriores
     let monthlyRevenue = [];
     try {
       const monthlySql = `SELECT cd_empresa, YEAR(dt_emi_nf) AS ano, MONTH(dt_emi_nf) AS mes, ISNULL(SUM(vl_faturamento),0) AS valor, COUNT(*) AS nfs, COUNT(DISTINCT cd_pessoa) AS clientes
-        FROM nf WHERE dt_emi_nf >= DATEADD(month,-12,${monthStart}) AND dt_emi_nf < ${monthEnd} ${cancelFilter} ${empF}
+        FROM nf WHERE dt_emi_nf >= DATEADD(month,-36,${monthStart}) AND dt_emi_nf < ${monthEnd} ${cancelFilter} ${empF}
         GROUP BY cd_empresa, YEAR(dt_emi_nf), MONTH(dt_emi_nf) ORDER BY 1, 2, 3`;
       const monthlyRes = await runQuery(source, wrap(monthlySql), 30000);
       queryCount++;
