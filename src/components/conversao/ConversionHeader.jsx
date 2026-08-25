@@ -1,13 +1,15 @@
 import { RefreshCw, Download, CalendarRange, CheckCircle2, AlertTriangle } from "lucide-react";
 import GlobalFilterBar from "@/components/erp/GlobalFilterBar";
+import { toInclusiveEnd } from "@/lib/periodContract";
 
 // O período vem do filtro global (Fonte → Empresa → Período), o mesmo usado em todas as
 // abas — a coorte de conversão respeita exatamente a janela escolhida pelo usuário.
 export default function ConversionHeader({
   snapshot, loading, refreshing, error,
-  periodStart, periodEnd, onRefresh, onExport,
+  periodStart, periodEnd, periodEndExclusive, onRefresh, onExport,
 }) {
-  const mismatch = snapshot && (snapshot.period_start !== periodStart || snapshot.period_end !== periodEnd);
+  const mismatch = snapshot && (snapshot.period_start !== periodStart || snapshot.period_end !== periodEndExclusive);
+  const snapshotEndInclusive = snapshot?.period_end ? toInclusiveEnd(snapshot.period_end) : null;
 
   return (
     <div className="space-y-3">
@@ -42,7 +44,7 @@ export default function ConversionHeader({
       {mismatch && (
         <div className="flex items-center gap-2 rounded-lg border border-amber-800 bg-amber-900/20 px-4 py-2.5 text-amber-300 text-xs">
           <AlertTriangle className="w-4 h-4 shrink-0" />
-          Esta versão foi calculada de {snapshot.period_start} a {snapshot.period_end}, diferente do período do filtro
+          Esta versão foi calculada de {snapshot.period_start} a {snapshotEndInclusive}, diferente do período do filtro
           global ({periodStart} → {periodEnd}). Clique em “Atualizar dados” para recalcular na janela selecionada.
         </div>
       )}
@@ -54,7 +56,7 @@ export default function ConversionHeader({
               <CheckCircle2 className="w-3.5 h-3.5" /> Dados publicados
             </span>
             <span className="text-gray-500">Última atualização: <span className="text-gray-300">{snapshot.created_at ? new Date(snapshot.created_at).toLocaleString("pt-BR") : "—"}</span></span>
-            <span className="text-gray-500 flex items-center gap-1"><CalendarRange className="w-3 h-3" /> Coorte: <span className="text-gray-300">{snapshot.period_start} → {snapshot.period_end}</span></span>
+            <span className="text-gray-500 flex items-center gap-1"><CalendarRange className="w-3 h-3" /> Coorte: <span className="text-gray-300">{snapshot.period_start} → {snapshotEndInclusive}</span></span>
             <span className="text-gray-500">Por: <span className="text-gray-300">{snapshot.generated_by_name || "—"}</span></span>
             <span className="text-gray-600 ml-auto">Versão: {snapshot.version}</span>
           </>
