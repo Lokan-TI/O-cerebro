@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { base44 } from "@/api/base44Client";
 import { Download, RefreshCw, MessageSquare } from "lucide-react";
 import ConversasStageCards from "@/components/conversas/ConversasStageCards";
@@ -27,6 +27,12 @@ export default function ConversasLeads() {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    load();
+    // carga inicial única da janela padrão; atualizações seguintes continuam manuais.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const all = data?.leads || [];
   const q = search.trim().toLowerCase();
