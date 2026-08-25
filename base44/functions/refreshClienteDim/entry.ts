@@ -2,6 +2,7 @@ import { createClientFromRequest } from 'npm:@base44/sdk@0.8.40';
 import { buildConfig, runQuery } from '../../shared/erpConnection.ts';
 import { buildClienteDim } from '../../shared/clienteDim.ts';
 import { empFilter } from '../../shared/empresaScope.ts';
+import { invoiceUniverse } from '../../shared/invoiceUniverse.ts';
 
 function getRows(result: any) {
   if (!result) return [];
@@ -54,7 +55,7 @@ Deno.serve(async (req) => {
           MIN(n.dt_emi_nf) AS primeira, MAX(n.dt_emi_nf) AS ultima
         FROM nf n WITH (NOLOCK)
         WHERE n.dt_emi_nf >= '${periodStart}' AND n.dt_emi_nf < '${periodEnd}'
-          AND ISNULL(n.fl_can_nf,'N') <> 'S' AND n.cd_pessoa IS NOT NULL ${empFilter('n')}
+          AND ${invoiceUniverse('n')} AND n.cd_pessoa IS NOT NULL ${empFilter('n')}
         GROUP BY n.cd_pessoa, n.cd_empresa`;
       notas = getRows(await runQuery(source, wrap(sql), 60000));
       queryCount++;
@@ -104,7 +105,7 @@ Deno.serve(async (req) => {
       ...notas.map((r: any) => Number(r.cd_pessoa)),
       ...fichas.map((r: any) => Number(r.cd_pessoa)),
       ...cars.map((r: any) => Number(r.cd_pessoa)),
-    ].filter(Boolean))].slice(0, 3000);
+    ].filter(Boolean))];
 
     const pessoas: any[] = [];
     for (let i = 0; i < ids.length; i += 300) {
