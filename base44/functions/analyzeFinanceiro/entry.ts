@@ -1,6 +1,7 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.40';
 import { execRead } from '../../shared/erpConnection.ts';
 import { resolvePeriod } from '../../shared/periodContract.ts';
+import { empFilter } from '../../shared/empresaScope.ts';
 
 // Balancete / DRE de caixa a partir do plano financeiro do Sisloc.
 // Plano financeiro = 9 dígitos em 4 níveis: 1 (G) · 2 (GG) · 4 (GGBB) · 9 (analítica).
@@ -84,6 +85,7 @@ export default async function (req: Request): Promise<Response> {
       LEFT JOIN plano pl WITH (NOLOCK) ON pl.cd_planfin = c.cd_conta
       ${joinLanca}
       WHERE ${window('car')} AND COALESCE(c.fl_status,0) <> 40
+        ${empFilter('c', 'cd_empresa_gestora')}
       GROUP BY pl.nr_planfin, pl.ds_planfin
       ORDER BY SUM(${valCar}) DESC`;
 
