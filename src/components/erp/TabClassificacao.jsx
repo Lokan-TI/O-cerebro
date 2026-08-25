@@ -39,7 +39,7 @@ export default function TabClassificacao() {
       const res = await base44.functions.invoke("classifyClientStatus", {
         source_id: selectedSource.id,
         analysis_start: period.start,
-        analysis_end: period.end,
+        analysis_end: period.endExclusive,
         ref_start: refStart,
       });
       const data = res?.data || res;
