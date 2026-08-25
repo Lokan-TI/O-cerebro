@@ -135,14 +135,14 @@ export default function TabExecutiva() {
         </div>
       )}
 
-      {/* Receita */}
+      {/* Faturamento NF */}
       <div>
-        <h3 className="text-purple-300 text-xs font-semibold uppercase tracking-wider mb-3">Receita</h3>
+        <h3 className="text-purple-300 text-xs font-semibold uppercase tracking-wider mb-3">Faturamento NF</h3>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <KpiCard icon={TrendingUp} label="Receita do período" value={fmtCur(receita)} sub={`Período anterior: ${fmtCur(receitaAnt)}`} color="green" />
+          <KpiCard icon={TrendingUp} label="Faturamento NF do período" value={fmtCur(receita)} sub={`Período anterior: ${fmtCur(receitaAnt)}`} color="green" />
           <KpiCard icon={Percent} label="Crescimento" value={fmtPct(crescimento)} sub={ps.hasData ? `vs. ${ps.months} meses anteriores` : "vs. período anterior"} color={cresColor} />
           <KpiCard icon={FileText} label="Ticket médio" value={fmtCur(ticket)} sub={ps.hasData ? `${fmtNum(ps.nfs)} notas no período` : "Por nota fiscal"} color="blue" />
-          <KpiCard icon={Wallet} label="Receita por cliente" value={fmtCur(receitaPorCliente)} sub={`${fmtNum(clientes)} clientes`} color="purple" />
+          <KpiCard icon={Wallet} label="Faturamento por cliente" value={fmtCur(receitaPorCliente)} sub={`${fmtNum(clientes)} clientes`} color="purple" />
         </div>
       </div>
 
@@ -211,7 +211,7 @@ export default function TabExecutiva() {
             <thead>
               <tr className="text-gray-500 text-xs uppercase border-b border-gray-800">
                 <th className="text-left py-2 px-3">Empresa</th>
-                <th className="text-right py-2 px-3">Receita (período)</th>
+                <th className="text-right py-2 px-3">Faturamento NF (período)</th>
                 <th className="text-right py-2 px-3">Crescimento</th>
                 <th className="text-right py-2 px-3">Clientes (ano)</th>
                 <th className="text-right py-2 px-3">Churn 12m</th>
@@ -255,7 +255,7 @@ export default function TabExecutiva() {
           </table>
         </div>
         <p className="text-[11px] text-gray-500 mt-3 leading-relaxed">
-          Receita, crescimento e ticket seguem o período do filtro ({period.start} → {period.end}), comparados com a
+          Faturamento NF, crescimento e ticket seguem o período do filtro ({period.start} → {period.end}), comparados com a
           janela anterior de mesma duração. Clientes são do ano civil do snapshot. Churn e retenção usam
           a janela móvel de 12 meses — os mesmos números da tabela "Churn por empresa" acima, para não haver duas
           leituras diferentes do mesmo indicador. Filiais sem base nos 12 meses anteriores aparecem com "—".
