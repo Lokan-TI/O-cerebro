@@ -96,6 +96,9 @@ Dependem da definição do evento de ativação do contrato (ver doc 03).
 
 Nenhuma métrica desta lista está TRUSTED hoje. Todas as telas atuais que as exibem devem receber selo de confiança até a conclusão da Phase 4.
 
+### Benchmark técnico separado · SISLOC-RECEITA-GRUPO
+`SISLOC-RECEITA-GRUPO` não substitui MTR-001 e não deve ser rotulado genericamente como Receita. Ele reproduz o relatório `TGersReceitaGrupoList` capturado em 25/08/2026, com `tipo_periodo=1`, data `v_nf_emissao.dt_emissao`, rateio por `nffatur.vl_nffatur` e cinco blocos: locação, venda, manutenção/OM, serviços e indenizações. Implementação: `receitaSislocRateio`. Status: **RECONCILIATION_READY / NÃO TRUSTED** até execução ERP × Cérebro dentro da tolerância definida.
+
 ---
 
 ## Metric Layer executável (Phase 4 · registry v0.1)
