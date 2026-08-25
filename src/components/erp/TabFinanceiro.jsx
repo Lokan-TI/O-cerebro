@@ -30,7 +30,7 @@ export default function TabFinanceiro() {
   const k = aView.kpis;
   const isAll = aView.isAll;
 
-  // Receita vem do snapshot (por empresa quando filtrada)
+  // Faturamento NF vem do snapshot (por empresa quando filtrada)
   const byEmp = snapshot?.by_empresa || [];
   const empRow = !isAll ? byEmp.find((e) => e.cd_empresa === selectedEmpresa) : null;
   const receita = isAll ? snapshot?.kpis?.fat_ano : empRow?.fat_ano || 0;
@@ -78,7 +78,7 @@ export default function TabFinanceiro() {
       {/* KPIs principais — 4 blocos */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="rounded-xl border border-green-700/40 bg-green-950/30 p-4">
-          <div className="flex items-center gap-2 mb-2"><TrendingUp className="w-4 h-4 text-green-400" /><span className="text-xs text-gray-400 uppercase">Receita realizada</span></div>
+          <div className="flex items-center gap-2 mb-2"><TrendingUp className="w-4 h-4 text-green-400" /><span className="text-xs text-gray-400 uppercase">Faturamento NF</span></div>
           <div className="text-2xl font-bold text-white">{fmtCur(receita)}</div>
           <div className="text-xs text-gray-500 mt-1">
             Ano anterior: {fmtCur(receitaAnt)}
@@ -99,22 +99,22 @@ export default function TabFinanceiro() {
           <div className="flex items-center gap-2 mb-2"><Calculator className="w-4 h-4 text-purple-400" /><span className="text-xs text-gray-400 uppercase">Resultado oper. estimado</span></div>
           <div className="text-2xl font-bold text-white">{fmtCur(resultado)}</div>
           <div className="text-xs text-gray-500 mt-1">
-            {margemResult != null ? `${margemResult.toFixed(1)}% de margem · ` : ""}Receita − CAP
+            {margemResult != null ? `${margemResult.toFixed(1)}% de margem · ` : ""}Faturamento NF − CAP
           </div>
         </div>
       </div>
 
-      {/* Receita gerada (pré-faturamento) vs realizada (NFs emitidas) */}
+      {/* Pré-faturamento (fl_fatura) vs faturamento NF (nf) */}
       {gerada != null && (
         <div className="bg-gray-900 border border-cyan-800/40 rounded-xl p-4">
           <div className="flex items-center gap-2 mb-3">
             <BarChart3 className="w-4 h-4 text-cyan-400" />
-            <span className="text-xs text-gray-400 uppercase tracking-wide">Receita gerada vs realizada</span>
+            <span className="text-xs text-gray-400 uppercase tracking-wide">Pré-faturamento vs faturamento NF</span>
             <span className="text-xs text-gray-600">· pré-faturamento</span>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="rounded-lg bg-cyan-950/30 border border-cyan-800/30 p-3">
-              <div className="text-xs text-gray-500 mb-1">Receita gerada (fl_fatura)</div>
+              <div className="text-xs text-gray-500 mb-1">Pré-faturamento (fl_fatura)</div>
               <div className="text-xl font-bold text-cyan-300">{fmtCur(gerada)}</div>
               <div className="text-xs text-gray-600 mt-1">Valor operacional pré-faturamento</div>
             </div>
