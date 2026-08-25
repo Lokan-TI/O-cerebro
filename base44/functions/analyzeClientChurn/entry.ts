@@ -80,6 +80,7 @@ Deno.serve(async (req) => {
       INNER JOIN nf n WITH (NOLOCK) ON n.cd_nf = fat.cd_nf
       LEFT JOIN v_nf_emissao v WITH (NOLOCK) ON v.cd_nf = n.cd_nf
       WHERE fat.cd_nf IS NOT NULL
+        AND COALESCE(n.dt_emi_nf, v.dt_emissao) >= '${refStart}'
         AND COALESCE(n.dt_emi_nf, v.dt_emissao) < '${analysisEnd}'
         AND ${invoiceUniverse('n')}
         ${empFilter('f')}
@@ -93,6 +94,7 @@ Deno.serve(async (req) => {
       INNER JOIN nf n WITH (NOLOCK) ON n.cd_nf = fat.cd_nf_mo
       LEFT JOIN v_nf_emissao v WITH (NOLOCK) ON v.cd_nf = n.cd_nf
       WHERE fat.cd_nf_mo IS NOT NULL
+        AND COALESCE(n.dt_emi_nf, v.dt_emissao) >= '${refStart}'
         AND COALESCE(n.dt_emi_nf, v.dt_emissao) < '${analysisEnd}'
         AND ${invoiceUniverse('n')}
         ${empFilter('f')}
@@ -458,11 +460,23 @@ Deno.serve(async (req) => {
         const nfToPessoa = {};
         for (let i = 0; i < pessoaCodes.length; i += BATCH) {
           const codesList = buildCodesList(pessoaCodes.slice(i, i + BATCH));
-          const nfMapSql = `SELECT cd_nf, cd_pessoa FROM nf WITH (NOLOCK)
-            WHERE cd_pessoa IN (${codesList})
-            AND dt_emi_nf >= '${refStart}' AND dt_emi_nf < '${refEnd}'
-            AND ${invoiceUniverse()}
-            ${empFilter()}`;
+          const nfMapSql = `SELECT DISTINCT n.cd_nf, f.cd_pessoa
+            FROM fl_fatura fat WITH (NOLOCK)
+            INNER JOIN fich_loc f WITH (NOLOCK) ON f.cd_controle = fat.cd_controle
+            INNER JOIN nf n WITH (NOLOCK) ON n.cd_nf = fat.cd_nf
+            WHERE f.cd_pessoa IN (${codesList})
+              AND n.dt_emi_nf >= '${refStart}' AND n.dt_emi_nf < '${refEnd}'
+              AND ${invoiceUniverse('n')}
+              ${empFilter('f')}
+            UNION
+            SELECT DISTINCT n.cd_nf, f.cd_pessoa
+            FROM fl_fatura fat WITH (NOLOCK)
+            INNER JOIN fich_loc f WITH (NOLOCK) ON f.cd_controle = fat.cd_controle
+            INNER JOIN nf n WITH (NOLOCK) ON n.cd_nf = fat.cd_nf_mo
+            WHERE f.cd_pessoa IN (${codesList})
+              AND n.dt_emi_nf >= '${refStart}' AND n.dt_emi_nf < '${refEnd}'
+              AND ${invoiceUniverse('n')}
+              ${empFilter('f')}`;
           for (const r of getRows(await runQuery(source, wrap(nfMapSql), 20000))) {
             nfToPessoa[String(r.cd_nf)] = String(r.cd_pessoa);
           }
