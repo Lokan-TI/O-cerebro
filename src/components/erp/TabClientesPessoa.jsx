@@ -1,5 +1,7 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useErpSnapshot } from "@/lib/ErpSnapshotContext";
+import { useErpSource, ALL_SOURCES_ID } from "@/lib/ErpSourceContext";
+import { fetchClientesAtivos } from "@/components/erp/clientesAtivosCache";
 import { useEmpresaFilter } from "@/lib/EmpresaFilterContext";
 import { useGlobalFilter } from "@/lib/GlobalFilterContext";
 import { scopeByPeriod } from "@/lib/periodScope";
@@ -16,8 +18,40 @@ export default function TabClientesPessoa() {
   const { selectedEmpresa, empresaList } = useEmpresaFilter();
   const { analytics } = useAnalyticsView();
   const { period } = useGlobalFilter();
+  const { selectedSource } = useErpSource();
   const [search, setSearch] = useState("");
   const [selectedClient, setSelectedClient] = useState(null);
+
+  // Consulta ao vivo do período aplicado — mesma query da tabela (cache compartilhado).
+  const [liveRows, setLiveRows] = useState(null);
+  const [liveLoading, setLiveLoading] = useState(false);
+  useEffect(() => {
+    let alive = true;
+    setLiveLoading(true);
+    const sourceId = selectedSource?.id && selectedSource.id !== ALL_SOURCES_ID ? selectedSource.id : null;
+    fetchClientesAtivos(sourceId, period.start, period.end)
+      .then((d) => { if (alive) setLiveRows(d?.rows || []); })
+      .catch(() => { if (alive) setLiveRows(null); })
+      .finally(() => { if (alive) setLiveLoading(false); });
+    return () => { alive = false; };
+  }, [period.start, period.end, selectedSource?.id]);
+
+  // Agrega as linhas ao vivo (empresa × cliente) no escopo da empresa selecionada.
+  const live = useMemo(() => {
+    if (!liveRows) return null;
+    const scoped = selectedEmpresa == null
+      ? liveRows
+      : liveRows.filter((r) => Number(r.cd_empresa) === Number(selectedEmpresa));
+    const byClient = {};
+    let receita = 0;
+    for (const r of scoped) {
+      receita += Number(r.receita) || 0;
+      byClient[r.cd_pessoa] = (byClient[r.cd_pessoa] || 0) + (Number(r.receita) || 0);
+    }
+    const valores = Object.values(byClient).sort((a, b) => b - a);
+    const top10 = valores.slice(0, 10).reduce((s, v) => s + v, 0);
+    return { clientes: valores.length, receita, top10 };
+  }, [liveRows, selectedEmpresa]);
 
   const isAll = selectedEmpresa == null;
   const byEmp = snapshot?.by_empresa || [];
@@ -44,6 +78,36 @@ export default function TabClientesPessoa() {
   }, [analytics]);
 
   const clients = useMemo(() => {
+    // Com a consulta do período disponível, os cards derivados (distribuição por
+    // faixa) usam os clientes do período do filtro em vez do top anual do snapshot.
+    if (liveRows) {
+      const scoped = selectedEmpresa == null
+        ? liveRows
+        : liveRows.filter((r) => Number(r.cd_empresa) === Number(selectedEmpresa));
+      const byClient = {};
+      let total = 0;
+      for (const r of scoped) {
+        const key = String(r.cd_pessoa || "");
+        total += Number(r.receita) || 0;
+        if (!byClient[key]) {
+          byClient[key] = { cd_pessoa: key, nm_pessoa: r.nm_pessoa || `Cliente ${key}`, receita: 0, nfs: 0, ultima_nf: r.ultima_nf || null };
+        }
+        byClient[key].receita += Number(r.receita) || 0;
+        byClient[key].nfs += Number(r.nfs) || 0;
+        if (r.ultima_nf && (!byClient[key].ultima_nf || r.ultima_nf > byClient[key].ultima_nf)) byClient[key].ultima_nf = r.ultima_nf;
+      }
+      return Object.values(byClient)
+        .map((c) => {
+          const contratos = contratosMap[c.cd_pessoa];
+          return {
+            ...c,
+            share: total > 0 ? (c.receita / total) * 100 : 0,
+            contratos_ativos: contratos?.ativas ?? null,
+            contratos_total: contratos?.qtd ?? null,
+          };
+        })
+        .sort((a, b) => b.receita - a.receita);
+    }
     const list = rawClients.map((c) => {
       const contratos = contratosMap[String(c.cd_pessoa)];
       return {
@@ -58,7 +122,7 @@ export default function TabClientesPessoa() {
       };
     });
     return list.sort((a, b) => b.receita - a.receita);
-  }, [rawClients, contratosMap, receitaAnual]);
+  }, [rawClients, contratosMap, receitaAnual, liveRows, selectedEmpresa]);
 
   if (loading && !snapshot) return <div className="text-gray-500 p-8 text-center">Carregando clientes…</div>;
   if (!snapshot) return <div className="text-gray-500 p-8 text-center">Sem snapshot. Clique em "Atualizar dados" para carregar.</div>;
@@ -68,13 +132,16 @@ export default function TabClientesPessoa() {
     ? clients.filter((c) => c.nm_pessoa?.toLowerCase().includes(q) || String(c.cd_pessoa).includes(q))
     : clients;
 
-  // KPIs
-  // Clientes ativos = contagem distinta apurada no banco (não o tamanho da lista carregada)
-  const clientesAtivos = (isAll ? k.clientes_ano : empRow?.clientes_ano) || clients.length;
-  const top10Receita = clients.slice(0, 10).reduce((s, c) => s + c.receita, 0);
-  const concentracao = receitaAnual > 0 ? (top10Receita / receitaAnual) * 100 : 0;
-  const ticketMedio = clientesAtivos > 0 ? receitaTotal / clientesAtivos : 0;
-  const comContratosAtivos = clients.filter((c) => c.contratos_ativos != null && c.contratos_ativos > 0).length;
+  // KPIs — apurados no período do filtro global (consulta ao vivo);
+  // enquanto a consulta carrega, usa o snapshot anual como aproximação.
+  const kpiReceita = live ? live.receita : receitaTotal;
+  const clientesAtivos = live ? live.clientes : ((isAll ? k.clientes_ano : empRow?.clientes_ano) || clients.length);
+  const top10Receita = live ? live.top10 : clients.slice(0, 10).reduce((s, c) => s + c.receita, 0);
+  const concentracao = kpiReceita > 0 ? (top10Receita / kpiReceita) * 100 : 0;
+  const ticketMedio = clientesAtivos > 0 ? kpiReceita / clientesAtivos : 0;
+  // Comparativo com a janela anterior de mesma duração (série mensal do snapshot)
+  const crescimento = ps.hasData ? ps.crescimento : null;
+  const receitaAnterior = ps.hasData ? ps.receitaAnt : null;
 
   return (
     <div className="space-y-6">
@@ -93,23 +160,30 @@ export default function TabClientesPessoa() {
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <div className="rounded-xl border border-purple-700/40 bg-purple-950/30 p-4">
           <div className="flex items-center gap-2 mb-2"><Users className="w-4 h-4 text-purple-400" /><span className="text-xs text-gray-400 uppercase">Clientes ativos</span></div>
-          <div className="text-2xl font-bold text-white">{fmtNum(clientesAtivos)}</div>
-          <div className="text-xs text-gray-500 mt-1">Com faturamento de NF no período</div>
+          <div className="text-2xl font-bold text-white">{liveLoading && !live ? "…" : fmtNum(clientesAtivos)}</div>
+          <div className="text-xs text-gray-500 mt-1">{live ? "Com faturamento de NF no período do filtro" : "Com faturamento de NF no período"}</div>
         </div>
         <div className="rounded-xl border border-green-700/40 bg-green-950/30 p-4">
           <div className="flex items-center gap-2 mb-2"><TrendingUp className="w-4 h-4 text-green-400" /><span className="text-xs text-gray-400 uppercase">Faturamento bruto (NF)</span></div>
-          <div className="text-2xl font-bold text-white">{fmtCur(receitaTotal)}</div>
-          <div className="text-xs text-gray-500 mt-1">{ps.hasData ? `nf.vl_faturamento · ${ps.monthly.length} meses do período` : "nf.vl_faturamento · período acumulado"}</div>
+          <div className="text-2xl font-bold text-white">{liveLoading && !live ? "…" : fmtCur(kpiReceita)}</div>
+          <div className="text-xs text-gray-500 mt-1">
+            {ps.hasData ? `nf.vl_faturamento · ${ps.monthly.length} meses do período` : "nf.vl_faturamento · período acumulado"}
+            {crescimento != null && (
+              <span className={`ml-2 font-medium ${crescimento >= 0 ? "text-green-400" : "text-red-400"}`}>
+                {crescimento >= 0 ? "▲" : "▼"} {Math.abs(crescimento).toFixed(1)}% vs período anterior ({fmtCur(receitaAnterior)})
+              </span>
+            )}
+          </div>
         </div>
         <div className="rounded-xl border border-amber-700/40 bg-amber-950/30 p-4">
           <div className="flex items-center gap-2 mb-2"><Percent className="w-4 h-4 text-amber-400" /><span className="text-xs text-gray-400 uppercase">Concentração Top 10</span></div>
-          <div className="text-2xl font-bold text-white">{concentracao.toFixed(1)}%</div>
-          <div className="text-xs text-gray-500 mt-1">{fmtCur(top10Receita)} no top 10 · faturamento bruto NF (ano civil)</div>
+          <div className="text-2xl font-bold text-white">{liveLoading && !live ? "…" : `${concentracao.toFixed(1)}%`}</div>
+          <div className="text-xs text-gray-500 mt-1">{fmtCur(top10Receita)} no top 10 · faturamento bruto NF {live ? "(período do filtro)" : "(ano civil)"}</div>
         </div>
         <div className="rounded-xl border border-blue-700/40 bg-blue-950/30 p-4">
           <div className="flex items-center gap-2 mb-2"><FileText className="w-4 h-4 text-blue-400" /><span className="text-xs text-gray-400 uppercase">Ticket médio/cliente</span></div>
-          <div className="text-2xl font-bold text-white">{fmtCur(ticketMedio)}</div>
-          <div className="text-xs text-gray-500 mt-1">Faturamento bruto NF ÷ clientes ativos</div>
+          <div className="text-2xl font-bold text-white">{liveLoading && !live ? "…" : fmtCur(ticketMedio)}</div>
+          <div className="text-xs text-gray-500 mt-1">Faturamento bruto NF ÷ clientes ativos{live ? " · período do filtro" : ""}</div>
         </div>
       </div>
 

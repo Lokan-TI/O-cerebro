@@ -1,9 +1,9 @@
 import { useState, useMemo, useEffect, useRef } from "react";
-import { base44 } from "@/api/base44Client";
 import { useErpSource, ALL_SOURCES_ID } from "@/lib/ErpSourceContext";
 import { useEmpresaFilter } from "@/lib/EmpresaFilterContext";
 import { useGlobalFilter } from "@/lib/GlobalFilterContext";
 import { fmtCur, fmtNum } from "@/lib/erpFormat";
+import { fetchClientesAtivos, invalidateClientesAtivos } from "@/components/erp/clientesAtivosCache";
 import { exportClientesAtivosCsv } from "@/components/erp/clientesAtivosExport";
 import QueryInspector from "@/components/erp/QueryInspector";
 import { Users, Download, RefreshCw, Search, Repeat } from "lucide-react";
@@ -30,6 +30,12 @@ export default function ClientesAtivosTable({ onSelectClient }) {
     setEnd(period.end);
   }, [period.start, period.end]);
 
+  // Carrega automaticamente ao abrir — os KPIs e a tabela usam a mesma consulta.
+  useEffect(() => {
+    if (!loadedRange.current) load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // Depois da primeira consulta, qualquer mudança de data recarrega o ERP
   // (antes as datas só tinham efeito se o usuário clicasse em "Recarregar").
   useEffect(() => {
@@ -40,15 +46,14 @@ export default function ClientesAtivosTable({ onSelectClient }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [start, end, selectedSource?.id]);
 
-  const load = async () => {
+  const load = async (force = false) => {
     setLoading(true);
     setError(null);
     try {
-      const payload = { start_date: start, end_date: end };
-      if (selectedSource?.id && selectedSource.id !== ALL_SOURCES_ID) payload.source_id = selectedSource.id;
-      const res = await base44.functions.invoke("listClientesAtivos", payload);
-      if (res.data?.success === false) throw new Error(res.data.error);
-      setData(res.data);
+      if (force) invalidateClientesAtivos();
+      const sourceId = selectedSource?.id && selectedSource.id !== ALL_SOURCES_ID ? selectedSource.id : null;
+      const result = await fetchClientesAtivos(sourceId, start, end);
+      setData(result);
       loadedRange.current = `${start}|${end}`;
     } catch (e) {
       setError(e?.response?.data?.error || e.message || "Falha ao carregar clientes");
@@ -81,7 +86,7 @@ export default function ClientesAtivosTable({ onSelectClient }) {
         </h3>
         <div className="flex items-center gap-2">
           <QueryInspector queries={data?.sql ? [data.sql] : null} title="Query — Clientes ativos" />
-          <button onClick={load} disabled={loading} className="flex items-center gap-1.5 px-3 py-1.5 bg-purple-600 hover:bg-purple-500 disabled:opacity-50 rounded-lg text-white text-xs font-medium">
+          <button onClick={() => load(true)} disabled={loading} className="flex items-center gap-1.5 px-3 py-1.5 bg-purple-600 hover:bg-purple-500 disabled:opacity-50 rounded-lg text-white text-xs font-medium">
             <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin" : ""}`} />
             {data ? "Recarregar" : "Carregar clientes"}
           </button>
