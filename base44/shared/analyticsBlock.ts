@@ -265,7 +265,7 @@ export async function computeAnalytics({ source, wrap, startDate, endDate, lastY
       LEFT JOIN (
         SELECT cd_conta, SUM(ISNULL(vl_pre_car,0)+ISNULL(vl_acr_car,0)-ISNULL(vl_des_car,0)) AS vl, COUNT(*) AS qtd
         FROM car WITH (NOLOCK)
-        WHERE dt_bai_car >= '${startDate}' AND dt_bai_car < '${endDate}' AND fl_status <> 40
+        WHERE dt_bai_car >= '${startDate}' AND dt_bai_car < '${endDate}' AND fl_status <> 40 ${empFcar}
         GROUP BY cd_conta
       ) e ON e.cd_conta = p.cd_planfin
       LEFT JOIN (
