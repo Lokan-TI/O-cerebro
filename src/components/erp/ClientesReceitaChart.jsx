@@ -52,7 +52,9 @@ export default function ClientesReceitaChart({ monthlyRevenue, carMonthly, selec
             style={onSelectMonth ? { cursor: "pointer" } : undefined}
             onClick={(e) => {
               if (!onSelectMonth) return;
-              const p = e?.activePayload?.[0]?.payload;
+              const p = e?.activePayload?.[0]?.payload
+                || data.find((d) => d.label === e?.activeLabel)
+                || data[e?.activeTooltipIndex];
               if (p) onSelectMonth({ ano: Number(p.ano), mes: Number(p.mes) });
             }}
           >
@@ -84,6 +86,11 @@ export default function ClientesReceitaChart({ monthlyRevenue, carMonthly, selec
               stroke="#22c55e"
               strokeWidth={2}
               dot={{ r: 3, fill: "#22c55e" }}
+              activeDot={{ r: 6, fill: "#22c55e", cursor: "pointer" }}
+              onClick={(p) => {
+                const d = p?.payload || p;
+                if (onSelectMonth && d?.ano) onSelectMonth({ ano: Number(d.ano), mes: Number(d.mes) });
+              }}
             />
             <Line
               yAxisId="clientes"

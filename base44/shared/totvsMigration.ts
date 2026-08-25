@@ -114,9 +114,9 @@ function statusWhere(statuses: string[] | undefined, st: string, ven: string) {
 const DOC_CLEAN = (col: string) =>
   `REPLACE(REPLACE(REPLACE(REPLACE(LTRIM(RTRIM(COALESCE(${col}, ''))), '.', ''), '-', ''), '/', ''), ' ', '')`;
 
-function baseCte(doc: string, startDate: string, endDate: string, statuses?: string[]) {
+function baseCte(doc: string, startDate: string, endDateExclusive: string, statuses?: string[]) {
   const isCap = doc === 'cap';
-  if (!DATE_RE.test(startDate) || !DATE_RE.test(endDate)) throw new Error('Período inválido.');
+  if (!DATE_RE.test(startDate) || !DATE_RE.test(endDateExclusive)) throw new Error('Período inválido.');
 
   const emi = isCap ? 'dt_emi_cap' : 'dt_emi_car';
   const ven = isCap ? 'dt_ven_cap' : 'dt_ven_car';
@@ -210,13 +210,13 @@ function baseCte(doc: string, startDate: string, endDate: string, statuses?: str
     LEFT JOIN plano pl WITH (NOLOCK) ON pl.cd_planfin = lx.cd_planfin
     LEFT JOIN conta co WITH (NOLOCK) ON co.cd_conta = c.cd_conta
     LEFT JOIN empresa e WITH (NOLOCK) ON e.cd_empresa = ${empresaExpr}
-    WHERE c.${emi} >= '${startDate}' AND c.${emi} < DATEADD(day, 1, CAST('${endDate}' AS date))${statusWhere(statuses, stCol, `c.${ven}`)}
+    WHERE c.${emi} >= '${startDate}' AND c.${emi} < '${endDateExclusive}'${statusWhere(statuses, stCol, `c.${ven}`)}
   )`;
 }
 
 // Montagem final no layout TOTVS (SE1/SE2), paginada.
-export function buildTotvsSql({ doc, startDate, endDate, offset, pageSize, statuses }: {
-  doc: string; startDate: string; endDate: string; offset: number; pageSize: number; statuses?: string[];
+export function buildTotvsSql({ doc, startDate, endDateExclusive, offset, pageSize, statuses }: {
+  doc: string; startDate: string; endDateExclusive: string; offset: number; pageSize: number; statuses?: string[];
 }) {
   const isCap = doc === 'cap';
   const off = Math.max(Number(offset) || 0, 0);
@@ -258,7 +258,7 @@ export function buildTotvsSql({ doc, startDate, endDate, offset, pageSize, statu
   const nameCol = isCap ? 'E2_NOMFOR' : 'E1_NOMCLI';
   const codeCol = isCap ? 'E2_FORNECE' : 'E1_CLIENTE';
 
-  return `${baseCte(doc, startDate, endDate, statuses)}
+  return `${baseCte(doc, startDate, endDateExclusive, statuses)}
   SELECT
     ${filial} AS ${p}_FILIAL,
     empresa_nome AS SISLOC_FILIAL_NOME,
@@ -300,9 +300,9 @@ export function buildTotvsSql({ doc, startDate, endDate, offset, pageSize, statu
 }
 
 // Contagem total + resumo de pendências, para o painel de saneamento.
-export function buildTotvsCountSql({ doc, startDate, endDate, statuses }: { doc: string; startDate: string; endDate: string; statuses?: string[]; }) {
+export function buildTotvsCountSql({ doc, startDate, endDateExclusive, statuses }: { doc: string; startDate: string; endDateExclusive: string; statuses?: string[]; }) {
   const isCap = doc === 'cap';
-  return `${baseCte(doc, startDate, endDate, statuses)}
+  return `${baseCte(doc, startDate, endDateExclusive, statuses)}
   SELECT
     COUNT(*) AS total,
     SUM(CASE WHEN LEN(doc_num) NOT IN (11, 14) THEN 1 ELSE 0 END) AS sem_documento,
