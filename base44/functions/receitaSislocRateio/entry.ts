@@ -189,6 +189,8 @@ export default async function (req: Request): Promise<Response> {
       faturamento_via_view: sqlFaturamentoViaView,
       nffatur_via_view: sqlNffaturViaView,
       diferenca_datas: sqlDiferencaDatas,
+      rateio_global: sqlRateioGlobal,
+      rateio_por_componente: sqlRateioComponente,
       ...(breakdown === 'group' ? { rateio_por_grupo: sqlRateioGrupo } : {}),
     };
     results.duration_ms = Date.now() - t0;
