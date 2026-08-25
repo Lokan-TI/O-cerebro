@@ -1,5 +1,6 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.40';
 import { execRead } from '../../shared/erpConnection.ts';
+import { resolvePeriod } from '../../shared/periodContract.ts';
 
 // Análise de centros de custo (proxy = hierarquia do plano financeiro do Sisloc).
 // As tabelas financas_centrocusto / rateio estão vazias na base, portanto a
@@ -24,11 +25,19 @@ export default async function (req: Request): Promise<Response> {
     if (!user) return Response.json({ success: false, error: 'Unauthorized' }, { status: 401 });
 
     const body = await req.json().catch(() => ({}));
-    const startDate = String(body?.start_date || '2013-01-01');
-    const endDate = String(body?.end_date || new Date().toISOString().slice(0, 10));
+    const resolvedPeriod = resolvePeriod({
+      start: body?.start_date,
+      endInclusive: body?.end_date,
+      endExclusive: body?.end_date_exclusive,
+      defaultStart: '2013-01-01',
+      defaultEndInclusive: new Date().toISOString().slice(0, 10),
+    });
+    const startDate = resolvedPeriod.start;
+    const endDate = resolvedPeriod.endInclusive;
+    const endDateExclusive = resolvedPeriod.endExclusive;
 
     const val = `ROUND(COALESCE(c.vl_pre_cap, 0) + COALESCE(c.vl_acr_cap, 0) - COALESCE(c.vl_des_cap, 0), 2)`;
-    const periodo = `c.dt_emi_cap >= '${startDate}' AND c.dt_emi_cap < DATEADD(day, 1, CAST('${endDate}' AS date))`;
+    const periodo = `c.dt_emi_cap >= '${startDate}' AND c.dt_emi_cap < '${endDateExclusive}'`; 
 
     // 1) Detalhe por conta analítica, com grupo e bloco da hierarquia
     const sqlContas = `SELECT
@@ -62,7 +71,7 @@ export default async function (req: Request): Promise<Response> {
       SUM(${val}) AS vl_pago
     FROM cap c WITH (NOLOCK)
     LEFT JOIN plano pl WITH (NOLOCK) ON pl.cd_planfin = c.cd_conta
-    WHERE c.dt_bai_cap >= '${startDate}' AND c.dt_bai_cap < DATEADD(day, 1, CAST('${endDate}' AS date))
+    WHERE c.dt_bai_cap >= '${startDate}' AND c.dt_bai_cap < '${endDateExclusive}'
       AND c.fl_status_titulo <> 40
     GROUP BY YEAR(c.dt_bai_cap), MONTH(c.dt_bai_cap), LEFT(LTRIM(RTRIM(COALESCE(pl.nr_planfin, '000000000'))), 4)
     ORDER BY 1, 2`;
@@ -83,6 +92,7 @@ export default async function (req: Request): Promise<Response> {
       contas,
       nos,
       mensal,
+      period: { start: startDate, end: endDate, end_exclusive: endDateExclusive },
       duration_ms: Date.now() - t0,
       queries: [sqlContas, sqlNos, sqlMensal],
     });
