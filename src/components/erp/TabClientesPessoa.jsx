@@ -26,14 +26,15 @@ export default function TabClientesPessoa() {
 
   // Consulta ao vivo do período aplicado — mesma query da tabela (cache compartilhado).
   const [liveRows, setLiveRows] = useState(null);
+  const [liveMeta, setLiveMeta] = useState(null);
   const [liveLoading, setLiveLoading] = useState(false);
   useEffect(() => {
     let alive = true;
     setLiveLoading(true);
     const sourceId = selectedSource?.id && selectedSource.id !== ALL_SOURCES_ID ? selectedSource.id : null;
     fetchClientesAtivos(sourceId, period.start, period.end)
-      .then((d) => { if (alive) setLiveRows(d?.rows || []); })
-      .catch(() => { if (alive) setLiveRows(null); })
+      .then((d) => { if (alive) { setLiveRows(d?.rows || []); setLiveMeta(d || null); } })
+      .catch(() => { if (alive) { setLiveRows(null); setLiveMeta(null); } })
       .finally(() => { if (alive) setLiveLoading(false); });
     return () => { alive = false; };
   }, [period.start, period.end, selectedSource?.id]);
@@ -52,8 +53,14 @@ export default function TabClientesPessoa() {
     }
     const valores = Object.values(byClient).sort((a, b) => b - a);
     const top10 = valores.slice(0, 10).reduce((s, v) => s + v, 0);
-    return { clientes: valores.length, receita, top10 };
-  }, [liveRows, selectedEmpresa]);
+    const fiscal = selectedEmpresa == null
+      ? Number(liveMeta?.faturamento_fiscal_total || 0)
+      : Number((liveMeta?.fiscal_by_empresa || []).find((r) => Number(r.cd_empresa) === Number(selectedEmpresa))?.faturamento_fiscal || 0);
+    const semCliente = selectedEmpresa == null
+      ? Number(liveMeta?.faturamento_sem_cliente || 0)
+      : Number((liveMeta?.fiscal_by_empresa || []).find((r) => Number(r.cd_empresa) === Number(selectedEmpresa))?.faturamento_sem_cliente || 0);
+    return { clientes: valores.length, receita_clientes: receita, faturamento_fiscal: fiscal, faturamento_sem_cliente: semCliente, top10 };
+  }, [liveRows, liveMeta, selectedEmpresa]);
 
   const isAll = selectedEmpresa == null;
   const byEmp = snapshot?.by_empresa || [];
@@ -136,11 +143,13 @@ export default function TabClientesPessoa() {
 
   // KPIs — apurados no período do filtro global (consulta ao vivo);
   // enquanto a consulta carrega, usa o snapshot anual como aproximação.
-  const kpiReceita = live ? live.receita : receitaTotal;
+  const kpiReceita = live ? live.faturamento_fiscal : receitaTotal;
+  const receitaAtribuidaClientes = live ? live.receita_clientes : clients.reduce((s, c) => s + c.receita, 0);
+  const faturamentoSemCliente = live ? live.faturamento_sem_cliente : Math.max(0, kpiReceita - receitaAtribuidaClientes);
   const clientesAtivos = live ? live.clientes : ((isAll ? k.clientes_ano : empRow?.clientes_ano) || clients.length);
   const top10Receita = live ? live.top10 : clients.slice(0, 10).reduce((s, c) => s + c.receita, 0);
-  const concentracao = kpiReceita > 0 ? (top10Receita / kpiReceita) * 100 : 0;
-  const ticketMedio = clientesAtivos > 0 ? kpiReceita / clientesAtivos : 0;
+  const concentracao = receitaAtribuidaClientes > 0 ? (top10Receita / receitaAtribuidaClientes) * 100 : 0;
+  const ticketMedio = clientesAtivos > 0 ? receitaAtribuidaClientes / clientesAtivos : 0;
   // Comparativo com a janela anterior de mesma duração (série mensal do snapshot)
   const crescimento = ps.hasData ? ps.crescimento : null;
   const receitaAnterior = ps.hasData ? ps.receitaAnt : null;
@@ -166,10 +175,10 @@ export default function TabClientesPessoa() {
           <div className="text-xs text-gray-500 mt-1">{live ? "Com faturamento de NF no período do filtro" : "Com faturamento de NF no período"}</div>
         </div>
         <div className="rounded-xl border border-green-700/40 bg-green-950/30 p-4">
-          <div className="flex items-center gap-2 mb-2"><TrendingUp className="w-4 h-4 text-green-400" /><span className="text-xs text-gray-400 uppercase">Faturamento bruto (NF)</span></div>
+          <div className="flex items-center gap-2 mb-2"><TrendingUp className="w-4 h-4 text-green-400" /><span className="text-xs text-gray-400 uppercase">Faturamento fiscal total (NF)</span></div>
           <div className="text-2xl font-bold text-white">{liveLoading && !live ? "…" : fmtCur(kpiReceita)}</div>
           <div className="text-xs text-gray-500 mt-1">
-            {ps.hasData ? `nf.vl_faturamento · ${ps.monthly.length} meses do período` : "nf.vl_faturamento · período acumulado"}
+            {live ? `${fmtCur(receitaAtribuidaClientes)} atribuídos a clientes · ${fmtCur(faturamentoSemCliente)} sem cliente` : (ps.hasData ? `nf.vl_faturamento · ${ps.monthly.length} meses do período` : "nf.vl_faturamento · período acumulado")}
             {crescimento != null && (
               <span className={`ml-2 font-medium ${crescimento >= 0 ? "text-green-400" : "text-red-400"}`}>
                 {crescimento >= 0 ? "▲" : "▼"} {Math.abs(crescimento).toFixed(1)}% vs período anterior ({fmtCur(receitaAnterior)})
@@ -180,12 +189,12 @@ export default function TabClientesPessoa() {
         <div className="rounded-xl border border-amber-700/40 bg-amber-950/30 p-4">
           <div className="flex items-center gap-2 mb-2"><Percent className="w-4 h-4 text-amber-400" /><span className="text-xs text-gray-400 uppercase">Concentração Top 10</span></div>
           <div className="text-2xl font-bold text-white">{liveLoading && !live ? "…" : `${concentracao.toFixed(1)}%`}</div>
-          <div className="text-xs text-gray-500 mt-1">{fmtCur(top10Receita)} no top 10 · faturamento bruto NF {live ? "(período do filtro)" : "(ano civil)"}</div>
+          <div className="text-xs text-gray-500 mt-1">{fmtCur(top10Receita)} no top 10 · % sobre faturamento atribuído a clientes {live ? "(período do filtro)" : "(ano civil)"}</div>
         </div>
         <div className="rounded-xl border border-blue-700/40 bg-blue-950/30 p-4">
           <div className="flex items-center gap-2 mb-2"><FileText className="w-4 h-4 text-blue-400" /><span className="text-xs text-gray-400 uppercase">Ticket médio/cliente</span></div>
           <div className="text-2xl font-bold text-white">{liveLoading && !live ? "…" : fmtCur(ticketMedio)}</div>
-          <div className="text-xs text-gray-500 mt-1">Faturamento bruto NF ÷ clientes ativos{live ? " · período do filtro" : ""}</div>
+          <div className="text-xs text-gray-500 mt-1">Faturamento atribuído a clientes ÷ clientes ativos{live ? " · período do filtro" : ""}</div>
         </div>
       </div>
 
