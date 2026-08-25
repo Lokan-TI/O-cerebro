@@ -29,7 +29,7 @@ export default function BrainPulse({ snapshot }) {
     <div className="w-full max-w-4xl mx-auto space-y-4">
       {/* Pulso do negócio */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <Pulse icon={TrendingUp} label="Receita do período" value={fmtCur(k.fat_ano)} sub={k.crescimento_ano != null ? `${k.crescimento_ano > 0 ? "+" : ""}${Number(k.crescimento_ano).toFixed(1)}% vs anterior` : null} tone="green" />
+        <Pulse icon={TrendingUp} label="Faturamento NF do período" value={fmtCur(k.fat_ano)} sub={k.crescimento_ano != null ? `${k.crescimento_ano > 0 ? "+" : ""}${Number(k.crescimento_ano).toFixed(1)}% vs anterior` : null} tone="green" />
         <Pulse icon={Users} label="Clientes ativos" value={fmtNum(k.clientes_ano)} sub={k.new_clients != null ? `${fmtNum(k.new_clients)} novos no ano` : null} tone="purple" />
         <Pulse icon={UserMinus} label="Churn" value={k.churn_rate != null ? `${Number(k.churn_rate).toFixed(1)}%` : "—"} sub={k.retention_rate != null ? `retenção ${Number(k.retention_rate).toFixed(1)}%` : null} tone="red" />
         <Pulse icon={AlertTriangle} label="Alertas ativos" value={fmtNum(alerts.length)} sub={alerts[0]?.title || alerts[0]?.message || null} tone="amber" />
