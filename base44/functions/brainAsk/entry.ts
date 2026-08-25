@@ -117,6 +117,10 @@ Deno.serve(async (req) => {
     const body = await req.json();
     const question = (body?.question || '').trim();
     const context = typeof body?.context === 'string' ? body.context.slice(0, 9000) : '';
+    const iso = /^\d{4}-\d{2}-\d{2}$/;
+    const uiPeriodStart = iso.test(String(body?.period_start || '')) ? String(body.period_start) : null;
+    const uiPeriodEndInclusive = iso.test(String(body?.period_end_inclusive || '')) ? String(body.period_end_inclusive) : null;
+    const uiPeriodEndExclusive = iso.test(String(body?.period_end_exclusive || '')) ? String(body.period_end_exclusive) : null;
     sourceId = body?.source_id || null;
     if (!question) return Response.json({ error: 'Pergunta vazia.' }, { status: 400 });
 
@@ -144,6 +148,7 @@ Deno.serve(async (req) => {
     const plan = await base44.asServiceRole.integrations.Core.InvokeLLM({
       prompt: `Você gera consultas SQL Server (T-SQL) somente leitura para o ERP Sisloc de uma locadora de equipamentos.
 Data de hoje: ${today}.
+PERÍODO GLOBAL APLICADO NO DASHBOARD: ${uiPeriodStart && uiPeriodEndExclusive ? `[${uiPeriodStart}, ${uiPeriodEndExclusive})` : '(não informado)'}${uiPeriodEndInclusive ? ` · fim inclusivo exibido: ${uiPeriodEndInclusive}` : ''}.
 
 DICIONÁRIO DE DADOS (tabela: colunas [tipo] (descrição)):
 ${schemaBrief}
@@ -160,7 +165,7 @@ REGRAS OBRIGATÓRIAS:
 - Se a pergunta pede qualquer número, quantidade, valor, lista, ranking ou período específico, needs_query = true SEMPRE (o resumo executivo não substitui a consulta).
 - Perguntas com várias partes: cada parte é um indicador INDEPENDENTE. Gere UMA consulta no formato SELECT (SELECT COUNT(*) ... ) AS parte1, (SELECT COUNT(*) ... ) AS parte2. É PROIBIDO ligar indicadores independentes com JOIN/LEFT JOIN (gera duplicação e números errados).
 - Para "quantos X converteram em Y", use EXISTS dentro do COUNT: SELECT COUNT(*) FROM pessoa p WHERE <filtros> AND EXISTS (SELECT 1 FROM <tabelaY> y WHERE y.<fk> = p.cd_pessoa).
-- Sem período informado na pergunta: use o ano corrente (>= '${today.slice(0, 4)}-01-01'). EXCEÇÃO: perguntas de segmentação/carteira de clientes (quem nunca orçou, orçou e sumiu, alugou e devolveu, listas para planilha) NÃO levam filtro de data — considere a base inteira, salvo período explícito na pergunta.
+- Sem período informado na pergunta: ${uiPeriodStart && uiPeriodEndExclusive ? `use EXATAMENTE o período global aplicado: coluna >= '${uiPeriodStart}' AND coluna < '${uiPeriodEndExclusive}'. Não substitua por ano corrente.` : `use o ano corrente (>= '${today.slice(0, 4)}-01-01').`} EXCEÇÃO: perguntas de segmentação/carteira de clientes (quem nunca orçou, orçou e sumiu, alugou e devolveu, listas para planilha) NÃO levam filtro de data — considere a base inteira, salvo período explícito na pergunta.
 - Filtros de data SEMPRE sargáveis: coluna >= 'AAAA-MM-DD' AND coluna < 'AAAA-MM-DD'. NUNCA use YEAR()/MONTH() na coluna. Para dia da semana, combine o intervalo sargável com DATEPART(WEEKDAY, coluna) (domingo=1, sábado=7).
 - REGRA DURA: só é permitido usar tabelas e colunas que aparecem no DICIONÁRIO DE DADOS acima (com colunas listadas). A lista "TABELAS DISPONÍVEIS" serve apenas para você saber o que existe — se precisar de uma tabela que não está no dicionário detalhado, escolha um caminho alternativo com as tabelas do dicionário ou retorne needs_query=false explicando na nota qual tabela falta.
 - Nunca invente nomes como nf_itens, nf_item, orcamento, patrimonio: se não está no dicionário, não existe.
@@ -304,6 +309,11 @@ ${effectiveQuestion !== question ? `INTERPRETAÇÃO COM O CONTEXTO DA CONVERSA (
       reportRowCount: reportRows.length,
       truncated,
       queryError,
+      analysis_context: {
+        period_start: uiPeriodStart,
+        period_end_inclusive: uiPeriodEndInclusive,
+        period_end_exclusive: uiPeriodEndExclusive,
+      },
       duration_ms: Date.now() - started,
     });
   } catch (error) {
