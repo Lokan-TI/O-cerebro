@@ -2,6 +2,7 @@ import { createClientFromRequest } from 'npm:@base44/sdk@0.8.40';
 import { buildConfig, runQuery } from '../../shared/erpConnection.ts';
 import { buildConversion } from '../../shared/clientConversion.ts';
 import { empFilter } from '../../shared/empresaScope.ts';
+import { invoiceUniverse } from '../../shared/invoiceUniverse.ts';
 
 function getRows(result: any) {
   if (!result) return [];
@@ -89,7 +90,7 @@ Deno.serve(async (req) => {
             ROW_NUMBER() OVER (PARTITION BY n.cd_pessoa ORDER BY n.dt_emi_nf, n.nr_nf_ini) AS rn
           FROM nf n WITH (NOLOCK)
           WHERE n.cd_pessoa IN (${novosSub}) AND n.dt_emi_nf IS NOT NULL
-            AND ISNULL(n.fl_can_nf,'N') <> 'S'
+            AND ${invoiceUniverse('n')}
             ${empFilter('n')}
         ) x WHERE rn = 1`;
       notas = getRows(await runQuery(source, wrap(nfSql), 60000));
