@@ -13,13 +13,13 @@ const COLUMNS = [
   { key: "produtos_locados", label: "Produtos Locados", type: "text", sortable: false },
   { key: "ref_revenue", label: "Receita (Ref.)", type: "currency" },
   { key: "ref_nfs", label: "NFs", type: "number" },
-  { key: "last_activity", label: "Última atividade", type: "date" },
+  { key: "last_activity", label: "Última NF de locação", type: "date" },
   { key: "billing_cycle", label: "Ciclo cobrança", type: "text" },
   { key: "rental_period_description", label: "Tipo locação SISLOC", type: "text" },
   { key: "contract_horizon_days", label: "Horizonte contrato", type: "number" },
   { key: "ref_last_nf", label: "Última NF", type: "date" },
   { key: "prim_dt_pedido", label: "1º Contrato", type: "date" },
-  { key: "ult_dt_enc_ficha", label: "Encerr. Contrato", type: "date" },
+  { key: "ult_dt_enc_ficha", label: "Última ficha encerrada", type: "date" },
   { key: "total_contratos", label: "Contratos", type: "number" },
   { key: "qtd_renovacoes", label: "Renovações", type: "number" },
   { key: "total_valor_locado", label: "Valor Locado", type: "currency" },
@@ -34,7 +34,7 @@ function exportToCsv(clients) {
   const headers = [
     "Codigo", "Nome", "Tipo", "CPF", "CNPJ", "Telefone", "E-mail",
     "UF", "Cidade", "Receita Periodo Ref", "NFs", "Primeira NF", "Ultima NF",
-    "Ultima Atividade", "Dias Sem Atividade", "Ultima Remessa", "Ultimo Faturamento Contrato", "Ultima Movimentacao Estoque",
+    "Ultima NF Locacao", "Dias Sem NF", "Ultima Remessa", "Ultima NF da Ficha",
     "Ciclo Cobranca", "Tipo Locacao SISLOC", "Dias Periodo", "Periodos Contrato", "Horizonte Contrato Dias",
     "Primeiro Contrato", "Ultimo Pedido", "Encerramento Contrato",
     "Total Contratos", "Renovacoes", "Valor Encerramento",
@@ -51,7 +51,7 @@ function exportToCsv(clients) {
     c.telefone || "", c.en_mail_pessoa || "",
     c.uf_pessoa || "", c.cidade_pessoa || "",
     c.ref_revenue, c.ref_nfs, c.ref_first_nf, c.ref_last_nf,
-    c.last_activity, c.days_since_last_activity, c.last_remessa, c.last_contract_billing, c.last_estmov,
+    c.last_activity, c.days_since_last_activity, c.last_remessa, c.latest_contract_nf,
     c.billing_cycle, c.rental_period_description, c.rental_period_days, c.contract_periods, c.contract_horizon_days,
     c.prim_dt_pedido, c.ult_dt_pedido, c.ult_dt_enc_ficha,
     c.total_contratos, c.qtd_renovacoes, c.total_encerramento,
@@ -127,8 +127,8 @@ export default function ChurnClientTable({ clients }) {
     return (
       <div className="bg-gray-900 border border-gray-800 rounded-xl p-12 text-center">
         <Users className="w-10 h-10 text-gray-700 mx-auto mb-2" />
-        <p className="text-gray-400">Nenhum cliente perdido neste período.</p>
-        <p className="text-gray-500 text-sm mt-1">Todos os clientes da base de referência continuaram comprando.</p>
+        <p className="text-gray-400">Nenhum churn confirmado neste período.</p>
+        <p className="text-gray-500 text-sm mt-1">Nenhum cliente elegível ficou sem ficha aberta e ultrapassou a janela desde a última NF válida.</p>
       </div>
     );
   }
@@ -145,7 +145,7 @@ export default function ChurnClientTable({ clients }) {
     <div className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden">
       <div className="flex items-center justify-between p-4 border-b border-gray-800 gap-3 flex-wrap">
         <h3 className="text-white font-semibold text-sm">
-          Churn confirmado — sem contrato vigente e sem atividade válida ({filtered.length})
+          Churn confirmado — todas as fichas encerradas + última NF além da janela ({filtered.length})
         </h3>
         <div className="flex items-center gap-2">
           <div className="relative">
@@ -181,7 +181,7 @@ export default function ChurnClientTable({ clients }) {
                   <SortHeader key={col.key} k={col.key}>{col.label}</SortHeader>
                 )
               )}
-              <th className="px-3 py-3 text-left whitespace-nowrap">Tempo Sem Comprar</th>
+              <th className="px-3 py-3 text-left whitespace-nowrap">Tempo sem NF</th>
             </tr>
           </thead>
           <tbody>
