@@ -81,7 +81,7 @@ export function ErpSnapshotProvider({ children }) {
 
     // Dispara sem aguardar — a função processa sincronamente (~30s) e atualiza o registro.
     // O período aplicado (Fonte → Empresa → Período) define a janela do analytics.
-    base44.functions.invoke("refreshErpData", { source_id: sourceId, ...(period ? { start_date: period.start, end_date: period.end } : {}) }).catch(() => {});
+    base44.functions.invoke("refreshErpData", { source_id: sourceId, ...(period ? { start_date: period.start, end_date: period.endExclusive } : {}) }).catch(() => {});
 
     // Consulta o registro mais recente cujo id seja diferente do anterior
     let attempts = 0;
