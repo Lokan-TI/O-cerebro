@@ -67,6 +67,13 @@ export default function TabReconciliacaoReceita() {
   const sislocTotal = sisloc?.total ?? null;
   const crossDiff = mtrReference != null && sislocTotal != null ? Number(mtrReference) - Number(sislocTotal) : null;
   const crossDiffPct = sislocTotal ? (crossDiff / Number(sislocTotal)) * 100 : null;
+  const dg = mtr?.diagnostics || null;
+  const diagnosticSteps = dg ? [
+    { id: "nf", label: "1. Faturamento NF atual", detail: "nf.dt_emi_nf + universo fiscal do Cérebro", value: Number(dg.current_nf_total || 0), previous: null },
+    { id: "view", label: "2. Mesmas NFs pela data da view", detail: "v_nf_emissao.dt_emissao", value: Number(dg.view_date_same_universe_total || 0), previous: Number(dg.current_nf_total || 0) },
+    { id: "linked", label: "3. NFs ligadas aos fatos do relatório", detail: `fl_fatura / ped_ven / orcos / indenização · ${fmtNum(dg.report_linked_invoice_count)} NFs`, value: Number(dg.report_linked_nf_total || 0), previous: Number(dg.view_date_same_universe_total || 0) },
+    { id: "nffatur", label: "4. Base nffatur das NFs ligadas", detail: "Σ nffatur.vl_nffatur antes do rateio por componentes", value: Number(dg.report_linked_nffatur_total || 0), previous: Number(dg.report_linked_nf_total || 0) },
+  ] : [];
 
   const lineage = (sisloc?.lineage || []).map((q) => ({
     label: BRANCH_LABELS[q.branch] || q.branch,
@@ -162,6 +169,45 @@ export default function TabReconciliacaoReceita() {
         </section>
       )}
 
+      {mtr?.diagnostics && (
+        <section className="space-y-3">
+          <div>
+            <h3 className="text-sm font-semibold text-cyan-300">2 · Diagnóstico da divergência em camadas</h3>
+            <p className="text-xs text-gray-500">
+              Decompõe o total sem assumir que Faturamento NF e Receita por Grupo são equivalentes. Cada Δ mostra quanto muda ao aproximar o universo do contrato real do SISLOC.
+            </p>
+          </div>
+          <div className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden">
+            <table className="w-full text-sm">
+              <thead className="bg-gray-950 text-gray-500 text-xs uppercase">
+                <tr>
+                  <th className="text-left px-4 py-2 font-medium">Camada</th>
+                  <th className="text-right px-4 py-2 font-medium">Total</th>
+                  <th className="text-right px-4 py-2 font-medium">Δ da camada</th>
+                </tr>
+              </thead>
+              <tbody>
+                {diagnosticSteps.map((s) => {
+                  const delta = s.previous == null ? null : s.value - s.previous;
+                  return (
+                    <tr key={s.id} className="border-t border-gray-800">
+                      <td className="px-4 py-3">
+                        <div className="text-gray-200 font-medium">{s.label}</div>
+                        <div className="text-[11px] text-gray-600 mt-0.5">{s.detail}</div>
+                      </td>
+                      <td className="px-4 py-3 text-right text-white font-medium">{fmt(s.value)}</td>
+                      <td className={`px-4 py-3 text-right ${delta == null ? "text-gray-600" : Math.abs(delta) < 0.01 ? "text-green-400" : "text-amber-300"}`}>
+                        {delta == null ? "—" : fmt(delta)}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      )}
+
       {mtr && sisloc && (
         <section className="space-y-3">
           <h3 className="text-sm font-semibold text-white">Comparação direta · mesma janela</h3>
@@ -194,7 +240,7 @@ export default function TabReconciliacaoReceita() {
         <section className="space-y-4">
           <div className="flex items-start justify-between gap-3 flex-wrap">
             <div>
-              <h3 className="text-sm font-semibold text-purple-300">2 · Receita por Grupo SISLOC</h3>
+              <h3 className="text-sm font-semibold text-purple-300">3 · Receita por Grupo SISLOC</h3>
               <p className="text-xs text-gray-500 mt-0.5">
                 TGersReceitaGrupoList · tipo_periodo=1 · escopo de empresas reproduzido literalmente do full log do SISLOC.
               </p>
