@@ -6,7 +6,7 @@ import { Play, ShieldCheck } from "lucide-react";
 
 const METRIC_IDS = ["MTR-023", "MTR-024"];
 
-// Benchmark técnico antigo por NF (lifecycle v1). Não representa o churn oficial de locação v2.
+// Benchmark técnico antigo por NF (lifecycle v1). Não representa o churn oficial de locação v3.
 export default function RetentionCanonicalPanel({ periodStart, periodEnd, periodEndInclusive, legacyRunning = false }) {
   const { selectedSource } = useErpSource();
   const [items, setItems] = useState(null);
@@ -49,7 +49,7 @@ export default function RetentionCanonicalPanel({ periodStart, periodEnd, period
           </h3>
           <p className="text-xs text-gray-500 mt-1 max-w-2xl">
             Benchmark 12m vs. 12m ancorado em {periodEndInclusive || periodEnd}, usando somente NF faturada (lifecycle v1).
-            Não considera contrato vigente, faturamento recorrente da ficha nem movimentação operacional e, por isso, não deve ser usado como churn oficial da locação.
+            Não verifica o status das fichas de locação nem exige o vínculo fiscal da NF com a ficha; por isso, permanece apenas como comparativo e não como churn oficial.
           </p>
         </div>
         <div className="text-right">
