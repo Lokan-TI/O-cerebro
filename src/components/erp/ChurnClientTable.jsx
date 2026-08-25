@@ -13,6 +13,10 @@ const COLUMNS = [
   { key: "produtos_locados", label: "Produtos Locados", type: "text", sortable: false },
   { key: "ref_revenue", label: "Receita (Ref.)", type: "currency" },
   { key: "ref_nfs", label: "NFs", type: "number" },
+  { key: "last_activity", label: "Última atividade", type: "date" },
+  { key: "billing_cycle", label: "Ciclo cobrança", type: "text" },
+  { key: "rental_period_description", label: "Tipo locação SISLOC", type: "text" },
+  { key: "contract_horizon_days", label: "Horizonte contrato", type: "number" },
   { key: "ref_last_nf", label: "Última NF", type: "date" },
   { key: "prim_dt_pedido", label: "1º Contrato", type: "date" },
   { key: "ult_dt_enc_ficha", label: "Encerr. Contrato", type: "date" },
@@ -30,6 +34,8 @@ function exportToCsv(clients) {
   const headers = [
     "Codigo", "Nome", "Tipo", "CPF", "CNPJ", "Telefone", "E-mail",
     "UF", "Cidade", "Receita Periodo Ref", "NFs", "Primeira NF", "Ultima NF",
+    "Ultima Atividade", "Dias Sem Atividade", "Ultima Remessa", "Ultimo Faturamento Contrato", "Ultima Movimentacao Estoque",
+    "Ciclo Cobranca", "Tipo Locacao SISLOC", "Dias Periodo", "Periodos Contrato", "Horizonte Contrato Dias",
     "Primeiro Contrato", "Ultimo Pedido", "Encerramento Contrato",
     "Total Contratos", "Renovacoes", "Valor Encerramento",
     "Produtos Locados", "Codigos Equipamento", "Qtd Total Locado", "Valor Total Locado",
@@ -45,6 +51,8 @@ function exportToCsv(clients) {
     c.telefone || "", c.en_mail_pessoa || "",
     c.uf_pessoa || "", c.cidade_pessoa || "",
     c.ref_revenue, c.ref_nfs, c.ref_first_nf, c.ref_last_nf,
+    c.last_activity, c.days_since_last_activity, c.last_remessa, c.last_contract_billing, c.last_estmov,
+    c.billing_cycle, c.rental_period_description, c.rental_period_days, c.contract_periods, c.contract_horizon_days,
     c.prim_dt_pedido, c.ult_dt_pedido, c.ult_dt_enc_ficha,
     c.total_contratos, c.qtd_renovacoes, c.total_encerramento,
     c.produtos_locados || "", c.codigos_equipto || "",
@@ -107,10 +115,11 @@ export default function ChurnClientTable({ clients }) {
       ? Number(v).toLocaleString("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 })
       : "—";
   const fmtDate = (d) => (d ? new Date(d + "T00:00:00").toLocaleDateString("pt-BR") : "—");
-  const monthsSince = (d) => {
-    if (!d) return "—";
-    const months = Math.round((Date.now() - new Date(d + "T00:00:00").getTime()) / (1000 * 60 * 60 * 24 * 30));
-    return months + " meses";
+  const inactivityLabel = (days) => {
+    if (days == null || !Number.isFinite(Number(days))) return "—";
+    const d = Number(days);
+    const months = d / 30.4375;
+    return months >= 1 ? `${months.toFixed(1)} meses` : `${d} dias`;
   };
   const fmtText = (v) => (v ? v : "—");
 
@@ -136,7 +145,7 @@ export default function ChurnClientTable({ clients }) {
     <div className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden">
       <div className="flex items-center justify-between p-4 border-b border-gray-800 gap-3 flex-wrap">
         <h3 className="text-white font-semibold text-sm">
-          Clientes que Pararam de Alugar ({filtered.length})
+          Churn confirmado — sem contrato vigente e sem atividade válida ({filtered.length})
         </h3>
         <div className="flex items-center gap-2">
           <div className="relative">
@@ -187,6 +196,10 @@ export default function ChurnClientTable({ clients }) {
                 <td className="px-3 py-3 text-gray-300 max-w-[220px] truncate" title={c.produtos_locados}>{fmtText(c.produtos_locados)}</td>
                 <td className="px-3 py-3 text-red-400 font-medium whitespace-nowrap">{fmtCurrency(c.ref_revenue)}</td>
                 <td className="px-3 py-3 text-gray-300 whitespace-nowrap">{c.ref_nfs}</td>
+                <td className="px-3 py-3 text-cyan-300 whitespace-nowrap">{fmtDate(c.last_activity)}</td>
+                <td className="px-3 py-3 text-gray-300 whitespace-nowrap">{fmtText(c.billing_cycle)}</td>
+                <td className="px-3 py-3 text-gray-300 max-w-[180px] truncate" title={c.rental_period_description}>{fmtText(c.rental_period_description)}</td>
+                <td className="px-3 py-3 text-gray-300 whitespace-nowrap">{c.contract_horizon_days != null ? `${c.contract_horizon_days} dias` : "—"}</td>
                 <td className="px-3 py-3 text-gray-300 whitespace-nowrap">{fmtDate(c.ref_last_nf)}</td>
                 <td className="px-3 py-3 text-gray-300 whitespace-nowrap">{fmtDate(c.prim_dt_pedido)}</td>
                 <td className="px-3 py-3 text-gray-300 whitespace-nowrap">{fmtDate(c.ult_dt_enc_ficha)}</td>
@@ -199,7 +212,7 @@ export default function ChurnClientTable({ clients }) {
                   )}
                 </td>
                 <td className="px-3 py-3 text-gray-300 whitespace-nowrap">{fmtCurrency(c.total_valor_locado)}</td>
-                <td className="px-3 py-3 text-orange-400 whitespace-nowrap">{monthsSince(c.ref_last_nf)}</td>
+                <td className="px-3 py-3 text-orange-400 whitespace-nowrap">{inactivityLabel(c.days_since_last_activity)}</td>
               </tr>
             ))}
           </tbody>
