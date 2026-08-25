@@ -2,8 +2,9 @@ import { Calendar, RefreshCw, ShieldCheck } from "lucide-react";
 
 const OPTIONS = [6, 12, 13, 18, 24];
 
-// Churn = cliente sem nova remessa aprovada durante a janela de inatividade (padrão 13 meses,
-// para respeitar clientes de sazonalidade anual) E sem contrato de locação ativo/movimentado.
+// Churn v2 = cliente sem contrato vigente E sem qualquer atividade válida de locação
+// durante a janela de inatividade (padrão 13 meses): remessa, faturamento recorrente,
+// última geração da ficha ou movimentação operacional vinculada ao contrato.
 export default function ChurnWindowBar({ dates, onApply, loading, inactivityMonths, onChangeMonths }) {
   return (
     <div className="bg-gray-900 border border-gray-800 rounded-xl p-4 space-y-3">
@@ -45,8 +46,9 @@ export default function ChurnWindowBar({ dates, onApply, loading, inactivityMont
 
       <p className="text-xs text-gray-500 flex items-start gap-2">
         <ShieldCheck className="w-3.5 h-3.5 text-emerald-400 shrink-0 mt-0.5" />
-        Cliente com contrato de locação em aberto (ficha sem encerramento) ou com movimentação na
-        ficha dentro da janela nunca é contado como churn, mesmo sem nova remessa.
+        Cliente com contrato de locação vigente nunca é contado como churn. Sem contrato aberto,
+        a recência usa a última atividade real da locação: remessa, faturamento da ficha ou movimentação
+        operacional vinculada ao contrato. O limite padrão continua sendo 13 meses para proteger a sazonalidade anual.
       </p>
     </div>
   );
