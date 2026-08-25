@@ -288,8 +288,8 @@ Deno.serve(async (req) => {
     const preventedFalseChurn = activeRows.filter(r => Number(r.sem_remessa) === 1 && (
       Number(r.contrato_aberto) === 1 || r.last_fatura || r.last_estmov || r.last_contract_billing
     ));
-    const seasonalProtected = activeRows.filter(r => Number(r.days_since_last_activity) >= 365);
-    const longContractsActive = activeRows.filter(r => r.contract_horizon === '301_DIAS_OU_MAIS');
+    const seasonalProtected = activeRows.filter(r => Number(r.contrato_aberto) === 0 && Number(r.days_since_last_activity) >= 365);
+    const longContractsActive = activeRows.filter(r => Number(r.contrato_aberto) === 1 && r.contract_horizon === '301_DIAS_OU_MAIS');
     const monthlyOpenContracts = activeRows.filter(r => Number(r.contrato_aberto) === 1 && r.billing_cycle === 'MENSAL');
 
     const summarize = (field) => {
