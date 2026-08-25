@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Link } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
 import { useErpSource } from "@/lib/ErpSourceContext";
+import { useGlobalFilter } from "@/lib/GlobalFilterContext";
 import SourceStatusBadge from "@/components/erp/SourceStatusBadge";
 import AdicionarFonteModal from "@/components/erp/AdicionarFonteModal";
 import SchemaValidationResult from "@/components/erp/SchemaValidationResult";
@@ -20,6 +21,7 @@ function formatDate(dt) {
 
 export default function GerenciarFontes() {
   const { sources, selectedSource, selectSource, refreshSources, loading } = useErpSource();
+  const { period } = useGlobalFilter();
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState(null);
   const [testingId, setTestingId] = useState(null);
@@ -73,7 +75,11 @@ export default function GerenciarFontes() {
   const handleRefresh = async (s) => {
     setRefreshProgress(prev => ({ ...prev, [s.id]: "processing" }));
     try {
-      const res = await base44.functions.invoke("refreshErpData", { source_id: s.id });
+      const res = await base44.functions.invoke("refreshErpData", {
+        source_id: s.id,
+        start_date: period?.start,
+        end_date_exclusive: period?.endExclusive,
+      });
       const data = res?.data || {};
       if (data.success && data.run_id) {
         await pollRun(data.run_id, (run) => {
@@ -95,7 +101,11 @@ export default function GerenciarFontes() {
     for (const s of activeSources) {
       setRefreshProgress(prev => ({ ...prev, [s.id]: "processing" }));
       try {
-        const res = await base44.functions.invoke("refreshErpData", { source_id: s.id });
+        const res = await base44.functions.invoke("refreshErpData", {
+          source_id: s.id,
+          start_date: period?.start,
+          end_date_exclusive: period?.endExclusive,
+        });
         const data = res?.data || {};
         if (data.success && data.run_id) {
           await pollRun(data.run_id, (run) => {
