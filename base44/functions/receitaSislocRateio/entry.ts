@@ -1,8 +1,7 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.40';
 import { execRead } from '../../shared/erpConnection.ts';
 import { resolvePeriod } from '../../shared/periodContract.ts';
-import { EXCLUDED_EMPRESAS, EXCLUDED_EMPRESAS_REASON } from '../../shared/empresaScope.ts';
-import { buildSislocRevenueQueries, type RateioFilters } from './rateioSql.ts';
+import { buildSislocRevenueQueries, SISLOC_REVENUE_REPORT_COMPANIES, type RateioFilters } from './rateioSql.ts';
 
 // Benchmark executável do relatório SISLOC "Receita por Grupo" (TGersReceitaGrupoList).
 // A implementação replica os cinco blocos SQL observados no full log de 25/08/2026:
@@ -205,8 +204,8 @@ export default async function (req: Request): Promise<Response> {
         cd_grupo: filters.groupId || 0,
         cd_pessoa_fun: filters.personId || 0,
         cd_equfamilia: filters.familyId || 0,
-        excluded_companies: EXCLUDED_EMPRESAS,
-        excluded_companies_reason: EXCLUDED_EMPRESAS_REASON,
+        report_companies: [...SISLOC_REVENUE_REPORT_COMPANIES],
+        company_scope_source: 'TGersReceitaGrupoList full log 25/08/2026',
       },
       total,
       branches: branchSummary,
