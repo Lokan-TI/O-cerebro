@@ -20,6 +20,7 @@ export const DEPARTMENTS = [
     items: [
       { label: "Painel de Growth", to: "/GrowthMarketing" },
       { label: "Conversão de Novos Clientes", to: "/ConversaoNovosClientes" },
+      { label: "Leads RD Conversas (WhatsApp/Instagram)", to: "/ConversasLeads" },
     ],
   },
   {

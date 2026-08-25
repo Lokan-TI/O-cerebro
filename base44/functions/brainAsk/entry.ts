@@ -4,32 +4,12 @@ import { assertReadOnlyQuery, SqlGuardError } from '../../shared/sqlGuard.ts';
 import { INVOICE_UNIVERSE, INVOICE_DATE_FIELD } from '../../shared/metricRegistry.ts';
 import { loadTableIndex, renderTableIndex, loadColumnsFor } from '../../shared/brainSchema.ts';
 import { loadLessons, saveLesson, hasLesson } from '../../shared/brainMemory.ts';
-import { buildSislocRevenueQueries, SISLOC_REVENUE_REPORT_COMPANIES } from '../receitaSislocRateio/rateioSql.ts';
 
 // "Cérebro" — pergunta em linguagem natural → SQL somente leitura → resposta com dados reais.
 // Reusa o SqlGuard (P0-02) e a conexão isolada por fonte. Toda consulta é auditada.
 
 const MAX_ROWS_FOR_ANSWER = 150;
 const MAX_ROWS_FOR_REPORT = 5000;
-
-function rowsOf(result: any): any[] {
-  if (Array.isArray(result?.recordset)) return result.recordset;
-  if (Array.isArray(result?.recordsets)) {
-    for (let i = result.recordsets.length - 1; i >= 0; i--) {
-      if (Array.isArray(result.recordsets[i])) return result.recordsets[i];
-    }
-  }
-  return Array.isArray(result) ? result : [];
-}
-
-function num(v: unknown) {
-  const n = Number(v);
-  return Number.isFinite(n) ? n : 0;
-}
-
-function fmtBrl(v: number) {
-  return v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-}
 
 // Passo 0 — o Cérebro escolhe, no índice de TODAS as tabelas conectadas, quais precisa consultar.
 // Histórico curto da conversa → texto para o LLM entender perguntas de continuidade ("e desses, quantos...").
@@ -153,70 +133,27 @@ Deno.serve(async (req) => {
       source = { credential_reference: 'env' };
     }
 
-    // Rota determinística para o relatório oficial "Receita por Grupo".
-    // É proibido aproximar esta métrica com SUM(nf.vl_faturamento): o Cérebro executa
-    // diretamente os cinco blocos observados no TGersReceitaGrupoList do SISLOC.
+    // Proteção semântica: enquanto o contrato TGersReceitaGrupoList permanece centralizado
+    // na função de reconciliação, o Cérebro nunca pode substituí-lo por SUM(nf.vl_faturamento).
     const normalizedQuestion = question.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
     const asksSislocRevenueGroup = normalizedQuestion.includes('receita por grupo') ||
       normalizedQuestion.includes('tgersreceitagrupo') ||
       normalizedQuestion.includes('receita grupo sisloc');
     if (asksSislocRevenueGroup) {
-      const reportStart = uiPeriodStart || `${new Date().getFullYear()}-01-01`;
-      const reportEndExclusive = uiPeriodEndExclusive || new Date(Date.now() + 86400000).toISOString().slice(0, 10);
-      const queries = buildSislocRevenueQueries({
-        startDate: reportStart,
-        endDateExclusive: reportEndExclusive,
-        groupId: 0,
-        personId: 0,
-        familyId: 0,
-      });
-      const branches = ['locacao', 'venda', 'manutencao', 'servico', 'indenizacao'];
-      const branchSummary: Record<string, { valor: number; rows: number }> = {};
-      const groupMap = new Map<string, any>();
-      const lineage: any[] = [];
-
-      for (const branch of branches) {
-        executedSql = queries[branch];
-        const result = await execRead(source, executedSql, 120000);
-        const rows = rowsOf(result);
-        const branchValue = rows.reduce((s, r) => s + num(r?.VALOR ?? r?.valor), 0);
-        branchSummary[branch] = { valor: branchValue, rows: rows.length };
-        lineage.push({ branch, sql: executedSql });
-        for (const r of rows) {
-          const cd = num(r?.cd_grupo ?? r?.CD_GRUPO);
-          const name = String(r?.nm_grupo ?? r?.NM_GRUPO ?? 'Sem grupo');
-          const key = `${cd}|${name}`;
-          if (!groupMap.has(key)) groupMap.set(key, { cd_grupo: cd, nm_grupo: name, valor: 0 });
-          groupMap.get(key).valor += num(r?.VALOR ?? r?.valor);
-        }
-        await audit({ outcome: 'allowed', row_count: rows.length, truncated: false });
-      }
-
-      const groupRows = [...groupMap.values()].sort((a, b) => b.valor - a.valor);
-      const total = Object.values(branchSummary).reduce((s, b) => s + b.valor, 0);
-      const top = groupRows.slice(0, 10).map((r) => `${r.nm_grupo}: ${fmtBrl(r.valor)}`).join('; ');
-      const answer = `**Receita por Grupo SISLOC:** ${fmtBrl(total)} no período ${reportStart} a ${uiPeriodEndInclusive || reportEndExclusive}. ` +
-        `Cálculo executado pelo contrato TGersReceitaGrupoList, usando v_nf_emissao.dt_emissao e nffatur.vl_nffatur. ` +
-        `Maiores grupos: ${top || 'sem grupos retornados'}.`;
-
       return Response.json({
-        answer,
+        answer: 'Receita por Grupo SISLOC não será aproximada pelo faturamento de NF. Execute a métrica na aba Reconciliação de Receita, que usa o contrato TGersReceitaGrupoList com v_nf_emissao.dt_emissao e nffatur.vl_nffatur.',
         sql: null,
-        tables: ['fl_fatura', 'nf', 'v_nf_emissao', 'nffatur', 'grupo'],
-        rows: groupRows.slice(0, MAX_ROWS_FOR_REPORT),
-        rowCount: groupRows.length,
-        reportRowCount: Math.min(groupRows.length, MAX_ROWS_FOR_REPORT),
-        truncated: groupRows.length > MAX_ROWS_FOR_REPORT,
+        tables: [],
+        rows: [],
+        rowCount: 0,
+        reportRowCount: 0,
+        truncated: false,
         queryError: null,
         metric: 'SISLOC-RECEITA-GRUPO',
-        branches: branchSummary,
-        lineage,
         analysis_context: {
-          period_start: reportStart,
+          period_start: uiPeriodStart,
           period_end_inclusive: uiPeriodEndInclusive,
-          period_end_exclusive: reportEndExclusive,
-          period_type: 1,
-          report_companies: [...SISLOC_REVENUE_REPORT_COMPANIES],
+          period_end_exclusive: uiPeriodEndExclusive,
         },
         duration_ms: Date.now() - started,
       });
