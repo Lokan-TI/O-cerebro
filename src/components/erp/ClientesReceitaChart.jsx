@@ -3,7 +3,7 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, Responsi
 import { fmtCur, fmtNum, fmtMonthLabel } from "@/lib/erpFormat";
 import { periodMonths } from "@/lib/periodScope";
 
-export default function ClientesReceitaChart({ monthlyRevenue, carMonthly, selectedEmpresa, period }) {
+export default function ClientesReceitaChart({ monthlyRevenue, carMonthly, selectedEmpresa, period, onSelectMonth }) {
   const data = useMemo(() => {
     const win = periodMonths(period);
     const rows = (monthlyRevenue || []).filter((r) => {
@@ -42,10 +42,20 @@ export default function ClientesReceitaChart({ monthlyRevenue, carMonthly, selec
         Faturamento bruto de NF (nf.vl_faturamento) da base ativa e nº de clientes faturados no mês · não é receita por grupo Sisloc
         {hasInadimplencia ? " · inadimplência = títulos vencidos em aberto (consolidado, por mês de emissão)" : ""}
         {period ? ` · ${period.start} → ${period.end}` : ""}
+        {onSelectMonth ? " · clique em um mês para ver os clientes ativos daquele mês" : ""}
       </p>
       <div className="h-72">
         <ResponsiveContainer width="100%" height="100%">
-          <LineChart data={data} margin={{ top: 5, right: 10, left: 0, bottom: 0 }}>
+          <LineChart
+            data={data}
+            margin={{ top: 5, right: 10, left: 0, bottom: 0 }}
+            style={onSelectMonth ? { cursor: "pointer" } : undefined}
+            onClick={(e) => {
+              if (!onSelectMonth) return;
+              const p = e?.activePayload?.[0]?.payload;
+              if (p) onSelectMonth({ ano: Number(p.ano), mes: Number(p.mes) });
+            }}
+          >
             <CartesianGrid strokeDasharray="3 3" stroke="#1f2937" />
             <XAxis dataKey="label" tick={{ fill: "#9ca3af", fontSize: 11 }} />
             <YAxis

@@ -1,5 +1,6 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.40';
 import { execRead } from '../../shared/erpConnection.ts';
+import { resolvePeriod } from '../../shared/periodContract.ts';
 
 // Base completa de ativos (patrimônio + estoque locável), manutenção por família
 // e CAP classificado em CAPEX x OPEX pelo plano financeiro.
@@ -21,8 +22,17 @@ export default async function (req: Request): Promise<Response> {
     if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 });
 
     const body = await req.json().catch(() => ({}));
-    const end = String(body?.end_date || new Date().toISOString().slice(0, 10));
-    const start12 = new Date(new Date(end).getTime() - 365 * 86400000).toISOString().slice(0, 10);
+    const today = new Date().toISOString().slice(0, 10);
+    const resolvedPeriod = resolvePeriod({
+      start: body?.start_date,
+      endInclusive: body?.end_date,
+      endExclusive: body?.end_date_exclusive,
+      defaultStart: new Date(new Date(`${today}T12:00:00Z`).getTime() - 365 * 86400000).toISOString().slice(0, 10),
+      defaultEndInclusive: today,
+    });
+    const end = resolvedPeriod.endInclusive;
+    const endExclusive = resolvedPeriod.endExclusive;
+    const start12 = body?.start_date ? resolvedPeriod.start : new Date(new Date(`${end}T12:00:00Z`).getTime() - 365 * 86400000).toISOString().slice(0, 10);
 
     let source: Record<string, unknown> = { credential_reference: 'env' };
     if (body?.source_id) {
@@ -67,7 +77,7 @@ export default async function (req: Request): Promise<Response> {
       FROM orcos o WITH (NOLOCK)
       LEFT JOIN equipto e WITH (NOLOCK) ON e.cd_equipto = o.cd_equipto
       LEFT JOIN grupo g WITH (NOLOCK) ON g.cd_grupo = e.cd_grupo
-      WHERE o.dt_abertura >= '${start12}' AND o.dt_abertura < DATEADD(day, 1, CAST('${end}' AS date))
+      WHERE o.dt_abertura >= '${start12}' AND o.dt_abertura < '${endExclusive}'
         AND UPPER(COALESCE(o.fl_propriedade, 'P')) = 'P'
       GROUP BY g.nm_grupo`;
 
@@ -83,7 +93,7 @@ export default async function (req: Request): Promise<Response> {
       LEFT JOIN plano bl WITH (NOLOCK)
         ON LTRIM(RTRIM(bl.nr_planfin)) = LEFT(LTRIM(RTRIM(pl.nr_planfin)), 4) + '00000'
       CROSS APPLY (SELECT ROUND(COALESCE(c.vl_pre_cap, 0) + COALESCE(c.vl_acr_cap, 0) - COALESCE(c.vl_des_cap, 0), 2) AS val) v
-      WHERE c.dt_emi_cap >= '${start12}' AND c.dt_emi_cap < DATEADD(day, 1, CAST('${end}' AS date))
+      WHERE c.dt_emi_cap >= '${start12}' AND c.dt_emi_cap < '${endExclusive}'
         AND c.fl_status_titulo <> 40
       GROUP BY pl.nr_planfin, pl.ds_planfin, bl.ds_planfin
       ORDER BY SUM(v.val) DESC`;
@@ -148,7 +158,7 @@ export default async function (req: Request): Promise<Response> {
 
     return Response.json({
       generated_at: new Date().toISOString(),
-      period: { start: start12, end },
+      period: { start: start12, end, end_exclusive: endExclusive },
       grupos,
       cap: cap.map((r: any) => ({
         nr_planfin: String(r.nr_planfin || ''),
