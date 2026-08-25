@@ -1,8 +1,7 @@
-// Regra de negócio aprovada em 25/08/2026: empresas 5 = LLK RENTAL e 6 = JCK
-// estão inativas operacionalmente e não recebem novos cadastros, contratos ou lançamentos.
-// Mantido em sincronia com base44/shared/empresaScope.ts.
-export const EXCLUDED_EMPRESAS = [5, 6];
-export const EXCLUDED_EMPRESAS_REASON = "Empresas 5 e 6 inativas: sem novos cadastros, contratos ou lançamentos.";
+// Escopo padrão fiel ao ERP: nenhuma empresa é removida silenciosamente.
+// Empresa inativa pode ser sinalizada na UI, mas seus registros históricos permanecem nas análises.
+export const EXCLUDED_EMPRESAS = [];
+export const EXCLUDED_EMPRESAS_REASON = "Nenhuma exclusão global; filtros de empresa devem ser explícitos.";
 
 export function isEmpresaExcluida(cdEmpresa) {
   return EXCLUDED_EMPRESAS.includes(Number(cdEmpresa));
