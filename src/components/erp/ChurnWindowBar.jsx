@@ -10,10 +10,10 @@ export default function ChurnWindowBar({ dates, onApply, loading }) {
         <h3 className="text-white font-semibold text-sm">Janelas de churn (filtro global)</h3>
       </div>
       <span className="text-xs text-gray-400">
-        Referência (quando compravam): <span className="text-gray-200">{dates.ref_start} → {dates.ref_end}</span>
+        Referência (quando compravam): <span className="text-gray-200">{dates.ref_start} → {dates.ref_end_inclusive}</span>
       </span>
       <span className="text-xs text-gray-400">
-        Análise (pararam de comprar?): <span className="text-gray-200">{dates.analysis_start} → {dates.analysis_end}</span>
+        Análise (pararam de comprar?): <span className="text-gray-200">{dates.analysis_start} → {dates.analysis_end_inclusive}</span>
       </span>
       <button
         onClick={onApply}
