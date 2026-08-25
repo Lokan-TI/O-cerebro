@@ -10,10 +10,10 @@ function fmtMonth(mes, ano) {
   return `${MES_PT[mes] || mes}/${String(ano).slice(2)}`;
 }
 
-import { empFilter, EXCLUDED_EMPRESAS } from './empresaScope.ts';
+import { empFilter } from './empresaScope.ts';
 
 export async function computeAnalytics({ source, wrap, startDate, endDate, lastYearStart, runQuery, getRows }) {
-  // Empresas fora de escopo (LLK RENTAL, JCK)
+  // Escopo padrão fiel ao ERP: nenhuma empresa é excluída implicitamente.
   const empF = empFilter();
   const empFc = empFilter('c');
   const empFcar = empFilter('', 'cd_empresa_gestora');
@@ -43,7 +43,7 @@ export async function computeAnalytics({ source, wrap, startDate, endDate, lastY
 
   // ── Empresas ──
   try {
-    const empSql = `SELECT cd_empresa, nm_fan_empresa FROM empresa WITH (NOLOCK) WHERE cd_empresa NOT IN (${EXCLUDED_EMPRESAS.join(',')}) ORDER BY cd_empresa`;
+    const empSql = `SELECT cd_empresa, nm_fan_empresa FROM empresa WITH (NOLOCK) ORDER BY cd_empresa`;
     out.empresas = getRows(await runQuery(source, wrap(empSql))).map(r => ({
       cd_empresa: Number(r.cd_empresa),
       nm_fan_empresa: String(r.nm_fan_empresa || ''),
