@@ -135,6 +135,25 @@ Deno.serve(async (req) => {
       INNER JOIN ref_clients rc ON rc.cd_pessoa = e.cd_pessoa
       GROUP BY e.cd_pessoa
     ),
+    ref_nf_activity AS (
+      SELECT e.cd_pessoa,
+             COUNT(DISTINCT e.cd_nf) AS ref_nfs,
+             MIN(e.dt_nf) AS ref_first_nf,
+             MAX(e.dt_nf) AS ref_last_nf
+      FROM rental_nf_events e
+      INNER JOIN ref_clients rc ON rc.cd_pessoa = e.cd_pessoa
+      WHERE e.dt_nf >= '${refStart}' AND e.dt_nf < '${refEnd}'
+      GROUP BY e.cd_pessoa
+    ),
+    analysis_nf_activity AS (
+      SELECT e.cd_pessoa,
+             COUNT(DISTINCT e.cd_nf) AS analysis_nfs,
+             MAX(e.dt_nf) AS analysis_last_nf
+      FROM rental_nf_events e
+      INNER JOIN ref_clients rc ON rc.cd_pessoa = e.cd_pessoa
+      WHERE e.dt_nf >= '${analysisStart}' AND e.dt_nf < '${analysisEnd}'
+      GROUP BY e.cd_pessoa
+    ),
     contract_profile AS (
       SELECT
         f.cd_pessoa,
@@ -207,6 +226,11 @@ Deno.serve(async (req) => {
       cp.contract_last_nf AS latest_contract_nf,
       na.last_rental_nf,
       na.rental_nf_count,
+      ISNULL(rna.ref_nfs, 0) AS ref_nfs,
+      rna.ref_first_nf,
+      rna.ref_last_nf,
+      ISNULL(ana.analysis_nfs, 0) AS analysis_nfs,
+      ana.analysis_last_nf,
       cp.ds_calcfat AS rental_period_description,
       cp.num_dias_periodo AS rental_period_days,
       cp.nr_periodos AS contract_periods,
@@ -245,6 +269,8 @@ Deno.serve(async (req) => {
       END AS eligible_for_churn
     FROM ref_clients r
     LEFT JOIN nf_activity na ON na.cd_pessoa = r.cd_pessoa
+    LEFT JOIN ref_nf_activity rna ON rna.cd_pessoa = r.cd_pessoa
+    LEFT JOIN analysis_nf_activity ana ON ana.cd_pessoa = r.cd_pessoa
     LEFT JOIN contract_profile cp ON cp.cd_pessoa = r.cd_pessoa AND cp.rn = 1
     ORDER BY COALESCE(na.last_rental_nf, cp.contract_last_remessa, r.ref_last_ficha) DESC`;
 
