@@ -64,7 +64,7 @@ export default async function (req: Request): Promise<Response> {
         nf.vl_faturamento - nft.vl_nffatur_total AS divergencia
       FROM nf WITH (NOLOCK)
       JOIN (
-        SELECT cd_nf, SUM(ISNULL(vl_bruto, 0)) AS vl_nffatur_total
+        SELECT cd_nf, SUM(ISNULL(vl_nffatur, 0)) AS vl_nffatur_total
         FROM nffatur WITH (NOLOCK)
         GROUP BY cd_nf
       ) nft ON nf.cd_nf = nft.cd_nf
@@ -75,8 +75,8 @@ export default async function (req: Request): Promise<Response> {
     // SQL 5 — Rateio proporcional por grupo de equipamento (opcional)
     const sqlRateioGrupo = `SELECT
         grupo.cd_grupo,
-        grupo.nome_grupo,
-        SUM(ISNULL(fl_fatura.vl_fatura, 0) / NULLIF(nf.vl_faturamento, 0) * ISNULL(nffatur.vl_bruto, 0)) AS vl_rateado
+        grupo.nm_grupo,
+        SUM(ISNULL(fl_fatura.vl_fatura, 0) / NULLIF(nf.vl_faturamento, 0) * ISNULL(nffatur.vl_nffatur, 0)) AS vl_rateado
       FROM fl_fatura WITH (NOLOCK)
       JOIN nf WITH (NOLOCK) ON fl_fatura.cd_nf = nf.cd_nf
       JOIN nffatur WITH (NOLOCK) ON nf.cd_nf = nffatur.cd_nf
@@ -86,7 +86,7 @@ export default async function (req: Request): Promise<Response> {
       JOIN equipto WITH (NOLOCK) ON patrimon.cd_equipto = equipto.cd_equipto
       JOIN grupo WITH (NOLOCK) ON equipto.cd_grupo = grupo.cd_grupo
       WHERE ${nfWhere}
-      GROUP BY grupo.cd_grupo, grupo.nome_grupo
+      GROUP BY grupo.cd_grupo, grupo.nm_grupo
       ORDER BY vl_rateado DESC`;
 
     const pick = (result: any): Record<string, unknown>[] => {
@@ -123,11 +123,10 @@ export default async function (req: Request): Promise<Response> {
 
     results.resumo = {
       esperado_erp_sisloc: 38666349.68,
-      atual_cerebro_faturamento_bruto: 38862135.0,
-      divergencia_conhecida: 195785.32,
-      divergencia_pct: '0.51%',
       periodo: `${startDate} a ${endDate}`,
-      objetivo: 'nffatur.vl_bruto deve bater R$ 38.666.349,68',
+      correcoes_aplicadas: ['grupo.nm_grupo', 'nffatur.vl_nffatur', 'nf.dt_emi_nf'],
+      formula_rateio_erp: '(valor_componente / nf.vl_faturamento) × nffatur.vl_nffatur',
+      objetivo: 'nffatur.vl_nffatur deve bater R$ 38.666.349,68',
     };
     results.queries = {
       faturamento_bruto_nf: sqlFaturamentoBruto,
