@@ -110,6 +110,8 @@ function buildExpected(futureRows: any[], capMedianLag: number, carMedianLag: nu
     const bucket = String(r.bucket || '');
     if (bucket === 'CAP_AGENDADO') {
       add(date, 'saidas', amount, 'CAP_AGENDADO');
+    } else if (bucket === 'CAP_OVERDUE') {
+      add(today, 'saidas', amount, 'CAP_MODELADO');
     } else if (bucket === 'CAP_VENCIMENTO' || bucket === 'CAP_PROVISORIO') {
       const d = shiftForecastDate(date, capMedianLag, today, endExclusive);
       if (d) add(d, 'saidas', amount, 'CAP_MODELADO');
@@ -204,6 +206,14 @@ export default async function (req: Request): Promise<Response> {
         AND (c.dt_agendpagto IS NULL OR c.dt_agendpagto < '${today}')
         AND c.dt_ven_cap >= '${today}' AND c.dt_ven_cap < '${futureEnd}'
       GROUP BY CAST(c.dt_ven_cap AS date), CASE WHEN c.fl_status_titulo = 5 THEN 'CAP_PROVISORIO' ELSE 'CAP_VENCIMENTO' END
+      UNION ALL
+      SELECT '${today}' AS data,
+        'SAIDA' AS direcao, 'CAP_OVERDUE' AS bucket, COUNT(*) AS qtd, SUM(${valCap}) AS valor
+      FROM cap c WITH (NOLOCK)
+      WHERE c.dt_bai_cap IS NULL AND COALESCE(c.fl_status_titulo,0) <> 40
+        AND c.dt_ven_cap < '${today}'
+        AND (c.dt_agendpagto IS NULL OR c.dt_agendpagto < '${today}')
+      HAVING COUNT(*) > 0
       UNION ALL
       SELECT CONVERT(char(10), CAST(c.dt_ven_car AS date), 23) AS data,
         'ENTRADA' AS direcao,
