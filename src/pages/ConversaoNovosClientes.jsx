@@ -48,7 +48,7 @@ export default function ConversaoNovosClientes() {
     const res = await base44.functions.invoke("refreshClientConversion", {
       source_id: selectedSource.id,
       start_date: period.start,
-      end_date: period.endExclusive,
+      end_date_exclusive: period.endExclusive,
     });
     if (res?.data?.success) {
       await load();
