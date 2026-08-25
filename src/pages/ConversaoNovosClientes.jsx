@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { base44 } from "@/api/base44Client";
-import { useErpSource } from "@/lib/ErpSourceContext";
+import { useErpSource, ALL_SOURCES_ID } from "@/lib/ErpSourceContext";
 import { useGlobalFilter } from "@/lib/GlobalFilterContext";
 import ConversionHeader from "@/components/conversao/ConversionHeader";
 import ConversionKpis from "@/components/conversao/ConversionKpis";
@@ -21,7 +21,14 @@ function toCsv(clients) {
 }
 
 export default function ConversaoNovosClientes() {
-  const { selectedSource } = useErpSource();
+  const { selectedSource, sources = [] } = useErpSource();
+  const effectiveSource = useMemo(() => {
+    if (selectedSource?.id && selectedSource.id !== ALL_SOURCES_ID && String(selectedSource?.status || '').toLowerCase() !== 'error') return selectedSource;
+    return sources.find((s) => String(s?.status || '').toLowerCase() === 'connected')
+      || sources.find((s) => String(s?.name || '').toLowerCase() === 'matriz')
+      || sources.find((s) => s?.credential_reference === 'env')
+      || null;
+  }, [selectedSource, sources]);
   // Período do filtro global — mesma janela usada em todas as abas.
   const { period } = useGlobalFilter();
   const [snapshot, setSnapshot] = useState(null);
@@ -30,23 +37,23 @@ export default function ConversaoNovosClientes() {
   const [error, setError] = useState(null);
 
   const load = useCallback(async () => {
-    if (!selectedSource) return;
+    if (!effectiveSource) return;
     setLoading(true);
     const list = await base44.entities.ClientConversionSnapshot.filter(
-      { source_id: selectedSource.id, is_current: true }, "-created_date", 1
+      { source_id: effectiveSource.id, is_current: true }, "-created_date", 1
     );
     setSnapshot(list[0] || null);
     setLoading(false);
-  }, [selectedSource]);
+  }, [effectiveSource]);
 
   useEffect(() => { load(); }, [load]);
 
   const handleRefresh = async () => {
-    if (!selectedSource) return;
+    if (!effectiveSource) return;
     setRefreshing(true);
     setError(null);
     const res = await base44.functions.invoke("refreshClientConversion", {
-      source_id: selectedSource.id,
+      source_id: effectiveSource.id,
       start_date: period.start,
       end_date_exclusive: period.endExclusive,
     });
