@@ -89,9 +89,9 @@ Objetos físicos observados/confirmados para esse relatório: `fl_fatura`, `fl_f
 - Consultas ao vivo cacheadas devem ser versionadas por `snapshot.version`; uma nova publicação não pode reutilizar dados calculados sobre o snapshot anterior.
 - `v_nf_emissao` é usada pelo ERP mas não está presente no catálogo atual derivado do `v_Dicionario_Dados`; precisamos ampliar a descoberta de views ou manter registro explícito de objetos observados em log.
 - Receita por Grupo não é igual a `SUM(nf.vl_faturamento)` nem a `SUM(fl_fatura.vl_fatura)`.
-- `receitaSislocRateio` foi reconstruída em 25/08/2026 para reproduzir os cinco blocos observados no full log (locação, venda, manutenção/OM, serviços e indenizações), usando `v_nf_emissao.dt_emissao`, `nffatur.vl_nffatur` e o escopo analítico que exclui 5/6. O código está `RECONCILIATION_READY`, mas só poderá receber status TRUSTED após uma execução contra o ERP e comparação dos subtotais/total com o relatório benchmark.
+- `receitaSislocRateio` foi reconstruída em 25/08/2026 para reproduzir os cinco blocos observados no full log (locação, venda, manutenção/OM, serviços e indenizações), usando `v_nf_emissao.dt_emissao`, `nffatur.vl_nffatur` e o escopo literal do relatório `cd_empresa in (0,4,7,8,9,11,10,13,12,6,5)`. O código está `RECONCILIATION_READY`, mas só poderá receber status TRUSTED após uma execução contra o ERP e comparação dos subtotais/total com o relatório benchmark.
 - Papel semântico de `nf.cd_pessoa_fun` permanece pendente.
-- Mapa oficial de empresas/filiais ainda precisa ser versionado; a exclusão das empresas 5 e 6 já está aprovada e documentada por inatividade operacional.
+- Mapa oficial de empresas/filiais ainda precisa ser versionado. Inatividade operacional não implica exclusão histórica: nenhuma empresa é removida globalmente sem filtro explícito ou regra observada no relatório SISLOC.
 - Ausência de resolução de identidade canônica entre múltiplas fontes.
 
 ## 7. Perguntas abertas para os donos de negócio
