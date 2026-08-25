@@ -1,6 +1,7 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.40';
 import { execRead } from '../../shared/erpConnection.ts';
 import { empFilter } from '../../shared/empresaScope.ts';
+import { invoiceUniverse } from '../../shared/invoiceUniverse.ts';
 
 // MTR-001 · Reconciliação de candidatos a "Receita".
 // Objetivo: dar base factual para os donos de negócio escolherem o Source of Truth.
@@ -13,7 +14,7 @@ const CANDIDATES = [
 ];
 
 // Universo oficial da reconciliação: NF de saída, não cancelada e não anulada.
-const BASE_FILTER = `fl_ent_sai = 'S' AND ISNULL(fl_can_nf, 'N') <> 'S' AND dt_cancelamento IS NULL AND dt_anul_nf IS NULL ${empFilter()}`;
+const BASE_FILTER = `${invoiceUniverse()} ${empFilter()}`;
 
 function dateRange(start: string, end: string) {
   return `dt_emi_nf >= '${start}' AND dt_emi_nf < '${end}'`;
@@ -68,7 +69,7 @@ export default async function (req: Request): Promise<Response> {
     // 2 — Impacto das notas excluídas (canceladas/anuladas) sobre o candidato de referência
     const excludedRes = await execRead(
       source,
-      `SELECT COUNT(*) AS notas, SUM(ISNULL(vl_faturamento,0)) AS valor FROM nf WHERE fl_ent_sai = 'S' AND (ISNULL(fl_can_nf,'N') = 'S' OR dt_cancelamento IS NOT NULL OR dt_anul_nf IS NOT NULL) AND ${range} ${empFilter()}`,
+      `SELECT COUNT(*) AS notas, SUM(ISNULL(vl_faturamento,0)) AS valor FROM nf WHERE fl_ent_sai = 'S' AND (ISNULL(CAST(fl_can_nf AS varchar(5)),'N') IN ('S','1') OR dt_cancelamento IS NOT NULL OR dt_anul_nf IS NOT NULL) AND ${range} ${empFilter()}`,
       60000
     );
     queryCount++;
