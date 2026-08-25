@@ -191,7 +191,7 @@ export default async function (req: Request): Promise<Response> {
       SELECT CONVERT(char(10), CAST(c.dt_agendpagto AS date), 23) AS data,
         'SAIDA' AS direcao, 'CAP_AGENDADO' AS bucket, COUNT(*) AS qtd, SUM(${valCap}) AS valor
       FROM cap c WITH (NOLOCK)
-      WHERE c.dt_bai_cap IS NULL AND COALESCE(c.fl_status_titulo,0) IN (5,10)
+      WHERE c.dt_bai_cap IS NULL AND COALESCE(c.fl_status_titulo,0) <> 40
         AND c.dt_agendpagto >= '${today}' AND c.dt_agendpagto < '${futureEnd}'
       GROUP BY CAST(c.dt_agendpagto AS date)
       UNION ALL
@@ -200,7 +200,7 @@ export default async function (req: Request): Promise<Response> {
         CASE WHEN c.fl_status_titulo = 5 THEN 'CAP_PROVISORIO' ELSE 'CAP_VENCIMENTO' END AS bucket,
         COUNT(*) AS qtd, SUM(${valCap}) AS valor
       FROM cap c WITH (NOLOCK)
-      WHERE c.dt_bai_cap IS NULL AND COALESCE(c.fl_status_titulo,0) IN (5,10)
+      WHERE c.dt_bai_cap IS NULL AND COALESCE(c.fl_status_titulo,0) <> 40
         AND (c.dt_agendpagto IS NULL OR c.dt_agendpagto < '${today}')
         AND c.dt_ven_cap >= '${today}' AND c.dt_ven_cap < '${futureEnd}'
       GROUP BY CAST(c.dt_ven_cap AS date), CASE WHEN c.fl_status_titulo = 5 THEN 'CAP_PROVISORIO' ELSE 'CAP_VENCIMENTO' END
@@ -210,26 +210,26 @@ export default async function (req: Request): Promise<Response> {
         CASE WHEN c.fl_status = 5 THEN 'CAR_PROVISORIO' ELSE 'CAR_VENCIMENTO' END AS bucket,
         COUNT(*) AS qtd, SUM(${valCar}) AS valor
       FROM car c WITH (NOLOCK)
-      WHERE c.dt_bai_car IS NULL AND COALESCE(c.fl_status,0) IN (5,10) AND c.dt_cancelamento IS NULL
+      WHERE c.dt_bai_car IS NULL AND COALESCE(c.fl_status,0) <> 40 AND c.dt_cancelamento IS NULL
         AND c.dt_ven_car >= '${today}' AND c.dt_ven_car < '${futureEnd}' ${empFilter('c', 'cd_empresa_gestora')}
       GROUP BY CAST(c.dt_ven_car AS date), CASE WHEN c.fl_status = 5 THEN 'CAR_PROVISORIO' ELSE 'CAR_VENCIMENTO' END
       ORDER BY data`;
 
     const sqlPresent = `SELECT
       (SELECT ISNULL(SUM(${valCap}),0) FROM cap c WITH (NOLOCK)
-        WHERE c.dt_bai_cap IS NULL AND COALESCE(c.fl_status_titulo,0) IN (5,10) AND c.dt_ven_cap < '${today}') AS cap_vencido,
+        WHERE c.dt_bai_cap IS NULL AND COALESCE(c.fl_status_titulo,0) <> 40 AND c.dt_ven_cap < '${today}') AS cap_vencido,
       (SELECT COUNT(*) FROM cap c WITH (NOLOCK)
-        WHERE c.dt_bai_cap IS NULL AND COALESCE(c.fl_status_titulo,0) IN (5,10) AND c.dt_ven_cap < '${today}') AS cap_vencido_qtd,
+        WHERE c.dt_bai_cap IS NULL AND COALESCE(c.fl_status_titulo,0) <> 40 AND c.dt_ven_cap < '${today}') AS cap_vencido_qtd,
       (SELECT ISNULL(SUM(${valCap}),0) FROM cap c WITH (NOLOCK)
         WHERE c.dt_bai_cap IS NULL AND c.fl_status_titulo = 5 AND c.dt_ven_cap >= '${today}') AS cap_provisorio,
       (SELECT ISNULL(SUM(${valCap}),0) FROM cap c WITH (NOLOCK)
-        WHERE c.dt_bai_cap IS NULL AND COALESCE(c.fl_status_titulo,0) IN (5,10)
+        WHERE c.dt_bai_cap IS NULL AND COALESCE(c.fl_status_titulo,0) <> 40
           AND c.dt_agendpagto >= '${today}' AND c.dt_agendpagto < DATEADD(day,8,CAST('${today}' AS date))) AS cap_agendado_7d,
       (SELECT ISNULL(SUM(${valCar}),0) FROM car c WITH (NOLOCK)
-        WHERE c.dt_bai_car IS NULL AND COALESCE(c.fl_status,0) IN (5,10) AND c.dt_cancelamento IS NULL
+        WHERE c.dt_bai_car IS NULL AND COALESCE(c.fl_status,0) <> 40 AND c.dt_cancelamento IS NULL
           AND c.dt_ven_car < '${today}' ${empFilter('c', 'cd_empresa_gestora')}) AS car_vencido,
       (SELECT COUNT(*) FROM car c WITH (NOLOCK)
-        WHERE c.dt_bai_car IS NULL AND COALESCE(c.fl_status,0) IN (5,10) AND c.dt_cancelamento IS NULL
+        WHERE c.dt_bai_car IS NULL AND COALESCE(c.fl_status,0) <> 40 AND c.dt_cancelamento IS NULL
           AND c.dt_ven_car < '${today}' ${empFilter('c', 'cd_empresa_gestora')}) AS car_vencido_qtd,
       (SELECT ISNULL(SUM(${valCar}),0) FROM car c WITH (NOLOCK)
         WHERE c.dt_bai_car IS NULL AND c.fl_status = 5 AND c.dt_cancelamento IS NULL
@@ -274,7 +274,7 @@ export default async function (req: Request): Promise<Response> {
       FROM cap c WITH (NOLOCK)
       LEFT JOIN pessoa p WITH (NOLOCK) ON p.cd_pessoa = c.cd_pessoa_cre
       LEFT JOIN plano pl WITH (NOLOCK) ON pl.cd_planfin = c.cd_conta
-      WHERE c.dt_bai_cap IS NULL AND COALESCE(c.fl_status_titulo,0) IN (5,10)
+      WHERE c.dt_bai_cap IS NULL AND COALESCE(c.fl_status_titulo,0) <> 40
         AND (c.dt_ven_cap < '${futureEnd}' OR c.dt_agendpagto < '${futureEnd}')
       ORDER BY ${valCap} DESC;
       SELECT TOP 30 'ENTRADA' AS direcao,
@@ -286,7 +286,7 @@ export default async function (req: Request): Promise<Response> {
       FROM car c WITH (NOLOCK)
       LEFT JOIN pessoa p WITH (NOLOCK) ON p.cd_pessoa = c.cd_pessoa_cli
       LEFT JOIN plano pl WITH (NOLOCK) ON pl.cd_planfin = c.cd_conta
-      WHERE c.dt_bai_car IS NULL AND COALESCE(c.fl_status,0) IN (5,10) AND c.dt_cancelamento IS NULL
+      WHERE c.dt_bai_car IS NULL AND COALESCE(c.fl_status,0) <> 40 AND c.dt_cancelamento IS NULL
         AND c.dt_ven_car < '${futureEnd}' ${empFilter('c', 'cd_empresa_gestora')}
       ORDER BY ${valCar} DESC`;
 
