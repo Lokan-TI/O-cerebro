@@ -292,12 +292,7 @@ Deno.serve(async (req) => {
           const codesList = buildCodesList(allCodes.slice(i, i + BATCH));
           const revSql = `SELECT f.cd_pessoa,
             ISNULL(SUM(CASE WHEN fat.dt_geracao >= '${refStart}' AND fat.dt_geracao < '${refEnd}' THEN fat.vl_fatura ELSE 0 END),0) AS ref_revenue,
-            SUM(CASE WHEN fat.dt_geracao >= '${refStart}' AND fat.dt_geracao < '${refEnd}' THEN 1 ELSE 0 END) AS ref_nfs,
-            MIN(CASE WHEN fat.dt_geracao >= '${refStart}' AND fat.dt_geracao < '${refEnd}' THEN fat.dt_geracao END) AS ref_first_nf,
-            MAX(CASE WHEN fat.dt_geracao >= '${refStart}' AND fat.dt_geracao < '${refEnd}' THEN fat.dt_geracao END) AS ref_last_nf,
-            ISNULL(SUM(CASE WHEN fat.dt_geracao >= '${analysisStart}' AND fat.dt_geracao < '${analysisEnd}' THEN fat.vl_fatura ELSE 0 END),0) AS analysis_revenue,
-            SUM(CASE WHEN fat.dt_geracao >= '${analysisStart}' AND fat.dt_geracao < '${analysisEnd}' THEN 1 ELSE 0 END) AS analysis_nfs,
-            MAX(CASE WHEN fat.dt_geracao >= '${analysisStart}' AND fat.dt_geracao < '${analysisEnd}' THEN fat.dt_geracao END) AS analysis_last_nf
+            ISNULL(SUM(CASE WHEN fat.dt_geracao >= '${analysisStart}' AND fat.dt_geracao < '${analysisEnd}' THEN fat.vl_fatura ELSE 0 END),0) AS analysis_revenue
             ${faturaFrom}
               AND fat.dt_geracao >= '${refStart}' AND fat.dt_geracao < '${analysisEnd}'
               AND f.cd_pessoa IN (${codesList})
@@ -311,12 +306,7 @@ Deno.serve(async (req) => {
     for (const r of rows) {
       const rv = revMap[String(r.cd_pessoa)] || {};
       r.ref_revenue = Number(rv.ref_revenue) || 0;
-      r.ref_nfs = Number(rv.ref_nfs) || 0;
-      r.ref_first_nf = rv.ref_first_nf || null;
-      r.ref_last_nf = rv.ref_last_nf || null;
       r.analysis_revenue = Number(rv.analysis_revenue) || 0;
-      r.analysis_nfs = Number(rv.analysis_nfs) || 0;
-      r.analysis_last_nf = rv.analysis_last_nf || null;
     }
 
     // Estados de Growth sobre a regra dura de churn. O limite final continua sendo
@@ -340,11 +330,27 @@ Deno.serve(async (req) => {
     };
 
     for (const r of rows) {
-      const last = r.last_activity ? new Date(r.last_activity).getTime() : null;
+      const last = r.last_rental_nf ? new Date(r.last_rental_nf).getTime() : null;
       const daysSince = last && Number.isFinite(last) ? Math.max(0, Math.floor((asOfMs - last) / 86400000)) : null;
       r.days_since_last_activity = daysSince;
       r.contract_horizon = horizonBucket(r.contract_horizon_days);
-      if (Number(r.contrato_aberto) === 1) r.growth_status = 'ATIVO_CONTRATO';
+
+      if (Number(r.contrato_aberto) === 1) {
+        const cycleDays = Number(r.rental_period_days) || 0;
+        const toleranceDays = cycleDays > 0 ? Math.max(45, Math.round(cycleDays * 2)) : 90;
+        const contractLastNfMs = r.latest_contract_nf ? new Date(r.latest_contract_nf).getTime() : null;
+        const contractLastRemessaMs = r.last_remessa ? new Date(r.last_remessa).getTime() : null;
+        const contractNfAge = contractLastNfMs && Number.isFinite(contractLastNfMs)
+          ? Math.max(0, Math.floor((asOfMs - contractLastNfMs) / 86400000))
+          : null;
+        const remessaAge = contractLastRemessaMs && Number.isFinite(contractLastRemessaMs)
+          ? Math.max(0, Math.floor((asOfMs - contractLastRemessaMs) / 86400000))
+          : null;
+        r.contract_billing_alert = contractNfAge != null
+          ? contractNfAge > toleranceDays
+          : (remessaAge != null && remessaAge > toleranceDays);
+        r.growth_status = r.contract_billing_alert ? 'ATIVO_CONTRATO_ALERTA' : 'ATIVO_CONTRATO';
+      } else if (Number(r.eligible_for_churn) !== 1) r.growth_status = 'AUDITAR_SEM_NF';
       else if (Number(r.is_churned) === 1) r.growth_status = 'CHURN_CONFIRMADO';
       else if (daysSince != null && daysSince >= preChurnDays) r.growth_status = 'PRE_CHURN';
       else if (daysSince != null && daysSince >= watchDays) r.growth_status = 'MONITORAR';
@@ -352,28 +358,32 @@ Deno.serve(async (req) => {
     }
 
     const totalRef = rows.length;
-    const churnedRows = rows.filter(r => Number(r.is_churned) === 1);
-    const activeRows = rows.filter(r => Number(r.is_churned) === 0);
+    const eligibleRows = rows.filter(r => Number(r.eligible_for_churn) === 1);
+    const auditRows = rows.filter(r => Number(r.eligible_for_churn) !== 1);
+    const churnedRows = eligibleRows.filter(r => Number(r.is_churned) === 1);
+    const activeRows = eligibleRows.filter(r => Number(r.is_churned) === 0);
     const revenueAtRisk = churnedRows.reduce((s, r) => s + (Number(r.ref_revenue) || 0), 0);
     const activeRevenue = activeRows.reduce((s, r) => s + (Number(r.ref_revenue) || 0), 0);
-    const churnRate = totalRef > 0 ? (churnedRows.length / totalRef * 100) : 0;
+    const churnRate = eligibleRows.length > 0 ? (churnedRows.length / eligibleRows.length * 100) : 0;
     const retainedByContract = activeRows.filter(r => r.retention_reason === 'CONTRATO_VIGENTE');
-    const retainedByActivity = activeRows.filter(r => r.retention_reason === 'ATIVIDADE_RECENTE');
-    const preventedFalseChurn = activeRows.filter(r => Number(r.sem_remessa) === 1 && (
-      Number(r.contrato_aberto) === 1 || r.last_fatura || r.last_estmov || r.last_contract_billing
+    const retainedByActivity = activeRows.filter(r => r.retention_reason === 'NF_RECENTE');
+    const preventedFalseChurn = activeRows.filter(r => Number(r.contrato_aberto) === 1 && (
+      !r.last_rental_nf || Number(r.days_since_last_activity) >= thresholdDays
     ));
     const seasonalProtected = activeRows.filter(r => Number(r.contrato_aberto) === 0 && Number(r.days_since_last_activity) >= 365);
     const longContractsActive = activeRows.filter(r => Number(r.contrato_aberto) === 1 && r.contract_horizon === '301_DIAS_OU_MAIS');
     const monthlyOpenContracts = activeRows.filter(r => Number(r.contrato_aberto) === 1 && r.billing_cycle === 'MENSAL');
+    const openContractAlerts = activeRows.filter(r => Number(r.contrato_aberto) === 1 && r.contract_billing_alert);
 
     const summarize = (field) => {
       const map = {};
       for (const r of rows) {
         const key = String(r[field] || 'NAO_CLASSIFICADO');
-        if (!map[key]) map[key] = { label: key, clients: 0, active: 0, churned: 0, revenue_ref: 0 };
+        if (!map[key]) map[key] = { label: key, clients: 0, active: 0, churned: 0, audit: 0, revenue_ref: 0 };
         map[key].clients += 1;
-        map[key].active += Number(r.is_churned) === 0 ? 1 : 0;
-        map[key].churned += Number(r.is_churned) === 1 ? 1 : 0;
+        map[key].active += Number(r.eligible_for_churn) === 1 && Number(r.is_churned) === 0 ? 1 : 0;
+        map[key].churned += Number(r.eligible_for_churn) === 1 && Number(r.is_churned) === 1 ? 1 : 0;
+        map[key].audit += Number(r.eligible_for_churn) !== 1 ? 1 : 0;
         map[key].revenue_ref += Number(r.ref_revenue) || 0;
       }
       return Object.values(map).sort((a, b) => b.clients - a.clients);
@@ -382,11 +392,11 @@ Deno.serve(async (req) => {
     const billingSegments = summarize('billing_cycle');
     const horizonSegments = summarize('contract_horizon');
 
-    // Monthly churn: when did churned clients last rent (rental-based universe)?
+    // Monthly churn: mês da última NF válida de locação antes da perda.
     const monthlyChurn = {};
     for (const r of churnedRows) {
-      if (r.ref_last_ficha) {
-        const d = new Date(r.ref_last_ficha);
+      if (r.last_rental_nf) {
+        const d = new Date(r.last_rental_nf);
         const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
         monthlyChurn[key] = (monthlyChurn[key] || 0) + 1;
       }
