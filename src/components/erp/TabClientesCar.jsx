@@ -48,12 +48,12 @@ export default function TabClientesCar() {
     } finally {
       setLoading(false);
     }
-  }, [selectedSource, period.start, period.end, onlyOpen]);
+  }, [selectedSource, period.start, period.endExclusive, onlyOpen]);
 
   useEffect(() => {
     fetchClients();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedSource?.id, period.start, period.end, onlyOpen]);
+  }, [selectedSource?.id, period.start, period.endExclusive, onlyOpen]);
 
   const filtered = (clients || []).filter(c => {
     if (!search) return true;
