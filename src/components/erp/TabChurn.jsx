@@ -7,6 +7,7 @@ import ChurnSummaryCards from "./ChurnSummaryCards";
 import ChurnClientTable from "./ChurnClientTable";
 import ChurnTimeline from "./ChurnTimeline";
 import ChurnNameGroups from "./ChurnNameGroups";
+import ChurnSegmentsPanel from "./ChurnSegmentsPanel";
 import RetentionCanonicalPanel from "./RetentionCanonicalPanel";
 import { AlertTriangle, UserMinus } from "lucide-react";
 import { toInclusiveEnd } from "@/lib/periodContract";
@@ -105,6 +106,7 @@ export default function TabChurn() {
       ) : data ? (
         <>
           <ChurnSummaryCards summary={data.summary} />
+          <ChurnSegmentsPanel segments={data.segments} summary={data.summary} />
           {data.monthly_churn?.length > 0 && <ChurnTimeline monthlyChurn={data.monthly_churn} />}
           <ChurnNameGroups clients={data.churned_clients} />
           <ChurnClientTable clients={data.churned_clients} />
