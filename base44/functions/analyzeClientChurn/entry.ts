@@ -429,9 +429,8 @@ Deno.serve(async (req) => {
       })
       .sort((a, b) => a.ano === b.ano ? a.mes - b.mes : a.ano - b.ano);
 
-    // ---- Detailed enrichment for actionable Growth clients ----
-    // Reativação e Customer Health usam a mesma população classificada pelo churn v3.
-    const detailClients = actionRows;
+    // ---- Detailed enrichment for churn confirmado ----
+    const detailClients = churnedRows;
     const pessoaCodes = detailClients.map(r => r.cd_pessoa).filter(v => v != null && v !== '');
 
     const pessoaMap = {};
