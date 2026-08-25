@@ -25,7 +25,7 @@ Evento base de atividade comercial (v1): **NF emitida** (`Invoice`), para manter
 | REACTIVATED | NF após período ≥ 181 dias sem NF | InvoiceIssued | 90d (volta a ACTIVE) | — |
 
 ## Exceções a decidir com o negócio (bloqueiam TRUSTED)
-1. Contratos de longa duração faturados esporadicamente devem contar como ACTIVE por contrato vigente, e não por NF?
+1. **Decisão candidata 2026-08-25 para locação:** contratos de longa duração contam como ativos enquanto houver ficha vigente; faturamento recorrente e movimentação operacional da ficha também contam como atividade. Implementado experimentalmente no motor de churn v2 (`analyzeClientChurn`) e documentado no doc 26. Ainda requer homologação do Comercial/Growth antes de substituir o lifecycle v1 baseado em NF.
 2. Cliente com CAR em aberto e sem NF recente é ACTIVE?
 3. Cliente sazonal (obra) deve ter janela própria por segmento?
 4. NF cancelada/devolvida conta como atividade? (v1: **não conta**)
