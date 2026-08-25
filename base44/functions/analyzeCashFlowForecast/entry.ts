@@ -357,9 +357,9 @@ export default async function (req: Request): Promise<Response> {
     const peakOut = [...expected].sort((a, b) => b.saidas - a.saidas).slice(0, 10);
     const peakIn = [...expected].sort((a, b) => b.entradas - a.entradas).slice(0, 10);
 
-    const resultSets = Array.isArray((topRes as any)?.recordsets) ? (topRes as any).recordsets : [];
-    const topCap = Array.isArray(resultSets[0]) ? resultSets[0] : [];
-    const topCar = Array.isArray(resultSets[1]) ? resultSets[1] : [];
+    const topRows = rowsOf(topRes);
+    const topCap = topRows.filter((r: any) => String(r.direcao || '') === 'SAIDA');
+    const topCar = topRows.filter((r: any) => String(r.direcao || '') === 'ENTRADA');
 
     return Response.json({
       generated_at: new Date().toISOString(),
