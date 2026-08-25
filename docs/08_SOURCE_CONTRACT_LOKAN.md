@@ -85,7 +85,7 @@ Objetos físicos observados/confirmados para esse relatório: `fl_fatura`, `fl_f
 ## 6. Divergências conhecidas (não resolvidas)
 - `v_nf_emissao` é usada pelo ERP mas não está presente no catálogo atual derivado do `v_Dicionario_Dados`; precisamos ampliar a descoberta de views ou manter registro explícito de objetos observados em log.
 - Receita por Grupo não é igual a `SUM(nf.vl_faturamento)` nem a `SUM(fl_fatura.vl_fatura)`.
-- A implementação atual `receitaSislocRateio` ainda não reproduz todos os componentes e utiliza campos/fórmulas que divergem do log; deve ser substituída por reprodução fiel antes de virar benchmark.
+- `receitaSislocRateio` foi reconstruída em 25/08/2026 para reproduzir os cinco blocos observados no full log (locação, venda, manutenção/OM, serviços e indenizações), usando `v_nf_emissao.dt_emissao`, `nffatur.vl_nffatur` e o escopo analítico que exclui 5/6. O código está `RECONCILIATION_READY`, mas só poderá receber status TRUSTED após uma execução contra o ERP e comparação dos subtotais/total com o relatório benchmark.
 - Papel semântico de `nf.cd_pessoa_fun` permanece pendente.
 - Mapa oficial de empresas/filiais ainda precisa ser versionado; a exclusão das empresas 5 e 6 já está aprovada e documentada por inatividade operacional.
 - Ausência de resolução de identidade canônica entre múltiplas fontes.
@@ -98,6 +98,8 @@ Objetos físicos observados/confirmados para esse relatório: `fl_fatura`, `fl_f
 
 ## 8. Critério de aceite do onboarding
 - [ ] Perguntas da seção 7 respondidas e registradas em ADR
-- [ ] Métrica de Receita registrada no Metric Registry com dono e versão
+- [ ] Métrica corporativa de Receita registrada no Metric Registry com dono e versão
+- [x] Benchmark técnico `SISLOC-RECEITA-GRUPO` implementado com linhagem por bloco
+- [ ] Benchmark `SISLOC-RECEITA-GRUPO` executado e reconciliado contra o ERP após exclusão aprovada das empresas 5/6
 - [ ] Mapeamento Branch publicado
 - [ ] Reconciliação ERP × plataforma dentro de tolerância acordada
