@@ -4,10 +4,12 @@ import { useErpSource } from "@/lib/ErpSourceContext";
 import AnalyticsKpiCard from "./AnalyticsKpiCard";
 import { Settings2, Plus, X, RefreshCw } from "lucide-react";
 
-const STORAGE_KEY = "churn_card_configs_v2";
+const STORAGE_KEY = "churn_card_configs_v3";
 
 const AVAILABLE_METRICS = [
   { key: "total_ref_clients", label: "Base de Referência", format: "number" },
+  { key: "eligible_clients", label: "Clientes elegíveis ao churn", format: "number" },
+  { key: "audit_without_nf", label: "Auditar sem NF válida", format: "number" },
   { key: "active_clients", label: "Clientes Ativos", format: "number" },
   { key: "churned_clients", label: "Clientes Perdidos", format: "number" },
   { key: "churn_rate", label: "Taxa de Churn", format: "percent" },
@@ -16,20 +18,22 @@ const AVAILABLE_METRICS = [
   { key: "avg_churned_revenue", label: "Receita Média (Perdidos)", format: "currency" },
   { key: "retained_by_contract", label: "Retidos por contrato vigente", format: "number" },
   { key: "retained_by_activity", label: "Retidos por atividade recente", format: "number" },
-  { key: "prevented_false_churn", label: "Falsos churn evitados", format: "number" },
+  { key: "prevented_false_churn", label: "Protegidos por ficha aberta", format: "number" },
   { key: "seasonal_protected_clients", label: "Sazonais protegidos (12–13m)", format: "number" },
   { key: "long_contract_active_clients", label: "Contratos longos ativos", format: "number" },
   { key: "monthly_open_contract_clients", label: "Contratos abertos c/ ciclo mensal", format: "number" },
-  { key: "open_contract_clients", label: "Com contrato em aberto", format: "number" },
+  { key: "open_contract_billing_alerts", label: "Fichas abertas com alerta de faturamento", format: "number" },
+  { key: "open_contract_clients", label: "Com ficha em aberto", format: "number" },
 ];
 
 const DEFAULT_CARDS = [
   { id: "c1", type: "metric", metric: "churned_clients", label: "Churn confirmado", format: "number", accent: "red" },
-  { id: "c2", type: "metric", metric: "churn_rate", label: "Taxa de churn v2", format: "percent", accent: "orange" },
-  { id: "c3", type: "metric", metric: "prevented_false_churn", label: "Falsos churn evitados", format: "number", accent: "cyan" },
-  { id: "c4", type: "metric", metric: "retained_by_contract", label: "Retidos por contrato vigente", format: "number", accent: "green" },
-  { id: "c5", type: "metric", metric: "seasonal_protected_clients", label: "Sazonais protegidos (12–13m)", format: "number", accent: "blue" },
-  { id: "c6", type: "metric", metric: "revenue_at_risk", label: "Receita em risco confirmada", format: "currency", accent: "red" },
+  { id: "c2", type: "metric", metric: "churn_rate", label: "Taxa de churn v3", format: "percent", accent: "orange" },
+  { id: "c3", type: "metric", metric: "prevented_false_churn", label: "Protegidos por ficha aberta", format: "number", accent: "cyan" },
+  { id: "c4", type: "metric", metric: "retained_by_contract", label: "Ativos por ficha em andamento", format: "number", accent: "green" },
+  { id: "c5", type: "metric", metric: "audit_without_nf", label: "Auditar sem NF válida", format: "number", accent: "yellow" },
+  { id: "c6", type: "metric", metric: "open_contract_billing_alerts", label: "Ficha aberta com alerta", format: "number", accent: "blue" },
+  { id: "c7", type: "metric", metric: "revenue_at_risk", label: "Receita em risco confirmada", format: "currency", accent: "red" },
 ];
 
 const ACCENTS = ["blue", "purple", "green", "yellow", "red", "cyan", "emerald", "orange", "indigo"];
