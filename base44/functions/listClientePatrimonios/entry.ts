@@ -1,5 +1,6 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.40';
 import { buildConfig, runQuery, closePool } from '../../shared/erpConnection.ts';
+import { empFilter } from '../../shared/empresaScope.ts';
 
 // Patrimônios vinculados a um cliente (fich_loc -> fl_remessa -> fl_rem_equ)
 // com nome do produto (equipto). Retorna histórico completo e o que está em posse hoje.
@@ -40,7 +41,8 @@ Deno.serve(async (req) => {
       LEFT JOIN equipto q WITH (NOLOCK) ON q.cd_equipto = e.cd_equipto
       LEFT JOIN fl_dev_equ de WITH (NOLOCK) ON de.cd_flremequ = e.cd_flremequ
       LEFT JOIN fl_devolucao d WITH (NOLOCK) ON d.cd_fldevolucao = de.cd_fldevolucao
-      WHERE f.cd_pessoa = ${cdPessoa}`;
+      WHERE f.cd_pessoa = ${cdPessoa}
+        ${empFilter('f')}`;
 
     const res: any = await runQuery(source, wrap(sql), 40000);
     const raw = res?.recordset || [];
