@@ -457,7 +457,7 @@ async function processRefresh(base44, source, run, version, previousVersion, sta
     let monthlyRevenue = [];
     try {
       const monthlySql = `SELECT cd_empresa, YEAR(dt_emi_nf) AS ano, MONTH(dt_emi_nf) AS mes, ISNULL(SUM(vl_faturamento),0) AS valor, COUNT(*) AS nfs, COUNT(DISTINCT cd_pessoa) AS clientes
-        FROM nf WHERE dt_emi_nf >= DATEADD(month,-36,${monthStart}) AND dt_emi_nf < ${monthEnd} ${cancelFilter} ${empF}
+        FROM nf WHERE dt_emi_nf >= DATEADD(month,-36,${monthStart}) /* janela longa */ AND dt_emi_nf < ${monthEnd} ${cancelFilter} ${empF}
         GROUP BY cd_empresa, YEAR(dt_emi_nf), MONTH(dt_emi_nf) ORDER BY 1, 2, 3`;
       const monthlyRes = await runQuery(source, wrap(monthlySql), 30000);
       queryCount++;
