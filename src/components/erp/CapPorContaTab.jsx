@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { base44 } from "@/api/base44Client";
 import { useErpSource, ALL_SOURCES_ID } from "@/lib/ErpSourceContext";
+import { toExclusiveEnd } from "@/lib/periodContract";
 import CapContaGroup from "@/components/erp/CapContaGroup";
 import { fmtCur, fmtNum } from "@/lib/erpFormat";
 import { Loader2, AlertTriangle, RefreshCw, Search, Database } from "lucide-react";
@@ -22,7 +23,7 @@ export default function CapPorContaTab({ dateRange }) {
     setLoading(true); setError(null);
     try {
       const res = await base44.functions.invoke("listCapPorConta", {
-        source_id: sourceId, start_date: s, end_date: e,
+        source_id: sourceId, start_date: s, end_date: e, end_date_exclusive: toExclusiveEnd(e),
       });
       if (!res?.data?.success) throw new Error(res?.data?.error || "Falha na consulta");
       setRows(res.data.rows || []);
