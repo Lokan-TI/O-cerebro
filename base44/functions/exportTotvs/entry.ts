@@ -1,6 +1,7 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.40';
 import { execRead } from '../../shared/erpConnection.ts';
 import { getTotvsLayout, buildTotvsSql, buildTotvsCountSql } from '../../shared/totvsMigration.ts';
+import { resolvePeriod } from '../../shared/periodContract.ts';
 
 // Saneamento CAR/CAP no layout TOTVS (SE1/SE2), separados e paginados.
 // Modos: 'layout' (colunas) · 'count' (total + pendências) · 'page' (dados).
@@ -18,14 +19,21 @@ export default async function (req: Request): Promise<Response> {
       return Response.json({ success: true, ...getTotvsLayout(doc) });
     }
 
-    const startDate = String(body?.start_date || '2013-01-01');
-    const endDate = String(body?.end_date || new Date().toISOString().slice(0, 10));
+    const resolvedPeriod = resolvePeriod({
+      start: body?.start_date,
+      endInclusive: body?.end_date,
+      endExclusive: body?.end_date_exclusive,
+      defaultStart: '2013-01-01',
+      defaultEndInclusive: new Date().toISOString().slice(0, 10),
+    });
+    const startDate = resolvedPeriod.start;
+    const endDateExclusive = resolvedPeriod.endExclusive;
 
     const statuses = Array.isArray(body?.statuses) ? body.statuses.map(String) : [];
 
     const sql = mode === 'count'
-      ? buildTotvsCountSql({ doc, startDate, endDate, statuses })
-      : buildTotvsSql({ doc, startDate, endDate, offset: body?.offset, pageSize: body?.page_size, statuses });
+      ? buildTotvsCountSql({ doc, startDate, endDateExclusive, statuses })
+      : buildTotvsSql({ doc, startDate, endDateExclusive, offset: body?.offset, pageSize: body?.page_size, statuses });
 
     let source: Record<string, unknown> = { credential_reference: 'env' };
     if (body?.source_id) {
@@ -46,7 +54,7 @@ export default async function (req: Request): Promise<Response> {
     }
 
     if (mode === 'count') {
-      return Response.json({ success: true, doc, summary: rows[0] || {}, duration_ms: Date.now() - t0, sql });
+      return Response.json({ success: true, doc, summary: rows[0] || {}, period: { start: resolvedPeriod.start, end: resolvedPeriod.endInclusive, end_exclusive: resolvedPeriod.endExclusive }, duration_ms: Date.now() - t0, sql });
     }
 
     return Response.json({
@@ -55,6 +63,7 @@ export default async function (req: Request): Promise<Response> {
       rows,
       total: rows.length,
       offset: Number(body?.offset) || 0,
+      period: { start: resolvedPeriod.start, end: resolvedPeriod.endInclusive, end_exclusive: resolvedPeriod.endExclusive },
       duration_ms: Date.now() - t0,
     });
   } catch (error) {
