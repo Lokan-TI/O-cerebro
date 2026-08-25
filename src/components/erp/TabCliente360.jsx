@@ -37,7 +37,7 @@ export default function TabCliente360() {
       const res = await base44.functions.invoke("refreshClienteDim", {
         source_id: selectedSource.id,
         start_date: period.start,
-        end_date: period.endExclusive,
+        end_date_exclusive: period.endExclusive,
       });
       const result = res?.data || res;
       if (!result?.success) setError(result?.error || "Falha ao atualizar a camada de clientes.");
