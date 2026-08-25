@@ -205,7 +205,11 @@ export default function GrowthMarketing() {
   const requestedTab = new URLSearchParams(location.search).get("tab") || "overview";
   const activeTab = TABS.some((t) => t.id === requestedTab) ? requestedTab : "overview";
   const setTab = useCallback((tab) => navigate(`/GrowthMarketing?tab=${tab}`), [navigate]);
-  const sourceId = selectedSource?.id && selectedSource.id !== ALL_SOURCES_ID ? selectedSource.id : undefined;
+  const sourceId = selectedSource?.id
+    && selectedSource.id !== ALL_SOURCES_ID
+    && String(selectedSource?.status || '').toLowerCase() !== 'error'
+    ? selectedSource.id
+    : undefined;
 
   const loadGrowth = useCallback(async () => {
     setLoading(true); setError(null);
@@ -227,7 +231,7 @@ export default function GrowthMarketing() {
     setChurnLoading(true); setChurnError(null);
     try {
       const res = await base44.functions.invoke("analyzeClientChurn", {
-        source_id: selectedSource?.id,
+        ...(sourceId ? { source_id: sourceId } : {}),
         ...churnWindows(period, 13),
       });
       const result = res?.data || res;
@@ -235,7 +239,7 @@ export default function GrowthMarketing() {
     } catch (e) {
       setChurnError(String(e?.message || e));
     } finally { setChurnLoading(false); }
-  }, [selectedSource?.id, period.start, period.endExclusive]);
+  }, [sourceId, period.start, period.endExclusive]);
 
   useEffect(() => { if (activeTab === "overview") loadGrowth(); }, [activeTab, loadGrowth]);
   useEffect(() => {
