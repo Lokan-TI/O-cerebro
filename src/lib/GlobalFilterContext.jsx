@@ -20,7 +20,12 @@ export const PERIOD_PRESETS = [
   { id: "personalizado", label: "Período personalizado" },
 ];
 
-function isoDate(d) { return d.toISOString().slice(0, 10); }
+function isoDate(d) {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
 
 // A interface trabalha com fim INCLUSIVO; o contrato canônico deriva endExclusive.
 // Nenhum preset se estende para o futuro: o máximo visível é hoje.
