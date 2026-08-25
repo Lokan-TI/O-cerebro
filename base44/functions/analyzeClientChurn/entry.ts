@@ -592,6 +592,11 @@ Deno.serve(async (req) => {
 
     return Response.json({
       success: true,
+      source: {
+        id: source?.id || null,
+        name: source?.name || null,
+        status: source?.status || null,
+      },
       summary: {
         total_ref_clients: totalRef,
         eligible_clients: eligibleRows.length,
@@ -610,6 +615,11 @@ Deno.serve(async (req) => {
         long_contract_active_clients: longContractsActive.length,
         monthly_open_contract_clients: monthlyOpenContracts.length,
         open_contract_billing_alerts: openContractAlerts.length,
+        monitor_clients: monitorRows.length,
+        pre_churn_clients: preChurnRows.length,
+        reactivation_clients: preChurnRows.length + churnedRows.length,
+        actionable_clients: actionRows.length,
+        customer_health_alerts: monitorRows.length + preChurnRows.length + openContractAlerts.length + auditRows.length,
         revenue_at_risk: revenueAtRisk,
         active_revenue: activeRevenue,
         avg_churned_revenue: churnedRows.length > 0 ? revenueAtRisk / churnedRows.length : 0,
@@ -619,6 +629,7 @@ Deno.serve(async (req) => {
         billing_cycle: billingSegments,
         contract_horizon: horizonSegments,
       },
+      growth_clients: growthClients,
       churned_clients: detailClients.map(r => {
         const p = pessoaMap[String(r.cd_pessoa)] || {};
         const f = fichlocMap[String(r.cd_pessoa)] || {};
