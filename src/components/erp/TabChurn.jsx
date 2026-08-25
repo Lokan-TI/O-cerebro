@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { base44 } from "@/api/base44Client";
-import { useErpSource } from "@/lib/ErpSourceContext";
+import { useErpSource, ALL_SOURCES_ID } from "@/lib/ErpSourceContext";
 import { useGlobalFilter } from "@/lib/GlobalFilterContext";
 import ChurnWindowBar from "./ChurnWindowBar";
 import ChurnSummaryCards from "./ChurnSummaryCards";
@@ -35,7 +35,14 @@ function windowsFromPeriod(period, months) {
 }
 
 export default function TabChurn() {
-  const { selectedSource } = useErpSource();
+  const { selectedSource, sources = [] } = useErpSource();
+  const effectiveSource = useMemo(() => {
+    if (selectedSource?.id && selectedSource.id !== ALL_SOURCES_ID && String(selectedSource?.status || '').toLowerCase() !== 'error') return selectedSource;
+    return sources.find((s) => String(s?.status || '').toLowerCase() === 'connected')
+      || sources.find((s) => String(s?.name || '').toLowerCase() === 'matriz')
+      || sources.find((s) => s?.credential_reference === 'env')
+      || null;
+  }, [selectedSource, sources]);
   const { period } = useGlobalFilter();
   const [inactivityMonths, setInactivityMonths] = useState(13);
   const dates = useMemo(() => windowsFromPeriod(period, inactivityMonths), [period, inactivityMonths]);
@@ -44,12 +51,12 @@ export default function TabChurn() {
   const [error, setError] = useState(null);
 
   const analyze = useCallback(async () => {
-    if (!selectedSource) return;
+    if (!effectiveSource && !selectedSource) return;
     setLoading(true);
     setError(null);
     try {
       const res = await base44.functions.invoke("analyzeClientChurn", {
-        source_id: selectedSource.id,
+        ...(effectiveSource?.id ? { source_id: effectiveSource.id } : {}),
         ...dates,
         inactivity_months: inactivityMonths,
       });
@@ -64,12 +71,12 @@ export default function TabChurn() {
     } finally {
       setLoading(false);
     }
-  }, [selectedSource, dates, inactivityMonths]);
+  }, [effectiveSource, selectedSource, dates, inactivityMonths]);
 
   useEffect(() => {
     analyze();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedSource?.id, dates.ref_start, dates.analysis_end]);
+  }, [effectiveSource?.id, selectedSource?.id, dates.ref_start, dates.analysis_end]);
 
   return (
     <div className="space-y-4">
@@ -80,6 +87,13 @@ export default function TabChurn() {
         inactivityMonths={inactivityMonths}
         onChangeMonths={setInactivityMonths}
       />
+
+      {(data?.source?.name || effectiveSource?.name) && (
+        <div className="text-xs text-gray-500 px-1">
+          Fonte usada na análise: <span className="text-gray-300 font-medium">{data?.source?.name || effectiveSource?.name}</span>
+          {selectedSource?.id === ALL_SOURCES_ID && <span className="ml-1">· fallback da visão consolidada</span>}
+        </div>
+      )}
 
       {error && (
         <div className="bg-red-900/30 border border-red-700 rounded-lg p-4 flex items-start gap-3">
