@@ -12,8 +12,8 @@ const SUB_TABS = [
 ];
 
 const DETAIL_FINANCIAL = [
-  { key: "fat_ano", label: "Receita Anual (YTD)", format: "currency", accent: "purple" },
-  { key: "fat_mes", label: "Receita Mensal", format: "currency", accent: "blue" },
+  { key: "fat_ano", label: "Faturamento NF Anual (YTD)", format: "currency", accent: "purple" },
+  { key: "fat_mes", label: "Faturamento NF Mensal", format: "currency", accent: "blue" },
   { key: "crescimento_ano", label: "Crescimento Anual (YTD)", format: "percent", accent: "green" },
   { key: "crescimento_mes", label: "Crescimento Mensal (YoY)", format: "percent", accent: "cyan" },
   { key: "ticket_ano", label: "Ticket Médio Anual", format: "currency", accent: "indigo" },
@@ -25,8 +25,8 @@ const DETAIL_FINANCIAL = [
 const DETAIL_COMMERCIAL = [
   { key: "clientes_ano", label: "Clientes Ativos (Ano)", format: "number", accent: "purple" },
   { key: "clientes_mes", label: "Clientes Ativos (Mês)", format: "number", accent: "blue" },
-  { key: "receita_por_cliente", label: "Receita por Cliente", format: "currency", accent: "green" },
-  { key: "fat_ano", label: "Receita Total", format: "currency", accent: "cyan" },
+  { key: "receita_por_cliente", label: "Faturamento por Cliente", format: "currency", accent: "green" },
+  { key: "fat_ano", label: "Faturamento NF Total", format: "currency", accent: "cyan" },
   { key: "nfs_ano", label: "Volume de NFs", format: "number", accent: "indigo" },
   { key: "ticket_ano", label: "Ticket Médio", format: "currency", accent: "orange" },
 ];
@@ -81,7 +81,7 @@ export default function TabComparativo() {
       {!selected && (
         <div className="flex items-center gap-2 text-gray-400 text-sm bg-gray-900/50 border border-gray-800 rounded-lg px-4 py-2.5">
           <TrendingUp className="w-4 h-4 text-green-400" />
-          <span>Líder em receita: <strong className="text-white">{getEmpresaLabel(topEmpresa.cd_empresa, topEmpresa.nm_empresa)}</strong> — {new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 }).format(topEmpresa.fat_ano)}</span>
+          <span>Líder em faturamento NF: <strong className="text-white">{getEmpresaLabel(topEmpresa.cd_empresa, topEmpresa.nm_empresa)}</strong> — {new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 }).format(topEmpresa.fat_ano)}</span>
         </div>
       )}
 
