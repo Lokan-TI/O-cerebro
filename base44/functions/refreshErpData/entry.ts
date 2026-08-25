@@ -481,27 +481,28 @@ async function processRefresh(base44, source, run, version, previousVersion, sta
     let cohortKpis = {};
     let cohortByEmpresa = {};
     try {
-      // Duas consultas sargáveis sobre nf — mesma origem dos KPIs de clientes ativos.
-      const lastYrSql = `SELECT DISTINCT cd_empresa, cd_pessoa FROM nf WITH (NOLOCK)
-        WHERE dt_emi_nf >= ${lastYearStart} AND dt_emi_nf < ${lastYearEnd} ${nfF} ${empF}
-          AND cd_pessoa IS NOT NULL`;
-      const thisYrSql = `SELECT DISTINCT cd_empresa, cd_pessoa FROM nf WITH (NOLOCK)
-        WHERE dt_emi_nf >= ${yearStart} AND dt_emi_nf < ${yearEnd} ${nfF} ${empF}
-          AND cd_pessoa IS NOT NULL`;
-      const lastRows = getRows(await runQuery(source, wrap(lastYrSql), 30000));
+      // Uma única varredura sargável de NF devolve presença nas duas janelas e receita atual.
+      // Evita três scans consecutivos da mesma tabela, principal ponto de timeout observado no refresh.
+      const cohortSql = `SELECT cd_empresa, cd_pessoa,
+          MAX(CASE WHEN dt_emi_nf >= ${lastYearStart} AND dt_emi_nf < ${lastYearEnd} THEN 1 ELSE 0 END) AS ly,
+          MAX(CASE WHEN dt_emi_nf >= ${yearStart} AND dt_emi_nf < ${yearEnd} THEN 1 ELSE 0 END) AS ty,
+          ISNULL(SUM(CASE WHEN dt_emi_nf >= ${yearStart} AND dt_emi_nf < ${yearEnd} THEN vl_faturamento ELSE 0 END),0) AS rev
+        FROM nf WITH (NOLOCK)
+        WHERE ((dt_emi_nf >= ${lastYearStart} AND dt_emi_nf < ${lastYearEnd})
+            OR (dt_emi_nf >= ${yearStart} AND dt_emi_nf < ${yearEnd}))
+          ${nfF} ${empF}
+          AND cd_pessoa IS NOT NULL
+        GROUP BY cd_empresa, cd_pessoa`;
+      const cohortRows = getRows(await runQuery(source, wrap(cohortSql), 30000));
       queryCount++;
-      const thisRows = getRows(await runQuery(source, wrap(thisYrSql), 30000));
-      queryCount++;
-      const lastSet = new Set(lastRows.map(r => `${Number(r.cd_empresa)}|${String(r.cd_pessoa)}`));
-      const thisSet = new Set(thisRows.map(r => `${Number(r.cd_empresa)}|${String(r.cd_pessoa)}`));
-      // Consolidado (dedupe por cd_pessoa entre empresas) + agregação por empresa
+
+      // Consolidado (dedupe por cd_pessoa entre empresas) + agregação por empresa.
       const consolidated = {};
-      for (const key of new Set([...lastSet, ...thisSet])) {
-        const sep = key.indexOf('|');
-        const emp = Number(key.slice(0, sep));
-        const code = key.slice(sep + 1);
-        const ly = lastSet.has(key) ? 1 : 0;
-        const ty = thisSet.has(key) ? 1 : 0;
+      for (const r of cohortRows) {
+        const emp = Number(r.cd_empresa);
+        const code = String(r.cd_pessoa);
+        const ly = Number(r.ly) > 0 ? 1 : 0;
+        const ty = Number(r.ty) > 0 ? 1 : 0;
         if (!cohortByEmpresa[emp]) cohortByEmpresa[emp] = { retained: 0, newC: 0, churned: 0, clientsLastYear: 0, newSet: new Set(), retainedSet: new Set() };
         const ce = cohortByEmpresa[emp];
         if (ly === 1) ce.clientsLastYear++;
@@ -520,29 +521,22 @@ async function processRefresh(base44, source, run, version, previousVersion, sta
         if (v.ty === 1 && v.ly === 0) { newC++; newSet.add(code); }
         if (v.ly === 1 && v.ty === 0) churned++;
       }
-      // Receita do ano (fl_fatura) por (empresa, cliente) — atribui ao coorte consolidado e por empresa
+      // Receita atual já veio na mesma consulta; segunda passagem apenas classifica por coorte.
       let newRevenue = 0, retainedRevenue = 0;
       const perEmpRev = {};
-      try {
-        const revSql = `SELECT cd_empresa, cd_pessoa, ISNULL(SUM(vl_faturamento),0) AS rev
-          FROM nf WITH (NOLOCK)
-          WHERE dt_emi_nf >= ${yearStart} AND dt_emi_nf < ${yearEnd} ${nfF} ${empF}
-            AND cd_pessoa IS NOT NULL
-          GROUP BY cd_empresa, cd_pessoa`;
-        for (const r of getRows(await runQuery(source, wrap(revSql), 30000))) {
-          const emp = Number(r.cd_empresa);
-          const code = String(r.cd_pessoa);
-          const v = Number(r.rev) || 0;
-          if (retainedSet.has(code)) retainedRevenue += v;
-          else if (newSet.has(code)) newRevenue += v;
-          if (cohortByEmpresa[emp]) {
-            if (!perEmpRev[emp]) perEmpRev[emp] = { newRev: 0, retainedRev: 0 };
-            if (cohortByEmpresa[emp].retainedSet.has(code)) perEmpRev[emp].retainedRev += v;
-            else if (cohortByEmpresa[emp].newSet.has(code)) perEmpRev[emp].newRev += v;
-          }
+      for (const r of cohortRows) {
+        const emp = Number(r.cd_empresa);
+        const code = String(r.cd_pessoa);
+        const v = Number(r.rev) || 0;
+        if (v === 0) continue;
+        if (retainedSet.has(code)) retainedRevenue += v;
+        else if (newSet.has(code)) newRevenue += v;
+        if (cohortByEmpresa[emp]) {
+          if (!perEmpRev[emp]) perEmpRev[emp] = { newRev: 0, retainedRev: 0 };
+          if (cohortByEmpresa[emp].retainedSet.has(code)) perEmpRev[emp].retainedRev += v;
+          else if (cohortByEmpresa[emp].newSet.has(code)) perEmpRev[emp].newRev += v;
         }
-        queryCount++;
-      } catch (e) { warnings.push('Falha ao extrair receita coorte: ' + (e.message || String(e)).slice(0, 120)); }
+      }
       cohortKpis = {
         retained_clients: retained,
         new_clients: newC,
