@@ -40,7 +40,8 @@ Deno.serve(async (req) => {
 
     const now = new Date();
     const periodStart = body?.start_date || `${now.getFullYear() - 2}-01-01`;
-    const periodEnd = body?.end_date || new Date(now.getTime() + 86400000).toISOString().slice(0, 10);
+    // end_date_exclusive é o contrato novo. end_date permanece como alias legado e também é exclusivo nesta função.
+    const periodEnd = body?.end_date_exclusive || body?.end_date || new Date(now.getTime() + 86400000).toISOString().slice(0, 10);
 
     const warnings: string[] = [];
     let queryCount = 0;
