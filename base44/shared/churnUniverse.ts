@@ -30,4 +30,4 @@ export const approvedRemessaFrom = `FROM fl_remessa r WITH (NOLOCK)
 export const faturaFrom = `FROM fl_fatura fat WITH (NOLOCK)
   JOIN fich_loc f WITH (NOLOCK) ON f.cd_controle = fat.cd_controle
   WHERE f.cd_pessoa IS NOT NULL AND f.cd_pessoa <> ''
-    AND (f.cd_empresa IS NULL OR f.cd_empresa NOT IN (5,6))`;
+    ${empFilter('f')}`;
