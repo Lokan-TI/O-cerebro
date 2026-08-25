@@ -4,7 +4,7 @@ import { useErpSource } from "@/lib/ErpSourceContext";
 import AnalyticsKpiCard from "./AnalyticsKpiCard";
 import { Settings2, Plus, X, RefreshCw } from "lucide-react";
 
-const STORAGE_KEY = "churn_card_configs";
+const STORAGE_KEY = "churn_card_configs_v2";
 
 const AVAILABLE_METRICS = [
   { key: "total_ref_clients", label: "Base de Referência", format: "number" },
@@ -24,12 +24,12 @@ const AVAILABLE_METRICS = [
 ];
 
 const DEFAULT_CARDS = [
-  { id: "c1", type: "metric", metric: "churned_clients", label: "Clientes Perdidos", format: "number", accent: "red" },
-  { id: "c2", type: "metric", metric: "churn_rate", label: "Taxa de Churn", format: "percent", accent: "orange" },
-  { id: "c3", type: "metric", metric: "revenue_at_risk", label: "Receita em Risco", format: "currency", accent: "red" },
-  { id: "c4", type: "metric", metric: "active_clients", label: "Clientes Ativos", format: "number", accent: "green" },
-  { id: "c5", type: "metric", metric: "total_ref_clients", label: "Base de Referência", format: "number", accent: "blue" },
-  { id: "c6", type: "metric", metric: "active_revenue", label: "Receita Retida", format: "currency", accent: "emerald" },
+  { id: "c1", type: "metric", metric: "churned_clients", label: "Churn confirmado", format: "number", accent: "red" },
+  { id: "c2", type: "metric", metric: "churn_rate", label: "Taxa de churn v2", format: "percent", accent: "orange" },
+  { id: "c3", type: "metric", metric: "prevented_false_churn", label: "Falsos churn evitados", format: "number", accent: "cyan" },
+  { id: "c4", type: "metric", metric: "retained_by_contract", label: "Retidos por contrato vigente", format: "number", accent: "green" },
+  { id: "c5", type: "metric", metric: "seasonal_protected_clients", label: "Sazonais protegidos (12–13m)", format: "number", accent: "blue" },
+  { id: "c6", type: "metric", metric: "revenue_at_risk", label: "Receita em risco confirmada", format: "currency", accent: "red" },
 ];
 
 const ACCENTS = ["blue", "purple", "green", "yellow", "red", "cyan", "emerald", "orange", "indigo"];
