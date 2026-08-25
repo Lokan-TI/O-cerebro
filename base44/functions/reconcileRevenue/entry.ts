@@ -100,6 +100,62 @@ export default async function (req: Request): Promise<Response> {
     queryCount++;
     const zeroFaturamento = Number(zeroRes.recordset?.[0]?.notas || 0);
 
+    // 5 — Diagnóstico em camadas contra o contrato do TGersReceitaGrupoList.
+    // Não declara equivalência entre os totais; isola onde a diferença nasce:
+    // data da view fiscal -> vínculo com fatos operacionais -> base nffatur.
+    const reportCompanies = '(0,4,7,8,9,11,10,13,12,6,5)';
+    const diagnosticSql = `WITH report_nf AS (
+      SELECT DISTINCT ff.cd_nf
+      FROM fl_fatura ff WITH (NOLOCK)
+      INNER JOIN fich_loc e WITH (NOLOCK) ON e.cd_controle = ff.cd_controle
+      WHERE ff.cd_nf IS NOT NULL AND e.cd_empresa IN ${reportCompanies}
+      UNION
+      SELECT DISTINCT p.cd_nf_pedven
+      FROM ped_ven p WITH (NOLOCK)
+      WHERE p.cd_nf_pedven IS NOT NULL AND p.dt_ger_fatura IS NOT NULL AND p.cd_empresa IN ${reportCompanies}
+      UNION
+      SELECT DISTINCT o.cd_nf_fat
+      FROM orcos o WITH (NOLOCK)
+      WHERE o.cd_nf_fat IS NOT NULL AND o.cd_empresa IN ${reportCompanies}
+      UNION
+      SELECT DISTINCT fd.cd_nf
+      FROM fl_devolucao fd WITH (NOLOCK)
+      INNER JOIN fich_loc e WITH (NOLOCK) ON e.cd_controle = fd.cd_controle
+      WHERE fd.cd_nf IS NOT NULL AND fd.fl_operacao = 'I' AND e.cd_empresa IN ${reportCompanies}
+    ), report_period_nf AS (
+      SELECT DISTINCT n.cd_nf, n.vl_faturamento
+      FROM report_nf r
+      INNER JOIN nf n WITH (NOLOCK) ON n.cd_nf = r.cd_nf
+      INNER JOIN v_nf_emissao v WITH (NOLOCK) ON v.cd_nf = n.cd_nf
+      WHERE n.vl_faturamento > 0
+        AND v.dt_emissao >= '${periodStart}' AND v.dt_emissao < '${periodEnd}'
+    )
+    SELECT
+      (SELECT ISNULL(SUM(n.vl_faturamento),0)
+         FROM nf n WITH (NOLOCK)
+         INNER JOIN v_nf_emissao v WITH (NOLOCK) ON v.cd_nf = n.cd_nf
+        WHERE ${invoiceUniverse('n')}
+          AND n.vl_faturamento > 0
+          AND v.dt_emissao >= '${periodStart}' AND v.dt_emissao < '${periodEnd}') AS view_date_same_universe_total,
+      (SELECT COUNT(*) FROM report_period_nf) AS report_linked_invoice_count,
+      (SELECT ISNULL(SUM(vl_faturamento),0) FROM report_period_nf) AS report_linked_nf_total,
+      (SELECT ISNULL(SUM(x.v),0) FROM (
+         SELECT r.cd_nf, ISNULL(SUM(nff.vl_nffatur),0) AS v
+         FROM report_period_nf r
+         LEFT JOIN nffatur nff WITH (NOLOCK) ON nff.cd_nf = r.cd_nf
+         GROUP BY r.cd_nf
+       ) x) AS report_linked_nffatur_total`;
+    const diagnosticRes = await execRead(source, diagnosticSql, 60000);
+    queryCount++;
+    const dg = diagnosticRes.recordset?.[0] || {};
+    const diagnostics = {
+      current_nf_total: reference,
+      view_date_same_universe_total: Number(dg.view_date_same_universe_total || 0),
+      report_linked_invoice_count: Number(dg.report_linked_invoice_count || 0),
+      report_linked_nf_total: Number(dg.report_linked_nf_total || 0),
+      report_linked_nffatur_total: Number(dg.report_linked_nffatur_total || 0),
+    };
+
     return Response.json({
       metric_id: 'MTR-001',
       status: 'RECONCILIATION_ONLY',
@@ -110,6 +166,7 @@ export default async function (req: Request): Promise<Response> {
       excluded_invoices: excluded,
       zero_amount_invoices: zeroFaturamento,
       by_empresa: byEmpresa,
+      diagnostics,
       query_count: queryCount,
       duration_ms: Date.now() - started,
     });
