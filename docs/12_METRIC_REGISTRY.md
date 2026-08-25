@@ -57,7 +57,8 @@ Base = clientes ACTIVE no período anterior; retidos = com atividade no período
 
 ## MTR-010 · Churn Rate / MTR-011 · Revenue Churn
 - formula: `churned no período / base elegível no início do período`, `as_of_date` obrigatório, `lifecycle_version` declarada.
-- status: **BLOQUEADA** até doc 10 aprovado (hoje há 3 definições concorrentes).
+- candidato específico de locação v2 (doc 26): hard churn somente quando **não há contrato vigente** e **não há atividade válida de locação por N meses** (`N=13` padrão). Atividade = remessa realizada, faturamento da ficha, última geração ou movimento operacional ligado ao contrato. Ciclo de faturamento e horizonte do contrato são dimensões separadas.
+- status: **BLOQUEADA / EM HOMOLOGAÇÃO** até Comercial/Growth aprovar a v2 e a reconciliação mostrar os falsos churn removidos.
 
 ## MTR-012 · Reactivation Rate · MTR-013 · Repeat Rental Rate
 Derivadas de eventos de lifecycle.
