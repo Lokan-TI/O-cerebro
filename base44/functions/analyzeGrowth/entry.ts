@@ -1,6 +1,7 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.40';
 import { execRead } from '../../shared/erpConnection.ts';
 import { resolvePeriod } from '../../shared/periodContract.ts';
+import { empFilter } from '../../shared/empresaScope.ts';
 
 // KPIs de Growth Marketing apurados diretamente no Sisloc, conforme o dicionário de dados:
 //  · fich_loc      → proposta/ficha de locação (dt_pedido, dt_validade, dt_aprovacao)
@@ -69,7 +70,8 @@ export default async function (req: Request): Promise<Response> {
         AVG(CASE WHEN dt_aprovacao IS NOT NULL
             THEN CAST(DATEDIFF(day, dt_pedido, dt_aprovacao) AS FLOAT) END) AS dias_aprovacao
       FROM fich_loc WITH (NOLOCK)
-      WHERE dt_pedido >= '${start}' AND dt_pedido < ${endExcl}`;
+      WHERE dt_pedido >= '${start}' AND dt_pedido < ${endExcl}
+        ${empFilter()}`;
 
     // 2 · Ativação — propostas que viraram saída física de equipamento
     const sqlAtivacao = `SELECT
@@ -79,13 +81,16 @@ export default async function (req: Request): Promise<Response> {
       FROM fl_remessa r WITH (NOLOCK)
       INNER JOIN fich_loc f WITH (NOLOCK) ON f.cd_controle = r.cd_controle
       WHERE r.dt_saida >= '${start}' AND r.dt_saida < ${endExcl}
-        AND UPPER(COALESCE(r.fl_rem_cancelada,'N')) <> 'S'`;
+        AND UPPER(COALESCE(r.fl_rem_cancelada,'N')) <> 'S'
+        ${empFilter('f')}`;
 
     // 3 · Devoluções no período
-    const sqlDevolucoes = `SELECT COUNT(*) AS devolucoes, COUNT(DISTINCT cd_controle) AS fichas_devolvidas
-      FROM fl_devolucao WITH (NOLOCK)
-      WHERE dt_devolucao >= '${start}' AND dt_devolucao < ${endExcl}
-        AND UPPER(COALESCE(fl_dev_cancelada,'N')) <> 'S'`;
+    const sqlDevolucoes = `SELECT COUNT(*) AS devolucoes, COUNT(DISTINCT d.cd_controle) AS fichas_devolvidas
+      FROM fl_devolucao d WITH (NOLOCK)
+      INNER JOIN fich_loc f WITH (NOLOCK) ON f.cd_controle = d.cd_controle
+      WHERE d.dt_devolucao >= '${start}' AND d.dt_devolucao < ${endExcl}
+        AND UPPER(COALESCE(d.fl_dev_cancelada,'N')) <> 'S'
+        ${empFilter('f')}`;
 
     // 4 · Frota própria disponível para locação
     const sqlFrota = `SELECT COUNT(*) AS pat_total, SUM(COALESCE(vl_aqu_patrimonio,0)) AS vl_frota
@@ -96,10 +101,12 @@ export default async function (req: Request): Promise<Response> {
     const sqlLocados = `SELECT COUNT(DISTINCT re.cd_patrimonio) AS pat_locados
       FROM fl_rem_equ re WITH (NOLOCK)
       INNER JOIN fl_remessa r WITH (NOLOCK) ON r.cd_flremessa = re.cd_flremessa
+      INNER JOIN fich_loc f WITH (NOLOCK) ON f.cd_controle = r.cd_controle
       WHERE re.cd_patrimonio > 0
         AND r.dt_saida IS NOT NULL AND r.dt_saida >= DATEADD(year, -3, ${endExcl})
         AND UPPER(COALESCE(r.fl_rem_cancelada,'N')) <> 'S'
-        AND COALESCE(re.qt_devolucao,0) < COALESCE(re.qt_remessa,0)`;
+        AND COALESCE(re.qt_devolucao,0) < COALESCE(re.qt_remessa,0)
+        ${empFilter('f')}`;
 
     // 6 · Tempo de pátio (idle time) — dias desde a última devolução dos itens que voltaram
     const sqlIdle = `SELECT COUNT(*) AS pat_patio,
@@ -110,21 +117,28 @@ export default async function (req: Request): Promise<Response> {
         FROM fl_dev_equ de WITH (NOLOCK)
         INNER JOIN fl_devolucao d WITH (NOLOCK) ON d.cd_fldevolucao = de.cd_fldevolucao
         INNER JOIN fl_rem_equ re WITH (NOLOCK) ON re.cd_flremequ = de.cd_flremequ
+        INNER JOIN fl_remessa rr WITH (NOLOCK) ON rr.cd_flremessa = re.cd_flremessa
+        INNER JOIN fich_loc ff WITH (NOLOCK) ON ff.cd_controle = rr.cd_controle
         WHERE d.dt_devolucao >= DATEADD(month, -24, GETDATE()) AND re.cd_patrimonio > 0
+          ${empFilter('ff')}
         GROUP BY re.cd_patrimonio
       ) x
       WHERE x.cd_patrimonio NOT IN (
         SELECT re2.cd_patrimonio FROM fl_rem_equ re2 WITH (NOLOCK)
         INNER JOIN fl_remessa r2 WITH (NOLOCK) ON r2.cd_flremessa = re2.cd_flremessa
+        INNER JOIN fich_loc f2 WITH (NOLOCK) ON f2.cd_controle = r2.cd_controle
         WHERE re2.cd_patrimonio > 0 AND r2.dt_saida IS NOT NULL
           AND UPPER(COALESCE(r2.fl_rem_cancelada,'N')) <> 'S'
           AND COALESCE(re2.qt_devolucao,0) < COALESCE(re2.qt_remessa,0)
+          ${empFilter('f2')}
       )`;
 
     // 7 · Receita gerada pelas locações no período (fl_fatura)
-    const sqlReceita = `SELECT COUNT(*) AS qtd_faturas, SUM(COALESCE(vl_fatura,0)) AS vl_gerado
-      FROM fl_fatura WITH (NOLOCK)
-      WHERE dt_geracao >= '${start}' AND dt_geracao < ${endExcl}`;
+    const sqlReceita = `SELECT COUNT(*) AS qtd_faturas, SUM(COALESCE(fat.vl_fatura,0)) AS vl_gerado
+      FROM fl_fatura fat WITH (NOLOCK)
+      INNER JOIN fich_loc f WITH (NOLOCK) ON f.cd_controle = fat.cd_controle
+      WHERE fat.dt_geracao >= '${start}' AND fat.dt_geracao < ${endExcl}
+        ${empFilter('f')}`;
 
     const [dem] = await run('Demanda (fich_loc)', sqlDemanda);
     const [ati] = await run('Ativação (fl_remessa)', sqlAtivacao);
