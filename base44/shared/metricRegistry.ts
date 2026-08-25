@@ -11,6 +11,8 @@ export const REVENUE_EXPR = 'SUM(ISNULL(vl_faturamento,0))';
 export type AnalysisContext = {
   source_id?: string;
   period_start: string;
+  // Legado do registry: period_end SEMPRE significa fim exclusivo [start, period_end).
+  // Novas APIs expõem também o alias explícito period_end_exclusive.
   period_end: string;
   cd_empresa?: string | null;
   comparison_mode?: 'none' | 'prior_period' | 'prior_year';
