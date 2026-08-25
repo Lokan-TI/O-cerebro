@@ -1,5 +1,6 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.40';
 import { buildConfig, runQuery, closePool } from '../../shared/erpConnection.ts';
+import { empFilter } from '../../shared/empresaScope.ts';
 
 // Base factual para projeção de longo prazo:
 // 1) histórico anual de receita (nf) · 2) histórico de compras de ativos (patrimon)
@@ -61,6 +62,7 @@ Deno.serve(async (req) => {
         COUNT(DISTINCT cd_pessoa) AS clientes
       FROM nf WITH (NOLOCK)
       WHERE dt_emi_nf >= ${start} AND dt_emi_nf < GETDATE()
+        ${empFilter()}
       GROUP BY YEAR(dt_emi_nf) ORDER BY 1`;
 
     const sqlCapex = `SELECT YEAR(dt_aqu_patrimonio) AS ano,
