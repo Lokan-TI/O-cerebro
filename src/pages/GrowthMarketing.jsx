@@ -62,7 +62,7 @@ function Overview({ growth, loading, error, dept, load, selectedSource }) {
           <h2 className="text-lg font-semibold text-white">Visão Geral de Growth</h2>
           <p className="text-sm text-gray-500 mt-1">
             Demanda, ativação, eficiência da frota e receita apuradas diretamente no SISLOC
-            {selectedSource?.name ? ` · base ${selectedSource.name}` : ""}.
+            {(growth?.source?.name || selectedSource?.name) ? ` · base ${growth?.source?.name || selectedSource?.name}` : ""}.
           </p>
           {growth?.period && <p className="text-xs text-gray-500 mt-1">Janela: {growth.period.start} a {growth.period.end}</p>}
         </div>
