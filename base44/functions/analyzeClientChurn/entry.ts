@@ -1,6 +1,7 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.40';
 import { buildConfig, runQuery } from '../../shared/erpConnection.ts';
 import { approvedRemessaFrom, faturaFrom } from '../../shared/churnUniverse.ts';
+import { empFilter } from '../../shared/empresaScope.ts';
 
 const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -194,7 +195,8 @@ Deno.serve(async (req) => {
             ISNULL(SUM(vl_encerramento),0) AS total_encerramento
             FROM fich_loc WITH (NOLOCK)
             WHERE cd_pessoa IN (${codesList})
-            GROUP BY cd_pessoa`;
+              ${empFilter()}
+            GROUP BY cd_pessoa`; 
           for (const f of getRows(await runQuery(source, wrap(fichSql), 20000))) {
             fichlocMap[String(f.cd_pessoa)] = f;
           }
@@ -210,7 +212,8 @@ Deno.serve(async (req) => {
           const codesList = buildCodesList(pessoaCodes.slice(i, i + BATCH));
           const nfMapSql = `SELECT cd_nf, cd_pessoa FROM nf WITH (NOLOCK)
             WHERE cd_pessoa IN (${codesList})
-            AND dt_emi_nf >= '${refStart}' AND dt_emi_nf < '${refEnd}' ${cancelFilter}`;
+            AND dt_emi_nf >= '${refStart}' AND dt_emi_nf < '${refEnd}' ${cancelFilter}
+            ${empFilter()}`;
           for (const r of getRows(await runQuery(source, wrap(nfMapSql), 20000))) {
             nfToPessoa[String(r.cd_nf)] = String(r.cd_pessoa);
           }
