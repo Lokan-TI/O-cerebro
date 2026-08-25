@@ -68,6 +68,7 @@ export default function TabChurn() {
       <RetentionCanonicalPanel
         periodStart={dates.analysis_start}
         periodEnd={dates.analysis_end}
+        periodEndInclusive={dates.analysis_end_inclusive}
         legacyRunning={loading}
       />
 
