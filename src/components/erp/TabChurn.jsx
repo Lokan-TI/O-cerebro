@@ -73,13 +73,6 @@ export default function TabChurn() {
 
   return (
     <div className="space-y-4">
-      <RetentionCanonicalPanel
-        periodStart={dates.analysis_start}
-        periodEnd={dates.analysis_end}
-        periodEndInclusive={dates.analysis_end_inclusive}
-        legacyRunning={loading}
-      />
-
       <ChurnWindowBar
         dates={dates}
         onApply={analyze}
@@ -117,6 +110,13 @@ export default function TabChurn() {
           <p className="text-sm">Clique em "Analisar Churn" para iniciar.</p>
         </div>
       ) : null}
+
+      <RetentionCanonicalPanel
+        periodStart={dates.analysis_start}
+        periodEnd={dates.analysis_end}
+        periodEndInclusive={dates.analysis_end_inclusive}
+        legacyRunning={loading}
+      />
     </div>
   );
 }
