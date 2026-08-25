@@ -35,6 +35,9 @@ Deno.serve(async (req) => {
     const refEnd = body?.ref_end;
     const analysisStart = body?.analysis_start;
     const analysisEnd = body?.analysis_end;
+    // Janela de inatividade (padrão 13 meses): clientes com sazonalidade anual
+    // (ex.: manutenção de usinas 1x/ano) só viram churn após esse prazo.
+    const inactivityMonths = Number(body?.inactivity_months) > 0 ? Number(body.inactivity_months) : 13;
 
     if (!dateRegex.test(refStart || '') || !dateRegex.test(refEnd || '') ||
         !dateRegex.test(analysisStart || '') || !dateRegex.test(analysisEnd || '')) {
@@ -71,15 +74,30 @@ Deno.serve(async (req) => {
           AND r.dt_saida >= '${analysisStart}' AND r.dt_saida < '${analysisEnd}'
       ) y
       GROUP BY cd_pessoa
+    ),
+    contrato_mov AS (
+      SELECT cd_pessoa,
+             MAX(CASE WHEN dt_enc_ficha IS NULL THEN 1 ELSE 0 END) AS contrato_aberto,
+             MAX(dt_pedido) AS ult_mov_pedido,
+             MAX(dt_enc_ficha) AS ult_mov_enc
+      FROM fich_loc WITH (NOLOCK)
+      WHERE (dt_enc_ficha IS NULL OR dt_enc_ficha >= '${analysisStart}' OR dt_pedido >= '${analysisStart}')
+        ${empFilter()}
+      GROUP BY cd_pessoa
     )
     SELECT
       r.cd_pessoa,
       r.ref_fichas,
       r.ref_first_ficha,
       r.ref_last_ficha,
-      CASE WHEN a.cd_pessoa IS NULL THEN 1 ELSE 0 END AS is_churned
+      ISNULL(cm.contrato_aberto, 0) AS contrato_aberto,
+      cm.ult_mov_pedido,
+      cm.ult_mov_enc,
+      CASE WHEN a.cd_pessoa IS NULL THEN 1 ELSE 0 END AS sem_remessa,
+      CASE WHEN a.cd_pessoa IS NULL AND cm.cd_pessoa IS NULL THEN 1 ELSE 0 END AS is_churned
     FROM ref_clients r
     LEFT JOIN analysis_clients a ON r.cd_pessoa = a.cd_pessoa
+    LEFT JOIN contrato_mov cm ON r.cd_pessoa = cm.cd_pessoa
     ORDER BY r.ref_last_ficha DESC`;
 
     const result = await runQuery(source, wrap(churnSql), 25000);
@@ -255,6 +273,11 @@ Deno.serve(async (req) => {
         active_clients: activeRows.length,
         churned_clients: churnedRows.length,
         churn_rate: churnRate,
+        inactivity_months: inactivityMonths,
+        // Clientes que não tiveram nova remessa na janela, mas seguem ativos por
+        // contrato em aberto ou movimentação recente na ficha de locação.
+        retained_by_contract: activeRows.filter(r => Number(r.sem_remessa) === 1).length,
+        open_contract_clients: activeRows.filter(r => Number(r.contrato_aberto) === 1).length,
         revenue_at_risk: revenueAtRisk,
         active_revenue: activeRevenue,
         avg_churned_revenue: churnedRows.length > 0 ? revenueAtRisk / churnedRows.length : 0,

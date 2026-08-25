@@ -11,19 +11,24 @@ import RetentionCanonicalPanel from "./RetentionCanonicalPanel";
 import { AlertTriangle, UserMinus } from "lucide-react";
 import { toInclusiveEnd } from "@/lib/periodContract";
 
-// Janela de análise = período do filtro global · janela de referência = mesma duração
-// imediatamente anterior, para comparar "quem comprava" com "quem parou de comprar".
-function windowsFromPeriod(period) {
-  const start = new Date(`${period.start}T00:00:00`);
-  const end = new Date(`${period.endExclusive}T00:00:00`);
-  const days = Math.max(1, Math.round((end - start) / 86400000));
-  const refStart = new Date(start.getTime() - days * 86400000);
+function minusMonths(iso, months) {
+  const d = new Date(`${iso}T00:00:00`);
+  d.setMonth(d.getMonth() - months);
+  return d.toISOString().slice(0, 10);
+}
+
+// Janela de inatividade = últimos N meses até o fim do período do filtro global (padrão 13,
+// para não marcar como churn clientes de sazonalidade anual). Referência = N meses anteriores.
+function windowsFromPeriod(period, months) {
+  const analysisEnd = period.endExclusive;
+  const analysisStart = minusMonths(analysisEnd, months);
+  const refStart = minusMonths(analysisStart, months);
   return {
-    ref_start: refStart.toISOString().slice(0, 10),
-    ref_end: period.start,
-    ref_end_inclusive: toInclusiveEnd(period.start),
-    analysis_start: period.start,
-    analysis_end: period.endExclusive,
+    ref_start: refStart,
+    ref_end: analysisStart,
+    ref_end_inclusive: toInclusiveEnd(analysisStart),
+    analysis_start: analysisStart,
+    analysis_end: analysisEnd,
     analysis_end_inclusive: period.end,
   };
 }
@@ -31,7 +36,8 @@ function windowsFromPeriod(period) {
 export default function TabChurn() {
   const { selectedSource } = useErpSource();
   const { period } = useGlobalFilter();
-  const dates = useMemo(() => windowsFromPeriod(period), [period]);
+  const [inactivityMonths, setInactivityMonths] = useState(13);
+  const dates = useMemo(() => windowsFromPeriod(period, inactivityMonths), [period, inactivityMonths]);
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -44,6 +50,7 @@ export default function TabChurn() {
       const res = await base44.functions.invoke("analyzeClientChurn", {
         source_id: selectedSource.id,
         ...dates,
+        inactivity_months: inactivityMonths,
       });
       const result = res?.data || res;
       if (result?.success) {
@@ -56,7 +63,7 @@ export default function TabChurn() {
     } finally {
       setLoading(false);
     }
-  }, [selectedSource, dates]);
+  }, [selectedSource, dates, inactivityMonths]);
 
   useEffect(() => {
     analyze();
@@ -72,7 +79,13 @@ export default function TabChurn() {
         legacyRunning={loading}
       />
 
-      <ChurnWindowBar dates={dates} onApply={analyze} loading={loading} />
+      <ChurnWindowBar
+        dates={dates}
+        onApply={analyze}
+        loading={loading}
+        inactivityMonths={inactivityMonths}
+        onChangeMonths={setInactivityMonths}
+      />
 
       {error && (
         <div className="bg-red-900/30 border border-red-700 rounded-lg p-4 flex items-start gap-3">

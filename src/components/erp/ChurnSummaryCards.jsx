@@ -14,6 +14,8 @@ const AVAILABLE_METRICS = [
   { key: "revenue_at_risk", label: "Receita em Risco", format: "currency" },
   { key: "active_revenue", label: "Receita Retida", format: "currency" },
   { key: "avg_churned_revenue", label: "Receita Média (Perdidos)", format: "currency" },
+  { key: "retained_by_contract", label: "Retidos por contrato ativo", format: "number" },
+  { key: "open_contract_clients", label: "Com contrato em aberto", format: "number" },
 ];
 
 const DEFAULT_CARDS = [
