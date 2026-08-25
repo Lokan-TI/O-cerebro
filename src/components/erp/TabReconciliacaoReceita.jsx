@@ -1,75 +1,133 @@
 import { useState } from "react";
 import { base44 } from "@/api/base44Client";
 import { useErpSource } from "@/lib/ErpSourceContext";
-import { RefreshCw, AlertTriangle, ShieldQuestion } from "lucide-react";
+import { useGlobalFilter } from "@/lib/GlobalFilterContext";
+import QueryInspector from "@/components/erp/QueryInspector";
+import { RefreshCw, AlertTriangle, ShieldQuestion, GitCompareArrows, Database } from "lucide-react";
 
 const fmt = (v) =>
-  (v || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 });
+  (Number(v) || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 2 });
+const fmtNum = (v) => (Number(v) || 0).toLocaleString("pt-BR");
+
+const BRANCH_LABELS = {
+  locacao: "Locação",
+  venda: "Venda",
+  manutencao: "Manutenção / OM",
+  servico: "Serviços",
+  indenizacao: "Indenizações",
+};
 
 export default function TabReconciliacaoReceita() {
   const { selectedSource } = useErpSource();
-  const [start, setStart] = useState("2025-01-01");
-  const [end, setEnd] = useState("2026-01-01");
-  const [data, setData] = useState(null);
+  const { period } = useGlobalFilter();
+  const [mtr, setMtr] = useState(null);
+  const [sisloc, setSisloc] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
   const run = async () => {
+    if (!selectedSource) return;
     setLoading(true);
     setError(null);
+    setMtr(null);
+    setSisloc(null);
     try {
-      const res = await base44.functions.invoke("reconcileRevenue", {
-        source_id: selectedSource?.id,
-        period_start: start,
-        period_end: end,
+      // Sequencial por propósito: evita lançar dois workloads pesados no Sisloc ao mesmo tempo.
+      const mtrRes = await base44.functions.invoke("reconcileRevenue", {
+        source_id: selectedSource.id,
+        period_start: period.start,
+        period_end: period.endExclusive,
       });
-      setData(res.data);
+      const mtrData = mtrRes?.data || mtrRes;
+      if (mtrData?.error) throw new Error(mtrData.error);
+      setMtr(mtrData);
+
+      const sislocRes = await base44.functions.invoke("receitaSislocRateio", {
+        source_id: selectedSource.id,
+        start_date: period.start,
+        end_date_exclusive: period.endExclusive,
+        period_type: 1,
+        cd_grupo: 0,
+        cd_pessoa_fun: 0,
+        cd_equfamilia: 0,
+      });
+      const sislocData = sislocRes?.data || sislocRes;
+      setSisloc(sislocData);
+      if (sislocData?.success === false && !sislocData?.partial) {
+        throw new Error(sislocData?.error || "Falha ao executar Receita por Grupo SISLOC.");
+      }
     } catch (e) {
-      setError(e.response?.data?.error || e.message);
+      setError(e?.response?.data?.error || e.message || String(e));
     } finally {
       setLoading(false);
     }
   };
 
+  const lineage = (sisloc?.lineage || []).map((q) => ({
+    label: BRANCH_LABELS[q.branch] || q.branch,
+    description: "SQL reproduzida do full log do TGersReceitaGrupoList",
+    sql: q.sql,
+  }));
+
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       <div className="flex items-end justify-between gap-3 flex-wrap">
         <div>
-          <h2 className="text-lg font-semibold text-white">MTR-001 · Reconciliação de Receita</h2>
-          <p className="text-xs text-gray-500">
-            Compara os candidatos a Source of Truth. Nenhum é oficial até decisão do dono de negócio.
+          <h2 className="text-lg font-semibold text-white">Reconciliação de Receita</h2>
+          <p className="text-xs text-gray-500 mt-0.5 max-w-3xl">
+            Compara duas semânticas diferentes sem misturá-las: MTR-001 (faturamento bruto de NF) e o benchmark
+            Receita por Grupo do Sisloc. Período aplicado: {period.start} → {period.end}.
           </p>
         </div>
-        <div className="flex items-end gap-2">
-          <label className="text-xs text-gray-500">
-            Início
-            <input type="date" value={start} onChange={(e) => setStart(e.target.value)}
-              className="block bg-gray-900 border border-gray-800 rounded-lg px-2 py-1.5 text-sm text-white" />
-          </label>
-          <label className="text-xs text-gray-500">
-            Fim (exclusivo)
-            <input type="date" value={end} onChange={(e) => setEnd(e.target.value)}
-              className="block bg-gray-900 border border-gray-800 rounded-lg px-2 py-1.5 text-sm text-white" />
-          </label>
-          <button onClick={run} disabled={loading}
+        <div className="flex items-center gap-2">
+          {lineage.length > 0 && <QueryInspector queries={lineage} title="SQLs — Receita por Grupo SISLOC" />}
+          <button onClick={run} disabled={loading || !selectedSource}
             className="flex items-center gap-2 px-4 py-2 bg-purple-600 hover:bg-purple-500 disabled:opacity-50 rounded-lg text-sm text-white">
             <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
-            {loading ? "Reconciliando…" : "Reconciliar"}
+            {loading ? "Reconciliando…" : "Executar reconciliação"}
           </button>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <div className="bg-gray-900 border border-gray-800 rounded-xl p-4">
+          <div className="flex items-start gap-2">
+            <Database className="w-4 h-4 text-blue-400 mt-0.5 shrink-0" />
+            <div>
+              <p className="text-sm font-medium text-white">MTR-001 · Faturamento NF</p>
+              <p className="text-xs text-gray-500 mt-1">Fato: NF · valor: nf.vl_faturamento · data: nf.dt_emi_nf.</p>
+            </div>
+          </div>
+        </div>
+        <div className="bg-gray-900 border border-gray-800 rounded-xl p-4">
+          <div className="flex items-start gap-2">
+            <GitCompareArrows className="w-4 h-4 text-purple-400 mt-0.5 shrink-0" />
+            <div>
+              <p className="text-sm font-medium text-white">SISLOC-RECEITA-GRUPO · Benchmark</p>
+              <p className="text-xs text-gray-500 mt-1">Fatos múltiplos · rateio: nffatur.vl_nffatur · data: v_nf_emissao.dt_emissao.</p>
+            </div>
+          </div>
         </div>
       </div>
 
       {error && (
         <div className="flex items-start gap-2 bg-red-950/40 border border-red-900 rounded-lg p-3 text-sm text-red-300">
-          <AlertTriangle className="w-4 h-4 mt-0.5" /> {error}
+          <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" /> {error}
         </div>
       )}
 
-      {data && (
-        <>
+      {mtr && (
+        <section className="space-y-3">
+          <div>
+            <h3 className="text-sm font-semibold text-blue-300">1 · Reconciliação interna do MTR-001</h3>
+            <p className="text-xs text-gray-500">Candidatos de valor dentro do universo de NF; não compara automaticamente com Receita por Grupo.</p>
+          </div>
+
           <div className="flex items-start gap-2 bg-amber-950/30 border border-amber-900/60 rounded-lg p-3 text-sm text-amber-200/90">
             <ShieldQuestion className="w-4 h-4 mt-0.5 shrink-0" />
-            <span>{data.note} Universo: {data.universe.invoice_count.toLocaleString("pt-BR")} NFs de saída não canceladas por <span className="font-mono">{data.period.date_field}</span>.</span>
+            <span>
+              {mtr.note} Universo: {fmtNum(mtr.universe?.invoice_count)} NFs válidas por <span className="font-mono">{mtr.period?.date_field}</span>.
+            </span>
           </div>
 
           <div className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden">
@@ -83,7 +141,7 @@ export default function TabReconciliacaoReceita() {
                 </tr>
               </thead>
               <tbody>
-                {data.candidates.map((c) => (
+                {(mtr.candidates || []).map((c) => (
                   <tr key={c.id} className="border-t border-gray-800">
                     <td className="px-4 py-2 text-gray-300">{c.label}</td>
                     <td className="px-4 py-2 text-right text-white font-medium">{fmt(c.total)}</td>
@@ -96,37 +154,94 @@ export default function TabReconciliacaoReceita() {
               </tbody>
             </table>
           </div>
+        </section>
+      )}
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="bg-gray-900 border border-gray-800 rounded-xl p-5 space-y-2">
-              <p className="text-xs text-gray-500 uppercase tracking-wide">Qualidade do universo</p>
-              <div className="flex justify-between text-sm">
-                <span className="text-gray-400">NFs excluídas (canceladas/anuladas)</span>
-                <span className="text-white">{data.excluded_invoices.invoice_count.toLocaleString("pt-BR")} · {fmt(data.excluded_invoices.amount)}</span>
-              </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-gray-400">NFs válidas com valor zerado</span>
-                <span className="text-amber-400">{data.zero_amount_invoices.toLocaleString("pt-BR")}</span>
-              </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-gray-400">Consultas executadas</span>
-                <span className="text-white">{data.query_count}</span>
-              </div>
+      {sisloc && (
+        <section className="space-y-4">
+          <div className="flex items-start justify-between gap-3 flex-wrap">
+            <div>
+              <h3 className="text-sm font-semibold text-purple-300">2 · Receita por Grupo SISLOC</h3>
+              <p className="text-xs text-gray-500 mt-0.5">
+                TGersReceitaGrupoList · tipo_periodo=1 · empresas 5 e 6 excluídas pela regra de negócio do Cérebro.
+              </p>
             </div>
+            <span className={`text-xs px-2.5 py-1 rounded-full border ${sisloc.partial ? "border-amber-700 text-amber-300 bg-amber-950/30" : "border-green-700 text-green-300 bg-green-950/30"}`}>
+              {sisloc.metric?.status || (sisloc.partial ? "PARTIAL" : "RECONCILIATION_READY")}
+            </span>
+          </div>
 
-            <div className="bg-gray-900 border border-gray-800 rounded-xl p-5">
-              <p className="text-xs text-gray-500 uppercase tracking-wide mb-3">Por empresa</p>
-              <div className="max-h-56 overflow-y-auto space-y-1">
-                {data.by_empresa.map((e) => (
-                  <div key={e.cd_empresa} className="flex items-center justify-between text-sm border-b border-gray-800/70 py-1.5">
-                    <span className="text-gray-400">Empresa {String(e.cd_empresa).padStart(3, "0")} <span className="text-gray-600 text-xs">({e.invoice_count} NFs)</span></span>
-                    <span className="text-gray-300">{fmt(e.a_faturamento)}</span>
-                  </div>
-                ))}
-              </div>
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+            {Object.entries(BRANCH_LABELS).map(([key, label]) => {
+              const b = sisloc.branches?.[key] || {};
+              return (
+                <div key={key} className="bg-gray-900 border border-gray-800 rounded-xl p-4">
+                  <p className="text-xs text-gray-500 uppercase">{label}</p>
+                  <p className="text-lg font-bold text-white mt-1">{fmt(b.valor)}</p>
+                  <p className="text-[11px] text-gray-600 mt-1">{fmtNum(b.rows)} linhas</p>
+                  {b.error && <p className="text-[11px] text-red-400 mt-1">Erro no bloco</p>}
+                </div>
+              );
+            })}
+            <div className="bg-purple-950/30 border border-purple-700/50 rounded-xl p-4">
+              <p className="text-xs text-purple-300 uppercase">Total consolidado</p>
+              <p className="text-lg font-bold text-white mt-1">{fmt(sisloc.total)}</p>
+              <p className="text-[11px] text-gray-500 mt-1">Soma dos 5 fatos</p>
             </div>
           </div>
-        </>
+
+          {sisloc.errors && Object.keys(sisloc.errors).length > 0 && (
+            <div className="bg-amber-950/30 border border-amber-800 rounded-lg p-3 text-xs text-amber-200 space-y-1">
+              <p className="font-medium">A execução foi parcial. Blocos com erro:</p>
+              {Object.entries(sisloc.errors).map(([k, v]) => <p key={k}>{BRANCH_LABELS[k] || k}: {String(v)}</p>)}
+            </div>
+          )}
+
+          <div className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden">
+            <div className="px-4 py-3 border-b border-gray-800">
+              <p className="text-sm font-medium text-white">Consolidação por grupo e representante</p>
+              <p className="text-xs text-gray-500">Abertura dos cinco fatos após aplicação do mesmo escopo e período.</p>
+            </div>
+            <div className="overflow-x-auto max-h-[520px] overflow-y-auto">
+              <table className="w-full text-sm">
+                <thead className="sticky top-0 bg-gray-950 text-gray-500 text-xs uppercase">
+                  <tr>
+                    <th className="text-left px-3 py-2">Grupo</th>
+                    <th className="text-left px-3 py-2">Representante</th>
+                    <th className="text-right px-3 py-2">Locação</th>
+                    <th className="text-right px-3 py-2">Venda</th>
+                    <th className="text-right px-3 py-2">Manutenção</th>
+                    <th className="text-right px-3 py-2">Serviços</th>
+                    <th className="text-right px-3 py-2">Indenização</th>
+                    <th className="text-right px-3 py-2">Total</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {(sisloc.by_group || []).map((r, i) => (
+                    <tr key={`${r.cd_grupo}-${r.nm_pessoa}-${i}`} className="border-t border-gray-800/70">
+                      <td className="px-3 py-2 text-gray-300">#{r.cd_grupo} · {r.nm_grupo || "(sem grupo)"}</td>
+                      <td className="px-3 py-2 text-gray-400">{r.nm_pessoa || "—"}</td>
+                      <td className="px-3 py-2 text-right text-gray-300">{fmt(r.vl_locacao)}</td>
+                      <td className="px-3 py-2 text-right text-gray-300">{fmt(r.vl_venda)}</td>
+                      <td className="px-3 py-2 text-right text-gray-300">{fmt(r.vl_manutencao)}</td>
+                      <td className="px-3 py-2 text-right text-gray-300">{fmt(r.vl_servico)}</td>
+                      <td className="px-3 py-2 text-right text-gray-300">{fmt(r.vl_indenizacao)}</td>
+                      <td className="px-3 py-2 text-right text-white font-medium">{fmt(r.vl_total)}</td>
+                    </tr>
+                  ))}
+                  {(sisloc.by_group || []).length === 0 && (
+                    <tr><td colSpan={8} className="text-center py-8 text-gray-600">Nenhuma linha retornada.</td></tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div className="text-[11px] text-gray-500 leading-relaxed">
+            Escopo temporal interno: [{sisloc.analysis_context?.period_start}, {sisloc.analysis_context?.period_end_exclusive}).
+            Data final exibida ao usuário: {sisloc.analysis_context?.period_end_inclusive}. Empresas excluídas: {(sisloc.analysis_context?.excluded_companies || []).join(", ")}.
+          </div>
+        </section>
       )}
     </div>
   );
