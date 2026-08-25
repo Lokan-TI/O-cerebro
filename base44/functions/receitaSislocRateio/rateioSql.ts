@@ -1,15 +1,20 @@
-import { empFilter } from '../../shared/empresaScope.ts';
-
 // Reprodução do relatório SISLOC TGersReceitaGrupoList, variante capturada em 25/08/2026.
 // Contrato desta implementação:
 //   - tipo_periodo = 1 (data de emissão fiscal: v_nf_emissao.dt_emissao)
 //   - janela SQL meio-aberta [startDate, endDateExclusive)
-//   - empresas 5 e 6 excluídas pelo escopo analítico aprovado do Cérebro
+//   - empresas EXATAMENTE como o relatório capturado no SISLOC
 //   - valor financeiro rateado = nffatur.vl_nffatur (nunca vl_bruto)
 //
 // O ERP executa cinco consultas independentes (locação, venda, manutenção, serviço e
 // indenização) e depois consolida. Mantemos exatamente essa separação para permitir
 // reconciliação por bloco, em vez de esconder diferenças dentro de uma CTE genérica.
+
+export const SISLOC_REVENUE_REPORT_COMPANIES = [0, 4, 7, 8, 9, 11, 10, 13, 12, 6, 5] as const;
+const SISLOC_REVENUE_REPORT_COMPANY_LIST = `(${SISLOC_REVENUE_REPORT_COMPANIES.join(',')})`;
+
+function reportCompanyFilter(alias = 'e') {
+  return `AND ${alias}.cd_empresa in ${SISLOC_REVENUE_REPORT_COMPANY_LIST}`;
+}
 
 export type RateioFilters = {
   startDate: string;
@@ -80,7 +85,7 @@ export function locacaoSql(f: RateioFilters): string {
       LEFT OUTER JOIN pessoa pes WITH (NOLOCK) ON pes.cd_pessoa = nf1.cd_pessoa_fun
       WHERE nf1.vl_faturamento > 0
         ${emissionWindow('V', f)}
-        ${empFilter('e')}
+        ${reportCompanyFilter('e')}
         ${gfEquip}
         ${pf}
         ${ffEquip}
@@ -106,7 +111,7 @@ export function locacaoSql(f: RateioFilters): string {
       LEFT OUTER JOIN pessoa pes WITH (NOLOCK) ON pes.cd_pessoa = nf1.cd_pessoa_fun
       WHERE nf1.vl_faturamento > 0
         ${emissionWindow('V', f)}
-        ${empFilter('e')}
+        ${reportCompanyFilter('e')}
         ${groupFilter('grupo.cd_grupo', f.groupId)}
         ${pf}
         ${onlyAllFamilies}
@@ -133,7 +138,7 @@ export function locacaoSql(f: RateioFilters): string {
       LEFT OUTER JOIN pessoa pes WITH (NOLOCK) ON pes.cd_pessoa = nf1.cd_pessoa_fun
       WHERE nf1.vl_faturamento > 0
         ${emissionWindow('V', f)}
-        ${empFilter('e')}
+        ${reportCompanyFilter('e')}
         ${gfEquip}
         ${pf}
         ${ffEquip}
@@ -160,7 +165,7 @@ export function locacaoSql(f: RateioFilters): string {
       LEFT OUTER JOIN pessoa pes WITH (NOLOCK) ON pes.cd_pessoa = nf1.cd_pessoa_fun
       WHERE nf1.vl_faturamento > 0
         ${emissionWindow('V', f)}
-        ${empFilter('e')}
+        ${reportCompanyFilter('e')}
         ${gfEquip}
         ${pf}
         ${ffEquip}
@@ -189,7 +194,7 @@ export function locacaoSql(f: RateioFilters): string {
       LEFT OUTER JOIN pessoa pes WITH (NOLOCK) ON pes.cd_pessoa = nf1.cd_pessoa_fun
       WHERE nf1.vl_faturamento > 0
         ${emissionWindow('V', f)}
-        ${empFilter('e')}
+        ${reportCompanyFilter('e')}
         ${gfEquip}
         ${pf}
         ${ffEquip}
@@ -219,7 +224,7 @@ export function vendaSql(f: RateioFilters): string {
       AND nf1.vl_faturamento > 0
       AND e.dt_ger_fatura IS NOT NULL
       ${emissionWindow('V', f)}
-      ${empFilter('e')}
+      ${reportCompanyFilter('e')}
       ${groupFilter('equipto.cd_grupo', f.groupId)}
       ${pf}
       ${familyFilter('equipto.cd_equfamilia', f.familyId)}
@@ -240,7 +245,7 @@ export function vendaSql(f: RateioFilters): string {
       AND nf1.vl_faturamento > 0
       AND e.dt_ger_fatura IS NOT NULL
       ${emissionWindow('V', f)}
-      ${empFilter('e')}
+      ${reportCompanyFilter('e')}
       ${onlyWhenAllGroups(f.groupId)}
       ${pf}
       ${onlyWhenAllFamilies(f.familyId)}
@@ -268,7 +273,7 @@ export function manutencaoSql(f: RateioFilters): string {
       LEFT OUTER JOIN pessoa pes WITH (NOLOCK) ON pes.cd_pessoa = nf1.cd_pessoa_fun
       WHERE nf1.vl_faturamento > 0
         ${emissionWindow('v', f)}
-        ${empFilter('e')}
+        ${reportCompanyFilter('e')}
         ${gf}
         ${pf}
         ${ff}
@@ -329,7 +334,7 @@ export function servicoSql(f: RateioFilters): string {
     LEFT OUTER JOIN pessoa pes WITH (NOLOCK) ON pes.cd_pessoa = nf1.cd_pessoa_fun
     WHERE nf1.vl_faturamento > 0
       ${emissionWindow('V', f)}
-      ${empFilter('e')}
+      ${reportCompanyFilter('e')}
       ${groupFilter('grupo.cd_grupo', f.groupId)}
       ${personFilter('pes', f.personId)}
       AND (fs.cd_fldevolucao IS NULL OR fs.cd_fldevolucao IN (
@@ -345,7 +350,7 @@ export function indenizacaoSql(f: RateioFilters): string {
   const common = (companyAlias = 'e') => `
       AND nf1.vl_faturamento > 0
       ${emissionWindow('V', f)}
-      ${empFilter(companyAlias)}
+      ${reportCompanyFilter(companyAlias)}
       ${groupFilter('grupo.cd_grupo', f.groupId)}
       ${personFilter('pes', f.personId)}
       ${familyFilter('equipto.cd_equfamilia', f.familyId)}`;
