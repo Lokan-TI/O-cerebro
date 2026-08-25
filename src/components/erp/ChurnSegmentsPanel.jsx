@@ -1,9 +1,11 @@
 const GROWTH_LABELS = {
-  ATIVO_CONTRATO: "Ativo por contrato vigente",
-  ATIVO_RECENTE: "Ativo recente",
-  MONITORAR: "Monitorar",
-  PRE_CHURN: "Pré-churn",
+  ATIVO_CONTRATO: "Ativo — ficha aberta saudável",
+  ATIVO_CONTRATO_ALERTA: "Ativo — ficha aberta com alerta de faturamento",
+  ATIVO_RECENTE: "Ativo — sem ficha aberta, NF recente",
+  MONITORAR: "Monitorar recompra",
+  PRE_CHURN: "Pré-churn / janela de recompra",
   CHURN_CONFIRMADO: "Churn confirmado",
+  AUDITAR_SEM_NF: "Auditar — locação sem NF válida",
 };
 
 const BILLING_LABELS = {
@@ -49,6 +51,7 @@ function SegmentTable({ title, subtitle, rows = [], labels = {} }) {
               <th className="text-right px-4 py-2 font-medium">Clientes</th>
               <th className="text-right px-4 py-2 font-medium">Ativos</th>
               <th className="text-right px-4 py-2 font-medium">Churn</th>
+              <th className="text-right px-4 py-2 font-medium">Auditar</th>
               <th className="text-right px-4 py-2 font-medium">Receita ref.</th>
             </tr>
           </thead>
@@ -59,11 +62,12 @@ function SegmentTable({ title, subtitle, rows = [], labels = {} }) {
                 <td className="px-4 py-2 text-right text-white">{Number(r.clients || 0).toLocaleString("pt-BR")}</td>
                 <td className="px-4 py-2 text-right text-emerald-400">{Number(r.active || 0).toLocaleString("pt-BR")}</td>
                 <td className="px-4 py-2 text-right text-red-400">{Number(r.churned || 0).toLocaleString("pt-BR")}</td>
+                <td className="px-4 py-2 text-right text-amber-400">{Number(r.audit || 0).toLocaleString("pt-BR")}</td>
                 <td className="px-4 py-2 text-right text-gray-300">{brl(r.revenue_ref)}</td>
               </tr>
             ))}
             {rows.length === 0 && (
-              <tr><td colSpan={5} className="px-4 py-8 text-center text-gray-600">Sem dados para segmentar.</td></tr>
+              <tr><td colSpan={6} className="px-4 py-8 text-center text-gray-600">Sem dados para segmentar.</td></tr>
             )}
           </tbody>
         </table>
@@ -79,15 +83,15 @@ export default function ChurnSegmentsPanel({ segments, summary }) {
       <div className="bg-cyan-950/20 border border-cyan-900/60 rounded-xl p-4">
         <h3 className="text-sm font-semibold text-cyan-200">Leitura de Growth Marketing</h3>
         <p className="text-xs text-gray-400 mt-1 leading-relaxed">
-          Churn confirmado só ocorre sem contrato vigente e sem atividade válida por {summary?.inactivity_months || 13} meses.
-          Contrato aberto, faturamento recorrente, remessa ou movimentação operacional preservam o cliente como ativo.
-          O período de cobrança e a duração total do contrato são analisados separadamente.
+          A hierarquia oficial agora é: <span className="text-cyan-200">ficha aberta primeiro → última NF válida depois → {summary?.inactivity_months || 13} meses por último</span>.
+          Se existe ficha efetivamente aberta, o cliente permanece ativo. Se todas estão encerradas, somente a última NF válida de locação renova a recência.
+          Casos com locação efetiva sem NF ficam em auditoria e não entram automaticamente no denominador de churn.
         </p>
       </div>
 
       <SegmentTable
         title="Status de Growth"
-        subtitle="Faixas acionáveis antes do churn duro: ativo, monitoramento, pré-churn e churn confirmado."
+        subtitle="Separa contrato em andamento, recompra, pré-churn, churn confirmado e exceções para auditoria."
         rows={segments.growth_status || []}
         labels={GROWTH_LABELS}
       />
