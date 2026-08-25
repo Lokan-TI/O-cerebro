@@ -1,6 +1,7 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.40';
 import { execRead } from '../../shared/erpConnection.ts';
 import { METRICS, getMetric, comparisonWindow, type AnalysisContext } from '../../shared/metricRegistry.ts';
+import { toInclusiveEnd } from '../../shared/periodContract.ts';
 
 // Phase 4 · Metric Layer. Única porta de cálculo de métrica oficial.
 // AnalysisContext obrigatório. Toda resposta carrega selo de confiança e a SQL executada (lineage).
@@ -26,12 +27,12 @@ export default async function (req: Request): Promise<Response> {
     const ctx: AnalysisContext = {
       source_id: body?.source_id,
       period_start: body?.period_start,
-      period_end: body?.period_end,
+      period_end: body?.period_end_exclusive || body?.period_end,
       cd_empresa: body?.cd_empresa || null,
       comparison_mode: body?.comparison_mode || 'none',
     };
     if (!ctx.period_start || !ctx.period_end) {
-      return Response.json({ error: 'AnalysisContext incompleto: period_start e period_end são obrigatórios.' }, { status: 400 });
+      return Response.json({ error: 'AnalysisContext incompleto: period_start e period_end_exclusive são obrigatórios (period_end legado também é aceito como fim exclusivo).' }, { status: 400 });
     }
 
     let source = null;
@@ -82,7 +83,12 @@ export default async function (req: Request): Promise<Response> {
         technical_owner: metric.technical_owner,
         source_of_truth: metric.source_of_truth,
       },
-      analysis_context: { ...ctx, source_name: source.name },
+      analysis_context: {
+        ...ctx,
+        period_end_exclusive: ctx.period_end,
+        period_end_inclusive: toInclusiveEnd(ctx.period_end),
+        source_name: source.name,
+      },
       value: current.value,
       comparison,
       trust: {
