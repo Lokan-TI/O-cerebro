@@ -4,6 +4,7 @@ import { useEmpresaFilter } from "@/lib/EmpresaFilterContext";
 import { fetchClientesAtivos } from "@/components/erp/clientesAtivosCache";
 import { exportClientesAtivosCsv } from "@/components/erp/clientesAtivosExport";
 import { fmtCur, fmtNum, fmtMonthLabel } from "@/lib/erpFormat";
+import { getEmpresaLabel } from "@/lib/empresaLabels";
 import { Calendar, Download, X } from "lucide-react";
 
 const lastDay = (ano, mes) => new Date(ano, mes, 0).getDate();
@@ -85,7 +86,7 @@ export default function ClientesMesPanel({ ano, mes, onClose }) {
                     <div className="truncate max-w-[260px]">{r.nm_pessoa}</div>
                     <div className="text-xs text-gray-600">#{r.cd_pessoa}</div>
                   </td>
-                  <td className="py-2 px-3 text-gray-300 text-xs">{r.nm_empresa}</td>
+                  <td className="py-2 px-3 text-gray-300 text-xs">{getEmpresaLabel(Number(r.cd_empresa), r.nm_empresa)}</td>
                   <td className="py-2 px-3 text-right text-green-400 font-medium">{fmtCur(r.receita)}</td>
                   <td className="py-2 px-3 text-right text-gray-400">{r.share.toFixed(1)}%</td>
                   <td className="py-2 px-3 text-right text-gray-300">{fmtNum(r.nfs)}</td>

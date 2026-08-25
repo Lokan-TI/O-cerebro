@@ -1,6 +1,7 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.40';
 import { execRead } from '../../shared/erpConnection.ts';
 import { resolvePeriod } from '../../shared/periodContract.ts';
+import { empFilter } from '../../shared/empresaScope.ts';
 
 // Lista COMPLETA de clientes ativos (com faturamento no período), na granularidade
 // empresa Sisloc × cliente. Sem TOP: a lista não é mais limitada aos maiores clientes.
@@ -39,6 +40,7 @@ export default async function (req: Request): Promise<Response> {
     WHERE n.dt_emi_nf >= '${startDate}' AND n.dt_emi_nf < '${endDateExclusive}'
       AND n.cd_pessoa IS NOT NULL
       AND ISNULL(CAST(n.fl_can_nf AS varchar(5)), '') NOT IN ('S', '1')
+      ${empFilter('n')}
     GROUP BY n.cd_empresa, e.nm_fan_empresa, n.cd_pessoa, p.nm_fan_pessoa, p.nm_pessoa
     ORDER BY ISNULL(SUM(n.vl_faturamento), 0) DESC`;
 
@@ -49,6 +51,7 @@ export default async function (req: Request): Promise<Response> {
         SUM(CASE WHEN dt_enc_ficha IS NULL AND ISNULL(fl_baixada, '') <> 'S' THEN 1 ELSE 0 END) AS qtd_ativas
       FROM fich_loc WITH (NOLOCK)
       WHERE cd_pessoa IS NOT NULL AND cd_pessoa <> ''
+      ${empFilter()}
       GROUP BY cd_pessoa`;
 
     let source: Record<string, unknown> = { credential_reference: 'env' };
