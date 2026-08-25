@@ -2,9 +2,9 @@ import { Calendar, RefreshCw, ShieldCheck } from "lucide-react";
 
 const OPTIONS = [6, 12, 13, 18, 24];
 
-// Churn v2 = cliente sem contrato vigente E sem qualquer atividade válida de locação
-// durante a janela de inatividade (padrão 13 meses): remessa, faturamento recorrente,
-// última geração da ficha ou movimentação operacional vinculada ao contrato.
+// Churn v3 = ficha efetivamente aberta prevalece. Quando todas as fichas estão
+// encerradas, a recência oficial é a última NF válida vinculada à locação.
+// Remessas e movimentos são evidência operacional, mas não renovam sozinhos o relógio do churn.
 export default function ChurnWindowBar({ dates, onApply, loading, inactivityMonths, onChangeMonths }) {
   return (
     <div className="bg-gray-900 border border-gray-800 rounded-xl p-4 space-y-3">
@@ -37,18 +37,19 @@ export default function ChurnWindowBar({ dates, onApply, loading, inactivityMont
 
       <div className="flex flex-wrap gap-x-6 gap-y-1">
         <span className="text-xs text-gray-400">
-          Referência (quando alugavam): <span className="text-gray-200">{dates.ref_start} → {dates.ref_end_inclusive}</span>
+          Referência (base ativa): <span className="text-gray-200">{dates.ref_start} → {dates.ref_end_inclusive}</span>
         </span>
         <span className="text-xs text-gray-400">
-          Inatividade (pararam de alugar?): <span className="text-gray-200">{dates.analysis_start} → {dates.analysis_end_inclusive}</span>
+          Avaliação de continuidade: <span className="text-gray-200">{dates.analysis_start} → {dates.analysis_end_inclusive}</span>
         </span>
       </div>
 
       <p className="text-xs text-gray-500 flex items-start gap-2">
         <ShieldCheck className="w-3.5 h-3.5 text-emerald-400 shrink-0 mt-0.5" />
-        Cliente com contrato de locação vigente nunca é contado como churn. Sem contrato aberto,
-        a recência usa a última atividade real da locação: remessa, faturamento da ficha ou movimentação
-        operacional vinculada ao contrato. O limite padrão continua sendo 13 meses para proteger a sazonalidade anual.
+        Cliente com ficha de locação efetivamente aberta não é churn. A ficha é considerada efetiva quando
+        <span className="text-gray-300"> dt_enc_ficha está vazio</span> e existe evidência de locação real (remessa ou NF).
+        Quando todas as fichas estão encerradas, o relógio passa a ser a <span className="text-gray-300">última NF válida da locação</span>.
+        O limite padrão continua sendo 13 meses para proteger a sazonalidade anual.
       </p>
     </div>
   );
