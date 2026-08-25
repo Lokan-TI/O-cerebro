@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useErpSource, ALL_SOURCES_ID } from "@/lib/ErpSourceContext";
+import { toExclusiveEnd } from "@/lib/periodContract";
 import TotvsSummaryCards from "@/components/erp/TotvsSummaryCards";
 import TotvsPreviewTable from "@/components/erp/TotvsPreviewTable";
 import { downloadTotvsCsv } from "@/components/erp/totvsCsv";
@@ -56,7 +57,7 @@ export default function TotvsSaneamentoTab() {
     setPhase("count"); setError(null); setSummary(null); setRows(null);
     try {
       const res = await base44.functions.invoke("exportTotvs", {
-        mode: "count", doc, source_id: sourceId, start_date: start, end_date: end, statuses,
+        mode: "count", doc, source_id: sourceId, start_date: start, end_date: end, end_date_exclusive: toExclusiveEnd(end), statuses,
       });
       if (!res?.data?.success) throw new Error(res?.data?.error || "Falha na análise");
       setSummary(res.data.summary);
@@ -75,7 +76,7 @@ export default function TotvsSaneamentoTab() {
     try {
       for (let offset = 0; offset < total; offset += PAGE_SIZE) {
         const res = await base44.functions.invoke("exportTotvs", {
-          mode: "page", doc, source_id: sourceId, start_date: start, end_date: end, statuses,
+          mode: "page", doc, source_id: sourceId, start_date: start, end_date: end, end_date_exclusive: toExclusiveEnd(end), statuses,
           offset, page_size: PAGE_SIZE,
         });
         if (!res?.data?.success) throw new Error(res?.data?.error || "Falha na extração");
