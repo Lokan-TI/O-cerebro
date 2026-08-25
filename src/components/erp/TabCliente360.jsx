@@ -3,6 +3,7 @@ import { base44 } from "@/api/base44Client";
 import { useErpSource } from "@/lib/ErpSourceContext";
 import { useGlobalFilter } from "@/lib/GlobalFilterContext";
 import { RefreshCw, Database, AlertTriangle } from "lucide-react";
+import { toInclusiveEnd } from "@/lib/periodContract";
 import Cliente360Kpis from "./Cliente360Kpis";
 import Cliente360Table from "./Cliente360Table";
 
@@ -36,7 +37,7 @@ export default function TabCliente360() {
       const res = await base44.functions.invoke("refreshClienteDim", {
         source_id: selectedSource.id,
         start_date: period.start,
-        end_date: period.end,
+        end_date: period.endExclusive,
       });
       const result = res?.data || res;
       if (!result?.success) setError(result?.error || "Falha ao atualizar a camada de clientes.");
@@ -57,7 +58,7 @@ export default function TabCliente360() {
           </h2>
           <p className="text-gray-500 text-xs mt-0.5">
             {snapshot
-              ? `Versão ${snapshot.version} · período ${snapshot.period_start} → ${snapshot.period_end} · ${snapshot.query_count} consultas`
+              ? `Versão ${snapshot.version} · período ${snapshot.period_start} → ${toInclusiveEnd(snapshot.period_end)} · ${snapshot.query_count} consultas`
               : "Nenhuma versão publicada para esta fonte."}
           </p>
         </div>
@@ -75,10 +76,10 @@ export default function TabCliente360() {
         <div className="bg-red-900/30 border border-red-700 rounded-lg p-4 text-red-300 text-sm">{error}</div>
       )}
 
-      {snapshot && (snapshot.period_start !== period.start || snapshot.period_end !== period.end) && (
+      {snapshot && (snapshot.period_start !== period.start || snapshot.period_end !== period.endExclusive) && (
         <div className="bg-amber-900/20 border border-amber-800 rounded-lg p-3 text-amber-300 text-xs flex items-center gap-2">
           <AlertTriangle className="w-4 h-4 shrink-0" />
-          Esta versão foi calculada de {snapshot.period_start} a {snapshot.period_end}, diferente do filtro global
+          Esta versão foi calculada de {snapshot.period_start} a {toInclusiveEnd(snapshot.period_end)}, diferente do filtro global
           ({period.start} → {period.end}). Clique em “Atualizar dados” para recalcular no período selecionado.
         </div>
       )}
