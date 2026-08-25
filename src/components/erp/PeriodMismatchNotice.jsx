@@ -1,6 +1,7 @@
 import { useErpSnapshot } from "@/lib/ErpSnapshotContext";
 import { useGlobalFilter } from "@/lib/GlobalFilterContext";
 import { AlertTriangle, RefreshCw, Loader2 } from "lucide-react";
+import { toInclusiveEnd } from "@/lib/periodContract";
 
 // Os dados analíticos são calculados no servidor para a janela usada na última atualização.
 // Se o período aplicado for diferente, avisa e oferece recarregar os dados nessa janela.
@@ -15,13 +16,13 @@ export default function PeriodMismatchNotice() {
   // Os números são calculados no servidor exatamente para a janela carregada:
   // qualquer diferença em relação ao período aplicado precisa de novo processamento.
   // Se a janela carregada cobre a aplicada, os dados já respondem ao filtro.
-  if (loaded.start <= period.start && loaded.end >= period.end) return null;
+  if (loaded.start <= period.start && loaded.end >= period.endExclusive) return null;
 
   return (
     <div className="bg-amber-950 border border-amber-800 rounded-lg px-4 py-3 flex flex-wrap items-center gap-3">
       <AlertTriangle className="w-4 h-4 text-amber-400" />
       <span className="text-amber-200 text-sm">
-        Os dados carregados são de {loaded.start} a {loaded.end}. O período aplicado ({period.start} a {period.end}) ainda não foi processado.
+        Os dados carregados são de {loaded.start} a {toInclusiveEnd(loaded.end)}. O período aplicado ({period.start} a {period.end}) ainda não foi processado.
       </span>
       <button
         onClick={() => refresh({ period })}
