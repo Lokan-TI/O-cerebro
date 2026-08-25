@@ -56,7 +56,7 @@ Usamos três estados de confiança:
 | `nf.cd_pessoa_fun` | `DICTIONARY_CONFIRMED`, semântica conflitante | Caption do ERP indica vendedor e o relatório usa como dimensão pessoa/funcionário; manter `SEMANTIC_PENDING` até reconciliação específica |
 | `financas_car_comissao.cd_pessoa` | `DICTIONARY_CONFIRMED` | Pessoa comissionada; não declarar globalmente como única definição de vendedor sem contexto do KPI |
 | `fl_remessa.dt_saida` | `DICTIONARY_CONFIRMED` | Data operacional de saída; pode representar ativação física quando o KPI exigir esse evento |
-| `cd_empresa` | `DICTIONARY_CONFIRMED` | Empresa do documento; regras de inclusão/exclusão devem reproduzir o relatório benchmark, não um filtro global implícito |
+| `cd_empresa` | `DICTIONARY_CONFIRMED + BUSINESS_APPROVED` | Empresas 5 (LLK RENTAL) e 6 (JCK) ficam fora do escopo analítico: estão inativas e não recebem novos cadastros, contratos ou lançamentos. A exclusão deve aparecer na linhagem/reconciliação, nunca ser silenciosa |
 
 ## 4. Contratos de consulta (obrigatórios)
 1. **Nomes físicos literais:** toda SQL deve usar nomes confirmados no catálogo ou observados em log. É proibido inventar aliases físicos como `nf.dt_emissao` ou `grupo.nome_grupo`.
@@ -78,7 +78,7 @@ Captura realizada em 25/08/2026 para o período visual 01/01/2026 a 25/08/2026:
 - O relatório consulta múltiplas famílias de fato, incluindo locação por equipamento, composição, patrimônio/medidor, apontamentos, venda, OM, serviços e indenizações.
 - A atribuição a grupo passa por `equipto.cd_grupo`, `composicao.cd_grupo` ou `servico.cd_grupo`, conforme o componente.
 - O valor de rateio observado usa `nffatur.vl_nffatur` em conjunto com a participação do componente sobre `nf.vl_faturamento`.
-- O universo de empresas do benchmark deve ser lido do próprio parâmetro/SQL do relatório; não aplicar exclusões globais silenciosas.
+- O universo técnico de empresas do benchmark deve ser lido do próprio parâmetro/SQL do relatório. No Cérebro aplica-se depois a regra de negócio explícita que exclui 5 (LLK RENTAL) e 6 (JCK), ambas inativas; em períodos históricos com movimentos antigos, a diferença deve ser classificada como divergência de escopo aprovada, não erro de cálculo.
 
 Objetos físicos observados/confirmados para esse relatório: `fl_fatura`, `fl_fat_equ`, `fl_fat_comp`, `fl_fat_medidor`, `fl_apontamento_fatura`, `loc_fichloc_apont_apontamento`, `nf`, `nffatur`, `fich_loc`, `equipto`, `grupo`, `composicao`, `patrimon`, `ped_ven`, `pev_xequ`, `orcos`, `fichloc_servico`, `servico`, `fl_devolucao`, `fl_dev_equ`, `fl_rem_equ` e a view `v_nf_emissao`.
 
@@ -87,7 +87,7 @@ Objetos físicos observados/confirmados para esse relatório: `fl_fatura`, `fl_f
 - Receita por Grupo não é igual a `SUM(nf.vl_faturamento)` nem a `SUM(fl_fatura.vl_fatura)`.
 - A implementação atual `receitaSislocRateio` ainda não reproduz todos os componentes e utiliza campos/fórmulas que divergem do log; deve ser substituída por reprodução fiel antes de virar benchmark.
 - Papel semântico de `nf.cd_pessoa_fun` permanece pendente.
-- Mapa oficial de empresas/filiais e regra de inclusão por relatório precisam ser versionados.
+- Mapa oficial de empresas/filiais ainda precisa ser versionado; a exclusão das empresas 5 e 6 já está aprovada e documentada por inatividade operacional.
 - Ausência de resolução de identidade canônica entre múltiplas fontes.
 
 ## 7. Perguntas abertas para os donos de negócio
