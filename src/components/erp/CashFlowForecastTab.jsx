@@ -1,4 +1,5 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import CashFlowDailyLines from "@/components/erp/CashFlowDailyLines";
 import { base44 } from "@/api/base44Client";
 import { useErpSource } from "@/lib/ErpSourceContext";
 import QueryInspector from "@/components/erp/QueryInspector";
@@ -139,6 +140,12 @@ export default function CashFlowForecastTab() {
     }
   };
 
+  // Carrega automaticamente ao abrir a aba e ao trocar fonte/horizontes.
+  useEffect(() => {
+    load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedSource?.id, pastDays, futureDays]);
+
   const historyChart = useMemo(() => (data?.history || []).slice(-90).map(r => ({ ...r, label: chartDate(r.date) })), [data]);
   const futureChart = useMemo(() => (data?.future?.expected || []).map(r => ({ ...r, label: chartDate(r.date) })), [data]);
   const w30 = (data?.future?.windows || []).find(w => w.days === 30) || data?.future?.windows?.at(-1) || {};
@@ -179,18 +186,20 @@ export default function CashFlowForecastTab() {
           </label>
           {lineage.length > 0 && <QueryInspector queries={lineage} title="SQLs — Fluxo e previsibilidade" />}
           <button onClick={load} disabled={loading || !selectedSource} className="flex items-center gap-2 px-4 py-2 bg-cyan-700 hover:bg-cyan-600 disabled:opacity-50 rounded-lg text-sm text-white">
-            <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />{loading ? "Analisando…" : "Executar análise"}
+            <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />{loading ? "Analisando…" : "Atualizar"}
           </button>
         </div>
       </div>
 
       {error && <div className="flex gap-2 items-start bg-red-950/30 border border-red-900 rounded-lg p-3 text-sm text-red-300"><AlertTriangle className="w-4 h-4 mt-0.5" />{error}</div>}
-      {!data && !error && <div className="bg-gray-900 border border-gray-800 rounded-xl p-8 text-center text-gray-500">Execute a análise para construir a linha temporal de caixa.</div>}
+      {!data && !error && <div className="bg-gray-900 border border-gray-800 rounded-xl p-8 text-center text-gray-500">{loading ? "Carregando a linha temporal de caixa…" : "Sem dados de caixa para o recorte atual."}</div>}
 
       {data && <>
         <div className="bg-gray-900 border border-gray-800 rounded-xl px-4 py-3 text-xs text-gray-400 leading-relaxed">
           <span className="text-gray-200 font-medium">Contrato analítico:</span> passado = <span className="font-mono">dt_bai_cap / dt_bai_car</span> · futuro CAP = <span className="font-mono">dt_agendpagto</span> quando houver, senão <span className="font-mono">dt_ven_cap</span> · futuro CAR = <span className="font-mono">dt_ven_car</span> · valor = <span className="font-mono">vl_pre + vl_acr − vl_des</span>. CAP é consolidado porque não há dimensão física de empresa comprovada.
         </div>
+
+        <CashFlowDailyLines history={data.history || []} future={data.future?.expected || []} asOfDate={data.as_of_date} />
 
         <section className="space-y-3">
           <div><h3 className="text-sm font-semibold text-white">Presente · pressão imediata sobre o caixa</h3><p className="text-xs text-gray-500">Posição em {dateLabel(data.as_of_date)}.</p></div>

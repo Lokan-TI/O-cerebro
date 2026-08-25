@@ -63,47 +63,77 @@ Deno.serve(async (req) => {
       ? `EXEC DW_API '${config.clientId}', '${inner.replace(/'/g, "''")}'`
       : inner;
 
-    // Churn de locação v2: o evento de retenção não é somente "nova remessa".
-    // Um cliente permanece ativo se houver contrato efetivamente em aberto OU atividade
-    // econômica/operacional recente no mesmo contrato (remessa, faturamento ou movimento
-    // de estoque). A janela dura inactivityMonths e é calculada novamente no backend para
-    // evitar divergência entre UI e regra crítica.
+    // Churn de locação v3, homologado contra o fluxo real da ficha no SISLOC:
+    // 1) ficha efetivamente aberta prevalece sobre recência;
+    // 2) se todas as fichas efetivas estão encerradas, o relógio oficial é a última NF válida
+    //    vinculada à locação (fl_fatura -> nf);
+    // 3) remessa/devolução/movimento são evidências operacionais, mas não renovam o relógio
+    //    de churn de um cliente sem contrato vigente;
+    // 4) ausência de NF em uma locação efetiva vira exceção para auditoria, não churn automático.
     const inactivityCutoff = minusMonthsIso(analysisEnd, inactivityMonths);
     const asOfDate = minusDaysIso(analysisEnd, 1);
-    const churnSql = `WITH ref_clients AS (
+    const churnSql = `WITH rental_nf_events AS (
+      SELECT f.cd_pessoa, f.cd_controle, n.cd_nf,
+             COALESCE(n.dt_emi_nf, v.dt_emissao) AS dt_nf
+      FROM fl_fatura fat WITH (NOLOCK)
+      INNER JOIN fich_loc f WITH (NOLOCK) ON f.cd_controle = fat.cd_controle
+      INNER JOIN nf n WITH (NOLOCK) ON n.cd_nf = fat.cd_nf
+      LEFT JOIN v_nf_emissao v WITH (NOLOCK) ON v.cd_nf = n.cd_nf
+      WHERE fat.cd_nf IS NOT NULL
+        AND COALESCE(n.dt_emi_nf, v.dt_emissao) < '${analysisEnd}'
+        AND ${invoiceUniverse('n')}
+        ${empFilter('f')}
+
+      UNION
+
+      SELECT f.cd_pessoa, f.cd_controle, n.cd_nf,
+             COALESCE(n.dt_emi_nf, v.dt_emissao) AS dt_nf
+      FROM fl_fatura fat WITH (NOLOCK)
+      INNER JOIN fich_loc f WITH (NOLOCK) ON f.cd_controle = fat.cd_controle
+      INNER JOIN nf n WITH (NOLOCK) ON n.cd_nf = fat.cd_nf_mo
+      LEFT JOIN v_nf_emissao v WITH (NOLOCK) ON v.cd_nf = n.cd_nf
+      WHERE fat.cd_nf_mo IS NOT NULL
+        AND COALESCE(n.dt_emi_nf, v.dt_emissao) < '${analysisEnd}'
+        AND ${invoiceUniverse('n')}
+        ${empFilter('f')}
+    ),
+    remessa_by_contract AS (
+      SELECT f.cd_pessoa, f.cd_controle, MAX(r.dt_saida) AS last_remessa
+      ${approvedRemessaFrom}
+        AND r.dt_saida < '${analysisEnd}'
+      GROUP BY f.cd_pessoa, f.cd_controle
+    ),
+    nf_by_contract AS (
+      SELECT cd_pessoa, cd_controle, MAX(dt_nf) AS last_nf, COUNT(DISTINCT cd_nf) AS nf_count
+      FROM rental_nf_events
+      GROUP BY cd_pessoa, cd_controle
+    ),
+    ref_events AS (
+      SELECT f.cd_pessoa, f.cd_controle, r.dt_saida AS dt_evento
+      ${approvedRemessaFrom}
+        AND r.dt_saida >= '${refStart}' AND r.dt_saida < '${refEnd}'
+
+      UNION
+
+      SELECT cd_pessoa, cd_controle, dt_nf
+      FROM rental_nf_events
+      WHERE dt_nf >= '${refStart}' AND dt_nf < '${refEnd}'
+    ),
+    ref_clients AS (
       SELECT cd_pessoa,
-             COUNT(DISTINCT cd_flremessa) AS ref_fichas,
-             MIN(dt_saida) AS ref_first_ficha,
-             MAX(dt_saida) AS ref_last_ficha
-      FROM (
-        SELECT DISTINCT r.cd_flremessa, r.dt_saida, f.cd_pessoa
-        ${approvedRemessaFrom}
-          AND r.dt_saida >= '${refStart}' AND r.dt_saida < '${refEnd}'
-      ) x
+             COUNT(DISTINCT cd_controle) AS ref_fichas,
+             MIN(dt_evento) AS ref_first_ficha,
+             MAX(dt_evento) AS ref_last_ficha
+      FROM ref_events
       GROUP BY cd_pessoa
     ),
-    remessa_activity AS (
-      SELECT f.cd_pessoa, MAX(r.dt_saida) AS last_remessa
-      ${approvedRemessaFrom}
-        AND r.dt_saida >= '${refStart}' AND r.dt_saida < '${analysisEnd}'
-        AND EXISTS (SELECT 1 FROM ref_clients rc WHERE rc.cd_pessoa = f.cd_pessoa)
-      GROUP BY f.cd_pessoa
-    ),
-    fatura_activity AS (
-      SELECT f.cd_pessoa, MAX(fat.dt_geracao) AS last_fatura
-      ${faturaFrom}
-        AND fat.dt_geracao >= '${refStart}' AND fat.dt_geracao < '${analysisEnd}'
-        AND EXISTS (SELECT 1 FROM ref_clients rc WHERE rc.cd_pessoa = f.cd_pessoa)
-      GROUP BY f.cd_pessoa
-    ),
-    estmov_activity AS (
-      SELECT f.cd_pessoa, MAX(m.dt_geracao) AS last_estmov
-      FROM est_mov m WITH (NOLOCK)
-      INNER JOIN fich_loc f WITH (NOLOCK) ON f.cd_controle = m.cd_controle
-      INNER JOIN ref_clients rc ON rc.cd_pessoa = f.cd_pessoa
-      WHERE m.dt_geracao >= '${refStart}' AND m.dt_geracao < '${analysisEnd}'
-        ${empFilter('f')}
-      GROUP BY f.cd_pessoa
+    nf_activity AS (
+      SELECT e.cd_pessoa,
+             MAX(e.dt_nf) AS last_rental_nf,
+             COUNT(DISTINCT e.cd_nf) AS rental_nf_count
+      FROM rental_nf_events e
+      INNER JOIN ref_clients rc ON rc.cd_pessoa = e.cd_pessoa
+      GROUP BY e.cd_pessoa
     ),
     contract_profile AS (
       SELECT
@@ -117,27 +147,44 @@ Deno.serve(async (req) => {
         f.dt_fau_ficha,
         f.dt_fat_ficha,
         f.dt_mov,
-        f.fl_baixada,
         f.nr_periodos,
         cf.ds_calcfat,
         cf.num_dias_periodo,
-        MAX(CASE WHEN ISNULL(f.fl_baixada,'') <> 'S' AND f.dt_enc_ficha IS NULL THEN 1 ELSE 0 END)
-          OVER (PARTITION BY f.cd_pessoa) AS contrato_aberto,
-        MAX(f.dt_fau_ficha) OVER (PARTITION BY f.cd_pessoa) AS ult_geracao_ficha,
-        MAX(f.dt_fat_ficha) OVER (PARTITION BY f.cd_pessoa) AS prox_geracao_ficha,
-        MAX(f.dt_prevista_devolucao) OVER (PARTITION BY f.cd_pessoa) AS maior_prev_devolucao,
-        MAX(f.dt_mov) OVER (PARTITION BY f.cd_pessoa) AS ult_alteracao_ficha,
+        rb.last_remessa AS contract_last_remessa,
+        nb.last_nf AS contract_last_nf,
+        CASE
+          WHEN f.dt_enc_ficha IS NULL
+           AND (rb.last_remessa IS NOT NULL OR nb.last_nf IS NOT NULL)
+          THEN 1 ELSE 0
+        END AS ficha_aberta_efetiva,
+        MAX(CASE
+          WHEN f.dt_enc_ficha IS NULL
+           AND (rb.last_remessa IS NOT NULL OR nb.last_nf IS NOT NULL)
+          THEN 1 ELSE 0
+        END) OVER (PARTITION BY f.cd_pessoa) AS contrato_aberto,
+        SUM(CASE
+          WHEN f.dt_enc_ficha IS NULL
+           AND (rb.last_remessa IS NOT NULL OR nb.last_nf IS NOT NULL)
+          THEN 1 ELSE 0
+        END) OVER (PARTITION BY f.cd_pessoa) AS fichas_abertas,
+        MAX(f.dt_enc_ficha) OVER (PARTITION BY f.cd_pessoa) AS ultima_ficha_encerrada,
         ROW_NUMBER() OVER (
           PARTITION BY f.cd_pessoa
           ORDER BY
-            CASE WHEN ISNULL(f.fl_baixada,'') <> 'S' AND f.dt_enc_ficha IS NULL THEN 0 ELSE 1 END,
-            COALESCE(f.dt_fau_ficha, f.dt_mov, f.dt_pedido) DESC,
+            CASE
+              WHEN f.dt_enc_ficha IS NULL
+               AND (rb.last_remessa IS NOT NULL OR nb.last_nf IS NOT NULL)
+              THEN 0 ELSE 1
+            END,
+            COALESCE(nb.last_nf, rb.last_remessa, f.dt_pedido, f.dt_mov) DESC,
             f.cd_controle DESC
         ) AS rn
       FROM fich_loc f WITH (NOLOCK)
       INNER JOIN ref_clients rc ON rc.cd_pessoa = f.cd_pessoa
       LEFT JOIN calcfat cf WITH (NOLOCK) ON cf.cd_calcfat = f.cd_calcfat
-      WHERE 1=1 ${empFilter('f')}
+      LEFT JOIN remessa_by_contract rb ON rb.cd_controle = f.cd_controle
+      LEFT JOIN nf_by_contract nb ON nb.cd_controle = f.cd_controle
+      WHERE f.cd_pessoa IS NOT NULL ${empFilter('f')}
     )
     SELECT
       r.cd_pessoa,
@@ -145,15 +192,21 @@ Deno.serve(async (req) => {
       r.ref_first_ficha,
       r.ref_last_ficha,
       ISNULL(cp.contrato_aberto, 0) AS contrato_aberto,
+      ISNULL(cp.fichas_abertas, 0) AS fichas_abertas,
+      cp.ultima_ficha_encerrada,
       cp.cd_controle AS latest_contract_id,
       cp.dt_pedido AS latest_contract_opened,
       cp.dt_fai_ficha AS latest_contract_start,
       cp.dt_faf_ficha AS latest_contract_end,
       cp.dt_enc_ficha AS latest_contract_closed,
       cp.dt_prevista_devolucao AS latest_expected_return,
-      cp.ult_geracao_ficha AS last_contract_billing,
-      cp.prox_geracao_ficha AS next_contract_billing,
-      cp.ult_alteracao_ficha AS last_contract_update,
+      cp.dt_fau_ficha AS last_contract_generation,
+      cp.dt_fat_ficha AS next_contract_billing,
+      cp.dt_mov AS last_contract_update,
+      cp.contract_last_remessa AS last_remessa,
+      cp.contract_last_nf AS latest_contract_nf,
+      na.last_rental_nf,
+      na.rental_nf_count,
       cp.ds_calcfat AS rental_period_description,
       cp.num_dias_periodo AS rental_period_days,
       cp.nr_periodos AS contract_periods,
@@ -174,31 +227,26 @@ Deno.serve(async (req) => {
           THEN cp.nr_periodos * cp.num_dias_periodo
         ELSE NULL
       END AS contract_horizon_days,
-      ra.last_remessa,
-      fa.last_fatura,
-      ea.last_estmov,
-      la.last_activity,
       CASE
         WHEN ISNULL(cp.contrato_aberto,0) = 1 THEN 'CONTRATO_VIGENTE'
-        WHEN la.last_activity >= '${inactivityCutoff}' THEN 'ATIVIDADE_RECENTE'
-        ELSE 'SEM_ATIVIDADE_${inactivityMonths}M'
+        WHEN na.last_rental_nf IS NULL THEN 'SEM_NF_AUDITAR'
+        WHEN na.last_rental_nf >= '${inactivityCutoff}' THEN 'NF_RECENTE'
+        ELSE 'SEM_NF_${inactivityMonths}M'
       END AS retention_reason,
       CASE
         WHEN ISNULL(cp.contrato_aberto,0) = 1 THEN 0
-        WHEN la.last_activity >= '${inactivityCutoff}' THEN 0
+        WHEN na.last_rental_nf IS NULL THEN 0
+        WHEN na.last_rental_nf >= '${inactivityCutoff}' THEN 0
         ELSE 1
       END AS is_churned,
-      CASE WHEN ra.last_remessa IS NULL OR ra.last_remessa < '${inactivityCutoff}' THEN 1 ELSE 0 END AS sem_remessa
+      CASE
+        WHEN ISNULL(cp.contrato_aberto,0) = 1 OR na.last_rental_nf IS NOT NULL THEN 1
+        ELSE 0
+      END AS eligible_for_churn
     FROM ref_clients r
-    LEFT JOIN remessa_activity ra ON ra.cd_pessoa = r.cd_pessoa
-    LEFT JOIN fatura_activity fa ON fa.cd_pessoa = r.cd_pessoa
-    LEFT JOIN estmov_activity ea ON ea.cd_pessoa = r.cd_pessoa
+    LEFT JOIN nf_activity na ON na.cd_pessoa = r.cd_pessoa
     LEFT JOIN contract_profile cp ON cp.cd_pessoa = r.cd_pessoa AND cp.rn = 1
-    OUTER APPLY (
-      SELECT MAX(v.dt) AS last_activity
-      FROM (VALUES (ra.last_remessa), (fa.last_fatura), (ea.last_estmov), (cp.ult_geracao_ficha)) v(dt)
-    ) la
-    ORDER BY COALESCE(la.last_activity, r.ref_last_ficha) DESC`;
+    ORDER BY COALESCE(na.last_rental_nf, cp.contract_last_remessa, r.ref_last_ficha) DESC`;
 
     const result = await runQuery(source, wrap(churnSql), 60000);
     const rows = getRows(result);
