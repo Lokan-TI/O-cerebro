@@ -2,6 +2,7 @@ import { createClientFromRequest } from 'npm:@base44/sdk@0.8.40';
 import { buildConfig, runQuery } from '../../shared/erpConnection.ts';
 import { approvedRemessaFrom, faturaFrom } from '../../shared/churnUniverse.ts';
 import { empFilter } from '../../shared/empresaScope.ts';
+import { invoiceUniverse } from '../../shared/invoiceUniverse.ts';
 
 const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -46,17 +47,6 @@ Deno.serve(async (req) => {
     const wrap = (inner) => config.clientId
       ? `EXEC DW_API '${config.clientId}', '${inner.replace(/'/g, "''")}'`
       : inner;
-
-    // Detect cancel filter
-    let cancelFilter = '';
-    try {
-      const checkRes = await runQuery(source, wrap("SELECT TOP 1 fl_can_nf AS v FROM nf WHERE fl_can_nf IS NOT NULL"));
-      const checkRow = getRows(checkRes)[0];
-      if (checkRow && checkRow.v != null) {
-        if (typeof checkRow.v === 'string') cancelFilter = "AND fl_can_nf <> 'S'";
-        else cancelFilter = 'AND fl_can_nf = 0';
-      }
-    } catch {}
 
     // Churn: universo de clientes com remessa APROVADA (fl_remessa.dt_saida preenchida
     // e fl_rem_cancelada <> 'S') no período de referência que não tiveram nova remessa
@@ -212,7 +202,8 @@ Deno.serve(async (req) => {
           const codesList = buildCodesList(pessoaCodes.slice(i, i + BATCH));
           const nfMapSql = `SELECT cd_nf, cd_pessoa FROM nf WITH (NOLOCK)
             WHERE cd_pessoa IN (${codesList})
-            AND dt_emi_nf >= '${refStart}' AND dt_emi_nf < '${refEnd}' ${cancelFilter}
+            AND dt_emi_nf >= '${refStart}' AND dt_emi_nf < '${refEnd}'
+            AND ${invoiceUniverse()}
             ${empFilter()}`;
           for (const r of getRows(await runQuery(source, wrap(nfMapSql), 20000))) {
             nfToPessoa[String(r.cd_nf)] = String(r.cd_pessoa);
