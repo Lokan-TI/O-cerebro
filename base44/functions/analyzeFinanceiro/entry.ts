@@ -1,5 +1,6 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.40';
 import { execRead } from '../../shared/erpConnection.ts';
+import { resolvePeriod } from '../../shared/periodContract.ts';
 
 // Balancete / DRE de caixa a partir do plano financeiro do Sisloc.
 // Plano financeiro = 9 dígitos em 4 níveis: 1 (G) · 2 (GG) · 4 (GGBB) · 9 (analítica).
@@ -24,10 +25,18 @@ export default async function (req: Request): Promise<Response> {
     if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 });
 
     const body = await req.json().catch(() => ({}));
-    const end = String(body?.end_date || new Date().toISOString().slice(0, 10));
-    const start = String(
-      body?.start_date || new Date(new Date(end).getTime() - 365 * 86400000).toISOString().slice(0, 10),
-    );
+    const today = new Date().toISOString().slice(0, 10);
+    const defaultStart = new Date(new Date(`${today}T12:00:00Z`).getTime() - 365 * 86400000).toISOString().slice(0, 10);
+    const resolvedPeriod = resolvePeriod({
+      start: body?.start_date,
+      endInclusive: body?.end_date,
+      endExclusive: body?.end_date_exclusive,
+      defaultStart,
+      defaultEndInclusive: today,
+    });
+    const start = resolvedPeriod.start;
+    const end = resolvedPeriod.endInclusive;
+    const endExclusive = resolvedPeriod.endExclusive;
     const regime = ['baixa', 'vencimento', 'emissao', 'competencia'].includes(String(body?.regime))
       ? String(body.regime)
       : 'baixa';
@@ -47,7 +56,7 @@ export default async function (req: Request): Promise<Response> {
 
     const joinLanca = regime === 'competencia' ? 'LEFT JOIN lanca l WITH (NOLOCK) ON l.cd_lan = c.cd_lan' : '';
     const window = (t: 'cap' | 'car') =>
-      `${dateCol(t)} >= '${start}' AND ${dateCol(t)} < DATEADD(day, 1, CAST('${end}' AS date))`;
+      `${dateCol(t)} >= '${start}' AND ${dateCol(t)} < '${endExclusive}'`;
 
     const valCap = 'ROUND(COALESCE(c.vl_pre_cap,0)+COALESCE(c.vl_acr_cap,0)-COALESCE(c.vl_des_cap,0),2)';
     const valCar = 'ROUND(COALESCE(c.vl_pre_car,0)+COALESCE(c.vl_acr_car,0)-COALESCE(c.vl_des_car,0),2)';
