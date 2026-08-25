@@ -124,6 +124,14 @@ Deno.serve(async (req) => {
     const body = await req.json();
     const sourceId = body?.source_id;
     if (!sourceId) return Response.json({ success: false, error: 'source_id é obrigatório.' });
+    const requestedStartBody = body?.start_date;
+    const requestedEndBody = body?.end_date_exclusive || body?.end_date;
+    if (!requestedStartBody || !requestedEndBody) {
+      return Response.json({
+        success: false,
+        error: 'Período explícito é obrigatório no refresh: informe start_date e end_date_exclusive.',
+      }, { status: 400 });
+    }
 
     const source = await base44.asServiceRole.entities.ErpDataSource.get(sourceId);
     if (!source) return Response.json({ success: false, error: 'Fonte de dados não encontrada.' });
@@ -190,7 +198,7 @@ Deno.serve(async (req) => {
     });
 
     // Processar sincronamente — o frontend dispara sem aguardar e consulta o status
-    const result = await processRefresh(base44, source, run, version, previousVersion, body?.start_date, body?.end_date_exclusive || body?.end_date);
+    const result = await processRefresh(base44, source, run, version, previousVersion, requestedStartBody, requestedEndBody);
 
     return Response.json({
       success: result.status === 'success' || result.status === 'partial',
