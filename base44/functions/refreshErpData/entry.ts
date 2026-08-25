@@ -3,6 +3,7 @@ import { buildConfig, runQuery } from '../../shared/erpConnection.ts';
 import { approvedRemessaFrom, faturaFrom } from '../../shared/churnUniverse.ts';
 import { computeAnalytics } from '../../shared/analyticsBlock.ts';
 import { empFilter, EXCLUDED_EMPRESAS } from '../../shared/empresaScope.ts';
+import { invoiceUniverse } from '../../shared/invoiceUniverse.ts';
 
 const STEPS = [
   { id: 'conectando', label: 'Conectando ao banco' },
@@ -241,34 +242,11 @@ async function processRefresh(base44, source, run, version, previousVersion, sta
     queryCount++;
     await updateStep(1, 10);
 
-    // Etapa 2: Verificar estrutura + fl_can_nf (char 'S'/'N' ou int 0/1)
-    let cancelFilter = '';
-    try {
-      const checkRes = await runQuery(source, wrap("SELECT TOP 1 fl_can_nf AS v FROM nf WHERE fl_can_nf IS NOT NULL"));
-      queryCount++;
-      const checkRow = getRows(checkRes)[0];
-      if (checkRow && checkRow.v != null) {
-        if (typeof checkRow.v === 'string') {
-          cancelFilter = "AND fl_can_nf <> 'S'";
-        } else {
-          cancelFilter = 'AND fl_can_nf = 0';
-        }
-      }
-    } catch {
-      warnings.push('Coluna fl_can_nf não encontrada — notas canceladas não foram filtradas.');
-    }
-    // Universo fiscal canônico: o refresh deve usar exatamente o mesmo conjunto de NFs
-    // da camada semântica/reconciliação. Antes, o snapshot filtrava apenas fl_can_nf,
-    // permitindo entradas, cancelamentos por data e anulações dentro do faturamento.
-    const nfUniverseFilter = (alias = '') => {
-      const p = alias ? `${alias}.` : '';
-      const cancel = cancelFilter ? cancelFilter.replace(/fl_can_nf/g, `${p}fl_can_nf`) : '';
-      return `${cancel} AND ${p}fl_ent_sai = 'S' AND ${p}dt_cancelamento IS NULL AND ${p}dt_anul_nf IS NULL`;
-    };
-    const nfF = nfUniverseFilter();
-    const nfFn = nfUniverseFilter('n');
-    const nfFnf = nfUniverseFilter('nf');
-
+    // Etapa 2: universo fiscal canônico compartilhado.
+    // CAST torna fl_can_nf robusto aos formatos S/N e 0/1 sem alterar a semântica.
+    const nfF = invoiceUniverse();
+    const nfFn = invoiceUniverse('n');
+    const nfFnf = invoiceUniverse('nf');
     await updateStep(2, 15);
 
     // Fragmentos de data
