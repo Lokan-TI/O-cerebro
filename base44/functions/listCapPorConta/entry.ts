@@ -1,5 +1,6 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.40';
 import { execRead } from '../../shared/erpConnection.ts';
+import { resolvePeriod } from '../../shared/periodContract.ts';
 
 // CAP agrupado por conta do plano financeiro, direto do banco.
 // Quatro categorias relevantes: Liquidado (25/30 ou com data de baixa) ·
@@ -13,8 +14,16 @@ export default async function (req: Request): Promise<Response> {
     if (!user) return Response.json({ success: false, error: 'Unauthorized' }, { status: 401 });
 
     const body = await req.json().catch(() => ({}));
-    const startDate = String(body?.start_date || '2013-01-01');
-    const endDate = String(body?.end_date || new Date().toISOString().slice(0, 10));
+    const resolvedPeriod = resolvePeriod({
+      start: body?.start_date,
+      endInclusive: body?.end_date,
+      endExclusive: body?.end_date_exclusive,
+      defaultStart: '2013-01-01',
+      defaultEndInclusive: new Date().toISOString().slice(0, 10),
+    });
+    const startDate = resolvedPeriod.start;
+    const endDate = resolvedPeriod.endInclusive;
+    const endDateExclusive = resolvedPeriod.endExclusive;
 
     const sql = `SELECT
       c.cd_conta,
@@ -33,7 +42,7 @@ export default async function (req: Request): Promise<Response> {
     FROM cap c WITH (NOLOCK)
     LEFT JOIN plano pl WITH (NOLOCK) ON pl.cd_planfin = c.cd_conta
     CROSS APPLY (SELECT ROUND(COALESCE(c.vl_pre_cap, 0) + COALESCE(c.vl_acr_cap, 0) - COALESCE(c.vl_des_cap, 0), 2) AS val) v
-    WHERE c.dt_emi_cap >= '${startDate}' AND c.dt_emi_cap < DATEADD(day, 1, CAST('${endDate}' AS date))
+    WHERE c.dt_emi_cap >= '${startDate}' AND c.dt_emi_cap < '${endDateExclusive}'
     GROUP BY c.cd_conta, pl.nr_planfin, pl.ds_planfin, pl.tp_mov, pl.fl_planfin
     ORDER BY SUM(CASE WHEN c.fl_status_titulo <> 40 AND NOT (c.fl_status_titulo = 5 AND c.dt_bai_cap IS NULL AND c.dt_ven_cap >= CAST(GETDATE() AS date)) THEN v.val ELSE 0 END) DESC`;
 
@@ -55,7 +64,7 @@ export default async function (req: Request): Promise<Response> {
       }
     }
 
-    return Response.json({ success: true, rows, total: rows.length, duration_ms: Date.now() - t0, sql });
+    return Response.json({ success: true, rows, total: rows.length, period: { start: startDate, end: endDate, end_exclusive: endDateExclusive }, duration_ms: Date.now() - t0, sql });
   } catch (error) {
     return Response.json({ success: false, error: (error as Error)?.message || String(error) }, { status: 500 });
   }
