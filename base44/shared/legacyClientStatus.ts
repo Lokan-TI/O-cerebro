@@ -2,6 +2,7 @@
 // uso compartilhado entre classifyClientStatus (telas atuais) e reconcileLifecycle
 // (reconciliação por cliente do doc 10, passo 2). Nenhuma regra foi alterada.
 import { approvedRemessaFrom } from './churnUniverse.ts';
+import { empFilter } from './empresaScope.ts';
 
 export const CLIENT_STATUSES = [
   'Novo ativo', 'Recorrente', 'Reativado', 'Em risco', 'Em churn',
@@ -40,6 +41,7 @@ export function buildLegacyFichaSql(ctx: ReturnType<typeof deriveLegacyContext>)
     FROM fich_loc WITH (NOLOCK)
     WHERE cd_pessoa IS NOT NULL AND cd_pessoa <> ''
       AND dt_pedido >= '${ctx.fichaLower}'
+      ${empFilter()}
     GROUP BY cd_pessoa`;
 }
 
