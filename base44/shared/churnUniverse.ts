@@ -1,3 +1,5 @@
+import { empFilter } from './empresaScope.ts';
+
 // Critério de cliente ativo e receita para análise de churn/coorte.
 //
 // Cliente ativo no período = tem ao menos uma remessa REALIZADA (fl_remessa.dt_saida
@@ -21,7 +23,7 @@ export const approvedRemessaFrom = `FROM fl_remessa r WITH (NOLOCK)
   WHERE r.dt_saida IS NOT NULL
     AND ISNULL(r.fl_rem_cancelada,'') <> 'S'
     AND f.cd_pessoa IS NOT NULL AND f.cd_pessoa <> ''
-    AND (f.cd_empresa IS NULL OR f.cd_empresa NOT IN (5,6))`;
+    ${empFilter('f')}`;
 
 // Base de faturas ligadas à ficha.
 // Caller monta o SELECT/GROUP BY e adiciona: AND fat.dt_geracao >= <start> AND fat.dt_geracao < <end>
