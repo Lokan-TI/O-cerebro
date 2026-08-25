@@ -1,5 +1,6 @@
 import { useState, useMemo, useEffect, useRef } from "react";
 import { useErpSource, ALL_SOURCES_ID } from "@/lib/ErpSourceContext";
+import { useErpSnapshot } from "@/lib/ErpSnapshotContext";
 import { useEmpresaFilter } from "@/lib/EmpresaFilterContext";
 import { useGlobalFilter } from "@/lib/GlobalFilterContext";
 import { fmtCur, fmtNum } from "@/lib/erpFormat";
@@ -12,6 +13,7 @@ import { Users, Download, RefreshCw, Search, Repeat } from "lucide-react";
 // consultada ao vivo no ERP e exportável em Excel.
 export default function ClientesAtivosTable({ onSelectClient }) {
   const { selectedSource } = useErpSource();
+  const { snapshot } = useErpSnapshot();
   const { selectedEmpresa } = useEmpresaFilter();
   const { period } = useGlobalFilter();
   const [data, setData] = useState(null);
@@ -40,11 +42,11 @@ export default function ClientesAtivosTable({ onSelectClient }) {
   // (antes as datas só tinham efeito se o usuário clicasse em "Recarregar").
   useEffect(() => {
     if (!loadedRange.current) return;
-    if (loadedRange.current === `${start}|${end}`) return;
+    if (loadedRange.current === `${start}|${end}|${snapshot?.version || ""}`) return;
     const t = setTimeout(() => { load(); }, 400);
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [start, end, selectedSource?.id]);
+  }, [start, end, selectedSource?.id, snapshot?.version]);
 
   const load = async (force = false) => {
     setLoading(true);
@@ -52,9 +54,9 @@ export default function ClientesAtivosTable({ onSelectClient }) {
     try {
       if (force) invalidateClientesAtivos();
       const sourceId = selectedSource?.id && selectedSource.id !== ALL_SOURCES_ID ? selectedSource.id : null;
-      const result = await fetchClientesAtivos(sourceId, start, end);
+      const result = await fetchClientesAtivos(sourceId, start, end, snapshot?.version);
       setData(result);
-      loadedRange.current = `${start}|${end}`;
+      loadedRange.current = `${start}|${end}|${snapshot?.version || ""}`;
     } catch (e) {
       setError(e?.response?.data?.error || e.message || "Falha ao carregar clientes");
     } finally {
