@@ -539,6 +539,57 @@ Deno.serve(async (req) => {
       } catch {}
     }
 
+    const actionPersonMap = {};
+    const actionCodes = [...new Set(actionRows.map((r) => r.cd_pessoa).filter((v) => v != null && v !== ''))];
+    if (actionCodes.length > 0) {
+      try {
+        for (let i = 0; i < actionCodes.length; i += BATCH) {
+          const codesList = buildCodesList(actionCodes.slice(i, i + BATCH));
+          const actionPessoaSql = `SELECT cd_pessoa, nm_pessoa, fl_tipo_pessoa, nr_cpf_pessoa, nr_cnpj_pessoa,
+            en_mail_pessoa, tel_pessoa, tl_res_pessoa, tl_cel_pessoa, uf_pessoa, cidade_pessoa
+            FROM pessoa WITH (NOLOCK) WHERE cd_pessoa IN (${codesList})`;
+          for (const p of getRows(await runQuery(source, wrap(actionPessoaSql), 20000))) {
+            actionPersonMap[String(p.cd_pessoa)] = p;
+          }
+        }
+      } catch {}
+    }
+
+    const growthClients = actionRows.map((r) => {
+      const p = actionPersonMap[String(r.cd_pessoa)] || {};
+      return {
+        cd_pessoa: String(r.cd_pessoa || ''),
+        nm_pessoa: p.nm_pessoa || null,
+        fl_tipo_pessoa: p.fl_tipo_pessoa || null,
+        nr_cpf_pessoa: p.nr_cpf_pessoa || null,
+        nr_cnpj_pessoa: p.nr_cnpj_pessoa || null,
+        en_mail_pessoa: p.en_mail_pessoa || null,
+        telefone: p.tl_cel_pessoa || p.tl_res_pessoa || p.tel_pessoa || null,
+        uf_pessoa: p.uf_pessoa || null,
+        cidade_pessoa: p.cidade_pessoa || null,
+        growth_status: r.growth_status || null,
+        retention_reason: r.retention_reason || null,
+        ref_revenue: Number(r.ref_revenue) || 0,
+        analysis_revenue: Number(r.analysis_revenue) || 0,
+        ref_nfs: Number(r.ref_nfs) || 0,
+        analysis_nfs: Number(r.analysis_nfs) || 0,
+        last_rental_nf: r.last_rental_nf ? new Date(r.last_rental_nf).toISOString().slice(0, 10) : null,
+        days_since_last_activity: r.days_since_last_activity == null ? null : Number(r.days_since_last_activity),
+        contrato_aberto: Number(r.contrato_aberto) || 0,
+        fichas_abertas: Number(r.fichas_abertas) || 0,
+        latest_contract_id: r.latest_contract_id == null ? null : String(r.latest_contract_id),
+        latest_contract_closed: r.latest_contract_closed ? new Date(r.latest_contract_closed).toISOString().slice(0, 10) : null,
+        latest_expected_return: r.latest_expected_return ? new Date(r.latest_expected_return).toISOString().slice(0, 10) : null,
+        latest_contract_nf: r.latest_contract_nf ? new Date(r.latest_contract_nf).toISOString().slice(0, 10) : null,
+        last_remessa: r.last_remessa ? new Date(r.last_remessa).toISOString().slice(0, 10) : null,
+        billing_cycle: r.billing_cycle || 'NAO_CLASSIFICADO',
+        rental_period_description: r.rental_period_description || null,
+        contract_horizon: r.contract_horizon || 'NAO_CLASSIFICADO',
+        contract_horizon_days: r.contract_horizon_days == null ? null : Number(r.contract_horizon_days),
+        contract_billing_alert: Boolean(r.contract_billing_alert),
+      };
+    });
+
     return Response.json({
       success: true,
       summary: {
