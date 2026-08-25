@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { base44 } from "@/api/base44Client";
 import { useErpSource, ALL_SOURCES_ID } from "@/lib/ErpSourceContext";
+import { toExclusiveEnd } from "@/lib/periodContract";
 import CustoMacroCards from "@/components/erp/CustoMacroCards";
 import CustoGrupoTree from "@/components/erp/CustoGrupoTree";
 import { buildCustoTree, buildMacroMensal } from "@/components/erp/custoCentros";
@@ -25,7 +26,7 @@ export default function CentrosCustoTab({ dateRange }) {
     setLoading(true); setError(null);
     try {
       const res = await base44.functions.invoke("listCentrosCusto", {
-        source_id: sourceId, start_date: start, end_date: end,
+        source_id: sourceId, start_date: start, end_date: end, end_date_exclusive: toExclusiveEnd(end),
       });
       if (!res?.data?.success) throw new Error(res?.data?.error || "Falha na consulta");
       setData(res.data);
