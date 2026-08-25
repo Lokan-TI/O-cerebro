@@ -2,7 +2,7 @@ import { createClientFromRequest } from 'npm:@base44/sdk@0.8.40';
 import { buildConfig, runQuery } from '../../shared/erpConnection.ts';
 import { approvedRemessaFrom, faturaFrom } from '../../shared/churnUniverse.ts';
 import { computeAnalytics } from '../../shared/analyticsBlock.ts';
-import { empFilter, EXCLUDED_EMPRESAS } from '../../shared/empresaScope.ts';
+import { empFilter } from '../../shared/empresaScope.ts';
 import { invoiceUniverse } from '../../shared/invoiceUniverse.ts';
 import { assertIsoDate } from '../../shared/periodContract.ts';
 
@@ -736,7 +736,7 @@ async function processRefresh(base44, source, run, version, previousVersion, sta
 
       let empNames = {};
       try {
-        const empNameRes = await runQuery(source, wrap(`SELECT cd_empresa, nm_fan_empresa FROM empresa WHERE cd_empresa <= 50 AND cd_empresa NOT IN (${EXCLUDED_EMPRESAS.join(',')})`));
+        const empNameRes = await runQuery(source, wrap(`SELECT cd_empresa, nm_fan_empresa FROM empresa WHERE cd_empresa <= 50`));
         queryCount++;
         for (const r of getRows(empNameRes)) {
           empNames[Number(r.cd_empresa)] = String(r.nm_fan_empresa || '');
