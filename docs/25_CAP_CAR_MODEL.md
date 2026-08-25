@@ -1,6 +1,6 @@
 # 25 — CAP & CAR: MODELO, RELAÇÕES E SANEAMENTO
 
-Versão 1.0-draft · 2026-08-17 · Fonte: `v_Dicionario_Dados` (dicionário oficial do Sisloc, SQL Server)
+Versão 1.1-draft · 2026-08-25 · Fonte: `v_Dicionario_Dados` (dicionário oficial do Sisloc, SQL Server)
 
 ## 1. Objetivo das tabelas
 
@@ -56,3 +56,38 @@ Exportação CAP/CAR na aba **Financeiro → Exportar CAP/CAR**:
 - CSV compatível com Excel (BOM, `;`, documentos como texto).
 
 Este é o primeiro passo do saneamento: extrair a base bruta com as relações resolvidas para auditoria externa antes de definir as regras canônicas de Receivable/Payable (doc 03).
+
+## 6. Contrato de previsibilidade de caixa
+
+Implementação: `analyzeCashFlowForecast` + **Financeiro → Fluxo & previsibilidade**.
+
+A análise separa explicitamente fato ERP de inferência:
+
+| Camada | Regra temporal | Natureza |
+|---|---|---|
+| Passado realizado | CAP `dt_bai_cap`; CAR `dt_bai_car` | Fato de caixa realizado |
+| Presente | títulos sem baixa; vencidos quando `dt_ven_* < data de corte` | Posição de carteira |
+| Futuro comprometido CAP | `dt_agendpagto` quando houver agendamento futuro; senão `dt_ven_cap` | Compromisso registrado no ERP |
+| Futuro comprometido CAR | `dt_ven_car` | Direito a receber registrado no ERP |
+| Futuro esperado | calendário comprometido deslocado pela mediana histórica de `DATEDIFF(day, vencimento, baixa)`; CAP agendado não é deslocado | Inferência estatística, nunca fato ERP |
+
+Valor financeiro em todas as camadas: `vl_pre + vl_acr - vl_des`, mantendo a mesma regra do balancete.
+
+Regras de completude:
+- CAP aberto: `dt_bai_cap IS NULL` e status diferente de 40; o código 5 é usado apenas para marcar **provisório** conforme a regra atual do Cérebro, não para excluir outros títulos sem baixa.
+- CAR aberto: `dt_bai_car IS NULL`, `dt_cancelamento IS NULL` e status diferente de 40.
+- CAP vencido sem agendamento futuro entra como pressão imediata no primeiro dia da projeção.
+- CAR vencido é mostrado separadamente como risco de cobrança e **não é contado como entrada imediata** na previsão base, evitando superestimar liquidez.
+- CAP permanece consolidado: não existe dimensão física de empresa comprovada em `cap`.
+
+KPIs produzidos:
+- picos históricos e futuros de entrada/saída por dia;
+- saldo diário e acumulado;
+- necessidade máxima de liquidez partindo de saldo zero;
+- cobertura de saídas (`entradas esperadas / saídas esperadas`);
+- janelas de 7/14/30/60/90 dias;
+- atraso/antecipação médio e mediano de CAP e CAR;
+- maiores fornecedores/obrigações e clientes/recebimentos que explicam os picos;
+- padrão médio por dia da semana.
+
+Limitação deliberada: a necessidade máxima de liquidez **não considera o saldo bancário inicial**. Para transformá-la em projeção de saldo de caixa, é necessário conectar o saldo disponível das contas bancárias na data de corte.
