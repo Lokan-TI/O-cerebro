@@ -1,12 +1,13 @@
 import { empFilter } from './empresaScope.ts';
+import { INVOICE_UNIVERSE, INVOICE_DATE_FIELD } from './invoiceUniverse.ts';
+
+export { INVOICE_UNIVERSE, INVOICE_DATE_FIELD } from './invoiceUniverse.ts';
 
 // Phase 4 · Semantic Layer — Metric Registry executável (doc 12 é a fonte normativa).
 // Regra: nenhum dashboard implementa fórmula. Toda métrica exibida passa por computeMetric.
 // Nenhuma métrica está TRUSTED enquanto o dono de negócio não aprovar via ADR.
 
-// Universo canônico de nota fiscal (mesmo usado em reconcileRevenue · MTR-001)
-export const INVOICE_UNIVERSE = `fl_ent_sai = 'S' AND ISNULL(fl_can_nf, 'N') <> 'S' AND dt_cancelamento IS NULL AND dt_anul_nf IS NULL`;
-export const INVOICE_DATE_FIELD = 'dt_emi_nf';
+// Universo canônico de nota fiscal vem de invoiceUniverse.ts.
 // Candidato de referência escolhido na reconciliação (pendente de aprovação do CFO)
 export const REVENUE_EXPR = 'SUM(ISNULL(vl_faturamento,0))';
 
