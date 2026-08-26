@@ -417,6 +417,130 @@ LEFT JOIN v3_ref_clients v3r ON v3r.cd_pessoa = cr.cd_pessoa
 ORDER BY cr.cd_pessoa`;
 }
 
+export function buildRentalChurnV4EpisodeSql(raw: RentalChurnV4Context) {
+  const ctx = normalizeRentalChurnV4Context(raw);
+  const ctes = buildRentalChurnV4Ctes(ctx);
+  return `${ctes},
+ficha_start_events AS (
+  SELECT cd_pessoa, cd_controle, first_remessa AS dt_event FROM ficha_state WHERE ficha_ativada = 1 AND first_remessa IS NOT NULL
+  UNION ALL
+  SELECT cd_pessoa, cd_controle, first_fatura_inicio FROM ficha_state WHERE ficha_ativada = 1 AND first_fatura_inicio IS NOT NULL
+  UNION ALL
+  SELECT cd_pessoa, cd_controle, first_valid_nf FROM ficha_state WHERE ficha_ativada = 1 AND first_valid_nf IS NOT NULL
+),
+ficha_start AS (
+  SELECT cd_pessoa, cd_controle, MIN(dt_event) AS interval_start
+  FROM ficha_start_events GROUP BY cd_pessoa, cd_controle
+),
+ficha_end_events AS (
+  SELECT cd_pessoa, cd_controle, dt_enc_ficha AS dt_event FROM ficha_state WHERE ficha_ativada = 1 AND dt_enc_ficha IS NOT NULL
+  UNION ALL
+  SELECT cd_pessoa, cd_controle, last_dt_entrada FROM ficha_state WHERE ficha_ativada = 1 AND last_dt_entrada IS NOT NULL
+  UNION ALL
+  SELECT cd_pessoa, cd_controle, last_fatura_fim FROM ficha_state WHERE ficha_ativada = 1 AND last_fatura_fim IS NOT NULL
+  UNION ALL
+  SELECT cd_pessoa, cd_controle, last_valid_nf FROM ficha_state WHERE ficha_ativada = 1 AND last_valid_nf IS NOT NULL
+),
+ficha_end AS (
+  SELECT cd_pessoa, cd_controle, MAX(dt_event) AS interval_end
+  FROM ficha_end_events GROUP BY cd_pessoa, cd_controle
+),
+clean_intervals AS (
+  SELECT
+    fs.cd_pessoa,
+    fs.cd_controle,
+    st.interval_start,
+    CASE WHEN fs.blocks_churn = 1 THEN CAST('${ctx.asOfDate}' AS datetime) ELSE en.interval_end END AS interval_end
+  FROM ficha_state fs
+  INNER JOIN ficha_start st ON st.cd_controle = fs.cd_controle
+  LEFT JOIN ficha_end en ON en.cd_controle = fs.cd_controle
+  WHERE fs.ficha_ativada = 1
+    AND fs.operational_inconsistency = 0
+    AND st.interval_start IS NOT NULL
+    AND (fs.blocks_churn = 1 OR en.interval_end IS NOT NULL)
+),
+ordered_intervals AS (
+  SELECT ci.*,
+    MAX(ci.interval_end) OVER (
+      PARTITION BY ci.cd_pessoa
+      ORDER BY ci.interval_start, ci.interval_end, ci.cd_controle
+      ROWS BETWEEN UNBOUNDED PRECEDING AND 1 PRECEDING
+    ) AS prior_max_end
+  FROM clean_intervals ci
+),
+island_flags AS (
+  SELECT oi.*,
+    CASE WHEN oi.prior_max_end IS NULL OR oi.interval_start > DATEADD(day,1,oi.prior_max_end) THEN 1 ELSE 0 END AS new_island
+  FROM ordered_intervals oi
+),
+island_ids AS (
+  SELECT f.*,
+    SUM(f.new_island) OVER (
+      PARTITION BY f.cd_pessoa
+      ORDER BY f.interval_start, f.interval_end, f.cd_controle
+      ROWS UNBOUNDED PRECEDING
+    ) AS episode_id
+  FROM island_flags f
+),
+episodes AS (
+  SELECT cd_pessoa, episode_id, MIN(interval_start) AS episode_start, MAX(interval_end) AS episode_end,
+    COUNT(*) AS fichas_no_episodio
+  FROM island_ids
+  GROUP BY cd_pessoa, episode_id
+),
+episode_seq AS (
+  SELECT e.*,
+    LEAD(e.episode_start) OVER (PARTITION BY e.cd_pessoa ORDER BY e.episode_start, e.episode_id) AS next_episode_start,
+    DATEADD(month, ${ctx.inactivityMonths}, e.episode_end) AS candidate_churn_date
+  FROM episodes e
+),
+episode_events AS (
+  SELECT es.*,
+    CASE WHEN es.candidate_churn_date <= '${ctx.asOfDate}'
+      AND (es.next_episode_start IS NULL OR es.next_episode_start > es.candidate_churn_date)
+      THEN 1 ELSE 0 END AS is_churn_event
+  FROM episode_seq es
+),
+period_state_raw AS (
+  SELECT
+    ee.cd_pessoa,
+    MIN(ee.episode_start) AS first_activation_date,
+    MAX(CASE WHEN ee.episode_start <= '${ctx.periodStart}' THEN ee.episode_start END) AS latest_activation_before_period,
+    MAX(CASE WHEN ee.is_churn_event = 1 AND ee.candidate_churn_date < '${ctx.periodStart}' THEN ee.candidate_churn_date END) AS latest_churn_before_period,
+    SUM(CASE WHEN ee.is_churn_event = 1 AND ee.candidate_churn_date >= '${ctx.periodStart}' AND ee.candidate_churn_date < '${ctx.periodEnd}' THEN 1 ELSE 0 END) AS churn_events_in_period,
+    MAX(CASE WHEN ee.is_churn_event = 1 AND ee.candidate_churn_date >= '${ctx.periodStart}' AND ee.candidate_churn_date < '${ctx.periodEnd}' THEN ee.candidate_churn_date END) AS last_churn_event_in_period
+  FROM episode_events ee
+  GROUP BY ee.cd_pessoa
+),
+period_state AS (
+  SELECT ps.*,
+    CASE WHEN ps.latest_activation_before_period IS NOT NULL
+      AND (ps.latest_churn_before_period IS NULL OR ps.latest_activation_before_period > ps.latest_churn_before_period)
+      THEN 1 ELSE 0 END AS eligible_at_period_start
+  FROM period_state_raw ps
+)
+SELECT
+  ee.cd_pessoa,
+  ee.episode_id,
+  ee.episode_start,
+  ee.episode_end,
+  ee.fichas_no_episodio,
+  ee.next_episode_start,
+  ee.candidate_churn_date,
+  ee.is_churn_event,
+  ps.first_activation_date,
+  ps.latest_activation_before_period,
+  ps.latest_churn_before_period,
+  ps.eligible_at_period_start,
+  ps.churn_events_in_period,
+  ps.last_churn_event_in_period,
+  cr.inconsistent_fichas AS current_inconsistent_fichas
+FROM episode_events ee
+INNER JOIN period_state ps ON ps.cd_pessoa = ee.cd_pessoa
+INNER JOIN customer_rollup cr ON cr.cd_pessoa = ee.cd_pessoa
+ORDER BY ee.cd_pessoa, ee.episode_start`;
+}
+
 export function buildRentalChurnV4FichaDetailSql(raw: RentalChurnV4Context) {
   const ctx = normalizeRentalChurnV4Context(raw);
   const ctes = buildRentalChurnV4Ctes(ctx);
