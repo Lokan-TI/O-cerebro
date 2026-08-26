@@ -1,0 +1,277 @@
+import { createClientFromRequest } from 'npm:@base44/sdk@0.8.40';
+import { execRead } from '../../shared/erpConnection.ts';
+import {
+  RENTAL_CHURN_V4_STATUS,
+  RENTAL_CHURN_V4_VERSION,
+  buildRentalChurnV4CustomerSql,
+  buildRentalChurnV4FichaDetailSql,
+  normalizeRentalChurnV4Context,
+  rentalChurnV4Dates,
+} from '../../shared/rentalChurnV4.ts';
+
+function rowsOf(result: any) {
+  return Array.isArray(result?.recordset) ? result.recordset : [];
+}
+
+function iso(value: any) {
+  if (!value) return null;
+  try { return new Date(value).toISOString().slice(0, 10); } catch { return null; }
+}
+
+function statusFamilyV4(status: string) {
+  if (status === 'CHURN_CONFIRMADO') return 'churn';
+  if (status === 'ATIVO_CONTRATO' || status === 'ATIVO_CONTRATO_COM_ALERTA') return 'active';
+  if (status === 'ENCERRADO_PROTEGIDO') return 'retained';
+  if (status === 'NAO_CLIENTE_LOCACAO') return 'not_customer';
+  return 'audit';
+}
+
+function statusFamilyV3(status: string) {
+  if (status === 'CHURN_CONFIRMADO') return 'churn';
+  if (status === 'ATIVO_CONTRATO' || status === 'ATIVO_RECENTE') return 'retained';
+  if (status === 'FORA_DA_COORTE_V3') return 'excluded';
+  return 'audit';
+}
+
+const DIVERGENCE_EXPLANATIONS: Record<string, string> = {
+  POPULACAO_V3_OMITE_CLIENTE_ATIVADO: 'Cliente historicamente ativado existe no snapshot v4, mas não entra na coorte histórica usada pelo motor v3.',
+  V4_ATIVO_COM_INCONSISTENCIA: 'Existe ao menos uma ficha que bloqueia churn e, simultaneamente, outra evidência operacional inconsistente. Cliente continua ativo, mas exige auditoria.',
+  AUDITORIA_OPERACIONAL_V4: 'Remessa, saldo, devolução ou encerramento persistido apresentam sinais contraditórios; a v4 não força churn.',
+  FALSO_CHURN_V3_CONTRATO_ATIVO: 'O v3 pode considerar churn pela NF antiga, mas a v4 encontrou ficha operacionalmente ativa por saldo/devolução/faturamento.',
+  FALSO_CHURN_V3_ANCORA_TEMPORAL: 'A última NF antecede o fim real do relacionamento; o relógio v4 começa no relationship_end_date e ainda está dentro da proteção.',
+  CHURN_OCULTO_V3_FICHA_ABERTA_STALE: 'O v3 protege por ficha sem dt_enc_ficha, mas a v4 não encontrou saldo, devolução pendente, cobertura ou próxima geração que comprovem atividade.',
+  UNIVERSO_FISCAL_V3_EXCLUI_NF_VINCULADA: 'Existe NF vinculada à fl_fatura e não cancelada/anulada que não entrou no universo fiscal genérico usado pelo v3.',
+  SEM_DIVERGENCIA_REGRA: 'Nenhuma divergência automática de regra identificada.',
+};
+
+export default async function (req: Request): Promise<Response> {
+  const started = Date.now();
+  try {
+    const base44 = createClientFromRequest(req);
+    const user = await base44.auth.me();
+    if (!user || user.role !== 'admin') {
+      return Response.json({ error: 'Reconciliação de churn é restrita a administradores.' }, { status: 403 });
+    }
+
+    const body = await req.json().catch(() => ({}));
+
+    let source: any = null;
+    if (body?.source_id) {
+      source = await base44.asServiceRole.entities.ErpDataSource.get(body.source_id);
+    } else {
+      const sources = await base44.asServiceRole.entities.ErpDataSource.list();
+      const active = (sources || []).filter((s: any) => s?.is_active !== false);
+      source = active.find((s: any) => String(s?.status || '').toLowerCase() === 'connected')
+        || active.find((s: any) => String(s?.name || '').toLowerCase() === 'matriz')
+        || active.find((s: any) => s?.credential_reference === 'env')
+        || active[0]
+        || null;
+    }
+    if (!source) return Response.json({ error: 'Fonte ERP não encontrada.' }, { status: 404 });
+
+    let asOfDate = String(body?.as_of_date || '').slice(0, 10);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(asOfDate)) {
+      const snaps = await base44.asServiceRole.entities.ErpSnapshot.filter({ source_id: source.id, is_current: true });
+      asOfDate = String(snaps?.[0]?.max_date || '').slice(0, 10);
+    }
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(asOfDate)) {
+      return Response.json({ error: 'as_of_date é obrigatório quando não existe snapshot vigente.' }, { status: 400 });
+    }
+
+    const ctx = normalizeRentalChurnV4Context({
+      asOfDate,
+      inactivityMonths: Number(body?.inactivity_months) || 13,
+      periodStart: body?.period_start,
+      periodEnd: body?.period_end,
+    });
+    const dates = rentalChurnV4Dates(ctx);
+
+    const customerSql = buildRentalChurnV4CustomerSql(ctx);
+    const customerRows = rowsOf(await execRead(source, customerSql, 120000));
+
+    const normalized = customerRows.map((r: any) => ({
+      ...r,
+      cd_pessoa: String(r.cd_pessoa || ''),
+      first_activation_date: iso(r.first_activation_date),
+      last_ficha_closed: iso(r.last_ficha_closed),
+      last_return_entry: iso(r.last_return_entry),
+      last_billing_coverage_end: iso(r.last_billing_coverage_end),
+      last_valid_linked_nf: iso(r.last_valid_linked_nf),
+      last_canonical_nf: iso(r.last_canonical_nf),
+      min_relationship_end_signal: iso(r.min_relationship_end_signal),
+      relationship_end_date: iso(r.relationship_end_date),
+      churn_date: iso(r.churn_date),
+      v4_family: statusFamilyV4(String(r.v4_status || '')),
+      v3_family: statusFamilyV3(String(r.v3_status || '')),
+      divergence_explanation: DIVERGENCE_EXPLANATIONS[String(r.divergence_type || '')] || null,
+    }));
+
+    const activated = normalized.filter((r: any) => Number(r.activated_fichas) > 0);
+    const v3Population = normalized.filter((r: any) => Number(r.v3_population_member) === 1);
+    const v4Active = normalized.filter((r: any) => ['ATIVO_CONTRATO', 'ATIVO_CONTRATO_COM_ALERTA'].includes(r.v4_status));
+    const v4Churn = normalized.filter((r: any) => r.v4_status === 'CHURN_CONFIRMADO');
+    const v4Protected = normalized.filter((r: any) => r.v4_status === 'ENCERRADO_PROTEGIDO');
+    const v4Audit = normalized.filter((r: any) => String(r.v4_status || '').startsWith('AUDITAR_') || r.v4_status === 'ATIVO_CONTRATO_COM_ALERTA');
+    const populationOmitted = normalized.filter((r: any) => r.divergence_type === 'POPULACAO_V3_OMITE_CLIENTE_ATIVADO');
+    const ruleDivergences = normalized.filter((r: any) => r.divergence_type !== 'SEM_DIVERGENCIA_REGRA' && r.divergence_type !== 'POPULACAO_V3_OMITE_CLIENTE_ATIVADO');
+    const falseChurnContract = normalized.filter((r: any) => r.divergence_type === 'FALSO_CHURN_V3_CONTRATO_ATIVO');
+    const falseChurnAnchor = normalized.filter((r: any) => r.divergence_type === 'FALSO_CHURN_V3_ANCORA_TEMPORAL');
+    const hiddenChurnV3 = normalized.filter((r: any) => r.divergence_type === 'CHURN_OCULTO_V3_FICHA_ABERTA_STALE');
+    const fiscalDivergence = normalized.filter((r: any) => Number(r.fiscal_universe_divergence) === 1);
+    const anchorDivergence = normalized.filter((r: any) => Number(r.anchor_divergence_flag) === 1);
+
+    const comparable = normalized.filter((r: any) =>
+      Number(r.v3_population_member) === 1
+      && !['AUDITAR_SEM_NF'].includes(r.v3_status)
+      && !String(r.v4_status || '').startsWith('AUDITAR_')
+      && r.v4_status !== 'NAO_CLIENTE_LOCACAO',
+    );
+    const comparableAgree = comparable.filter((r: any) => Number(r.v3_is_churned) === Number(r.v4_is_churned));
+
+    const priority = (r: any) => {
+      const map: Record<string, number> = {
+        FALSO_CHURN_V3_CONTRATO_ATIVO: 100,
+        CHURN_OCULTO_V3_FICHA_ABERTA_STALE: 95,
+        FALSO_CHURN_V3_ANCORA_TEMPORAL: 90,
+        AUDITORIA_OPERACIONAL_V4: 85,
+        V4_ATIVO_COM_INCONSISTENCIA: 80,
+        UNIVERSO_FISCAL_V3_EXCLUI_NF_VINCULADA: 75,
+        POPULACAO_V3_OMITE_CLIENTE_ATIVADO: 60,
+        SEM_DIVERGENCIA_REGRA: 0,
+      };
+      return (map[r.divergence_type] || 10) + (Number(r.anchor_spread_days) || 0) / 1000;
+    };
+
+    const maxDivergences = Math.max(10, Math.min(Number(body?.max_divergences) || 200, 500));
+    const divergenceRows = normalized
+      .filter((r: any) => r.divergence_type !== 'SEM_DIVERGENCIA_REGRA')
+      .sort((a: any, b: any) => priority(b) - priority(a))
+      .slice(0, maxDivergences);
+
+    // Nome é enriquecimento apenas; a lógica de classificação permanece integralmente no ERP.
+    const names: Record<string, string> = {};
+    const nameCodes = [...new Set(divergenceRows.map((r: any) => r.cd_pessoa).filter((v: string) => /^\d+$/.test(v)))];
+    for (let i = 0; i < nameCodes.length; i += 400) {
+      const batch = nameCodes.slice(i, i + 400);
+      if (!batch.length) continue;
+      try {
+        const res = await execRead(source,
+          `SELECT cd_pessoa, COALESCE(NULLIF(nm_fan_pessoa,''), nm_pessoa) AS nm_pessoa FROM pessoa WITH (NOLOCK) WHERE cd_pessoa IN (${batch.join(',')})`,
+          30000,
+        );
+        for (const r of rowsOf(res)) names[String(r.cd_pessoa)] = String(r.nm_pessoa || '');
+      } catch { /* opcional */ }
+    }
+    for (const r of divergenceRows) r.nm_pessoa = names[r.cd_pessoa] || null;
+
+    // Evidência ficha a ficha somente para as maiores divergências, para manter a resposta auditável
+    // sem transportar toda a base detalhada ao navegador.
+    const includeDetails = body?.include_details !== false;
+    const detailLimit = Math.max(1, Math.min(Number(body?.detail_limit) || 50, 100));
+    const detailCodes = divergenceRows.slice(0, detailLimit).map((r: any) => r.cd_pessoa);
+    let fichaDetails: any[] = [];
+    let detailSql: string | null = null;
+    if (includeDetails && detailCodes.length) {
+      const detailCtx = normalizeRentalChurnV4Context({ ...ctx, customerIds: detailCodes });
+      detailSql = buildRentalChurnV4FichaDetailSql(detailCtx);
+      fichaDetails = rowsOf(await execRead(source, detailSql, 120000)).map((r: any) => ({
+        ...r,
+        cd_pessoa: String(r.cd_pessoa || ''),
+        cd_controle: String(r.cd_controle || ''),
+        dt_pedido: iso(r.dt_pedido),
+        dt_fai_ficha: iso(r.dt_fai_ficha),
+        dt_faf_ficha: iso(r.dt_faf_ficha),
+        dt_enc_ficha: iso(r.dt_enc_ficha),
+        dt_prevista_devolucao: iso(r.dt_prevista_devolucao),
+        dt_fat_ficha: iso(r.dt_fat_ficha),
+        dt_fau_ficha: iso(r.dt_fau_ficha),
+        dt_suspensao: iso(r.dt_suspensao),
+        first_remessa: iso(r.first_remessa),
+        last_remessa: iso(r.last_remessa),
+        last_dt_devolucao: iso(r.last_dt_devolucao),
+        last_dt_entrada: iso(r.last_dt_entrada),
+        first_fatura_geracao: iso(r.first_fatura_geracao),
+        last_fatura_geracao: iso(r.last_fatura_geracao),
+        first_fatura_inicio: iso(r.first_fatura_inicio),
+        last_fatura_fim: iso(r.last_fatura_fim),
+        first_valid_nf: iso(r.first_valid_nf),
+        last_valid_nf: iso(r.last_valid_nf),
+        last_canonical_nf: iso(r.last_canonical_nf),
+      }));
+    }
+
+    // Importante: incidência de churn por período exige episódios históricos. O snapshot
+    // desta função não inventa uma taxa usando apenas o último relacionamento; isso fica
+    // explicitamente bloqueado até o motor de episódios unir contratos sobrepostos e detectar
+    // gaps > N meses, inclusive churn seguido de reativação.
+    const summary = {
+      all_people_with_ficha: normalized.length,
+      historically_activated_customers: activated.length,
+      v3_population_customers: v3Population.length,
+      v3_population_coverage_pct: activated.length ? Number((v3Population.length / activated.length * 100).toFixed(2)) : 0,
+      v3_population_omitted_activated: populationOmitted.length,
+      v4_active_contract_customers: v4Active.length,
+      v4_protected_closed_customers: v4Protected.length,
+      v4_churn_snapshot_customers: v4Churn.length,
+      v4_operational_audit_customers: v4Audit.length,
+      comparable_customers: comparable.length,
+      churn_class_agreement_customers: comparableAgree.length,
+      churn_class_agreement_pct: comparable.length ? Number((comparableAgree.length / comparable.length * 100).toFixed(2)) : 0,
+      known_rule_divergences: ruleDivergences.length,
+      false_churn_v3_open_contract: falseChurnContract.length,
+      false_churn_v3_temporal_anchor: falseChurnAnchor.length,
+      hidden_churn_v3_stale_open_ficha: hiddenChurnV3.length,
+      fiscal_universe_divergence_customers: fiscalDivergence.length,
+      fiscal_linked_valid_documents: normalized.reduce((s: number, r: any) => s + (Number(r.valid_linked_nf_count) || 0), 0),
+      fiscal_canonical_documents: normalized.reduce((s: number, r: any) => s + (Number(r.canonical_nf_count) || 0), 0),
+      anchor_spread_over_45d_customers: anchorDivergence.length,
+      unexplained_divergences_vs_sisloc_ground_truth: null,
+    };
+
+    return Response.json({
+      success: true,
+      engine: {
+        version: RENTAL_CHURN_V4_VERSION,
+        status: RENTAL_CHURN_V4_STATUS,
+        trusted: false,
+        reconciliation_stage: 'V3_V4_RULE_RECONCILIATION',
+        sisloc_ground_truth_status: 'PENDING_DIRECTED_SAMPLE_VALIDATION',
+      },
+      source: { id: source.id, name: source.name, status: source.status },
+      context: {
+        as_of_date: ctx.asOfDate,
+        inactivity_months: ctx.inactivityMonths,
+        churn_cutoff: dates.cutoff,
+        v3_ref_start: dates.refStart,
+        v3_analysis_start: dates.analysisStart,
+        v3_analysis_end: dates.analysisEnd,
+        period_start: ctx.periodStart,
+        period_end_exclusive: ctx.periodEnd,
+      },
+      summary,
+      period_churn: {
+        status: 'BLOCKED_EPISODE_ENGINE',
+        trusted: false,
+        reason: 'Taxa de churn por período exige reconstrução de episódios cliente-a-cliente para preservar churns históricos seguidos de reativação; o snapshot atual usa somente o relacionamento vigente/mais recente.',
+        new_churn_events: null,
+        eligible_customers_at_period_start: null,
+        period_churn_rate: null,
+      },
+      divergence_breakdown: Object.entries(normalized.reduce((acc: Record<string, number>, r: any) => {
+        const key = String(r.divergence_type || 'NAO_CLASSIFICADO');
+        acc[key] = (acc[key] || 0) + 1;
+        return acc;
+      }, {})).map(([type, count]) => ({
+        type,
+        count,
+        explanation: DIVERGENCE_EXPLANATIONS[type] || null,
+      })).sort((a: any, b: any) => b.count - a.count),
+      top_divergences: divergenceRows,
+      ficha_evidence: fichaDetails,
+      queries: body?.include_queries === true ? { customer: customerSql, detail: detailSql } : undefined,
+      duration_ms: Date.now() - started,
+    });
+  } catch (error) {
+    return Response.json({ success: false, error: error?.message || String(error) }, { status: 500 });
+  }
+}
