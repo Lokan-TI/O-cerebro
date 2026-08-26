@@ -96,6 +96,15 @@ export default function TabChurn() {
         </div>
       )}
 
+      <ChurnV4ReconciliationPanel
+        sourceId={effectiveSource?.id}
+        asOfDate={dates.analysis_end_inclusive}
+        periodStart={period.start}
+        periodEnd={period.endExclusive}
+        inactivityMonths={inactivityMonths}
+        autoRun={!loading}
+      />
+
       {error && (
         <div className="bg-red-900/30 border border-red-700 rounded-lg p-4 flex items-start gap-3">
           <AlertTriangle className="w-5 h-5 text-red-400 shrink-0" />
@@ -118,13 +127,6 @@ export default function TabChurn() {
           {data.monthly_churn?.length > 0 && <ChurnTimeline monthlyChurn={data.monthly_churn} />}
           <ChurnNameGroups clients={data.churned_clients} />
           <ChurnClientTable clients={data.churned_clients} />
-          <ChurnV4ReconciliationPanel
-            sourceId={effectiveSource?.id}
-            asOfDate={dates.analysis_end_inclusive}
-            periodStart={period.start}
-            periodEnd={period.endExclusive}
-            inactivityMonths={inactivityMonths}
-          />
         </>
       ) : !loading && !error ? (
         <div className="text-center py-12 text-gray-500">
