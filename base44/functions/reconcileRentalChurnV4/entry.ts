@@ -304,12 +304,11 @@ export default async function (req: Request): Promise<Response> {
     ])].slice(0, detailLimit);
     let fichaDetails: any[] = [];
     let detailSql: string | null = null;
-        last_canonical_nf: iso(r.last_canonical_nf),
-      }));
-      await trace({ status: 'detail_query', step: 'detail_query_completed', detail_rows: fichaDetails.length, audit_cases: auditCandidates.length });
-    }
-
-    const episodeCustomers = new Map();
+    if (includeDetails && detailCodes.length) {
+      const detailCtx = normalizeRentalChurnV4Context({ ...ctx, customerIds: detailCodes });
+      detailSql = buildRentalChurnV4FichaDetailSql(detailCtx);
+      await trace({ status: 'detail_query', step: 'detail_query_started', audit_cases: auditCandidates.length });
+      fichaDetails = rowsOf(await execRead(source, detailSql, 120000)).map((r: any) => ({
         ...r,
         cd_pessoa: String(r.cd_pessoa || ''),
         cd_controle: String(r.cd_controle || ''),
@@ -333,6 +332,7 @@ export default async function (req: Request): Promise<Response> {
         last_valid_nf: iso(r.last_valid_nf),
         last_canonical_nf: iso(r.last_canonical_nf),
       }));
+      await trace({ status: 'detail_query', step: 'detail_query_completed', detail_rows: fichaDetails.length, audit_cases: auditCandidates.length });
     }
 
     const episodeCustomers = new Map();
