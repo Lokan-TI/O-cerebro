@@ -1,10 +1,26 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { base44 } from "@/api/base44Client";
 import { AlertTriangle, CheckCircle2, FlaskConical, Loader2, RefreshCw } from "lucide-react";
 
 const num = (v) => Number(v || 0).toLocaleString("pt-BR");
 const pct = (v) => `${Number(v || 0).toLocaleString("pt-BR", { minimumFractionDigits: 1, maximumFractionDigits: 2 })}%`;
 const dateBr = (v) => v ? new Date(`${String(v).slice(0, 10)}T00:00:00`).toLocaleDateString("pt-BR") : "—";
+
+const CASE_LABELS = {
+  FULL_LOG_GROUND_TRUTH_676399: "Caso full log · ficha 676399",
+  FALSO_CHURN_V3_CONTRATO_ATIVO: "Falso churn v3 · contrato ativo",
+  FALSO_CHURN_V3_ANCORA_TEMPORAL: "Falso churn v3 · âncora temporal",
+  FICHA_ABERTA_STALE: "Ficha aberta stale",
+  INCONSISTENCIA_OPERACIONAL: "Inconsistência operacional",
+  UNIVERSO_FISCAL_DIVERGENTE: "Universo fiscal divergente",
+  MULTIPLAS_FICHAS_UMA_ATIVA: "Múltiplas fichas · uma ativa",
+  ATIVO_CONTRATO_CONTROLE: "Controle positivo · ativo",
+  ENCERRADO_PROTEGIDO_CONTROLE: "Controle · encerrado protegido",
+  CHURN_CONFIRMADO_CONTROLE: "Controle · churn confirmado",
+  ATIVADO_SEM_NF_VINCULADA: "Ativado sem NF vinculada",
+  FICHA_NUNCA_ATIVADA: "Ficha nunca ativada",
+  SAZONAL_12_A_13_MESES: "Sazonal · 12 a 13 meses",
+};
 
 const LABELS = {
   POPULACAO_V3_OMITE_CLIENTE_ATIVADO: "Cliente ativado fora da coorte v3",
