@@ -1,19 +1,8 @@
 import { useState } from "react";
-import * as XLSX from "xlsx";
 import { base44 } from "@/api/base44Client";
+import { downloadEmailFlowsWorkbook } from "./emailFlowsWorkbook";
 import { Button } from "@/components/ui/button";
 import { Download, Loader2, RefreshCw } from "lucide-react";
-
-const COLS = [
-  ["nome", "Nome"], ["nome_fantasia", "Nome fantasia"], ["email", "E-mail"],
-  ["telefone", "Telefone"], ["celular", "Celular"], ["cpf", "CPF"], ["cnpj", "CNPJ"],
-  ["cidade", "Cidade"], ["uf", "UF"], ["dt_cadastro", "Cadastro"],
-  ["qtd_orcamentos", "Orçamentos"], ["dt_ultimo_orcamento", "Último orçamento"],
-  ["orcamento_aprovado", "Orçamento aprovado"], ["qtd_locacoes", "Locações"],
-  ["dt_ultima_locacao", "Última locação"], ["dt_ultima_devolucao", "Última devolução"],
-  ["ultimo_equipamento", "Último equipamento"], ["valor_faturado", "Valor faturado"],
-  ["dt_ultima_interacao", "Última interação"], ["dias_sem_interacao", "Dias sem interação"],
-];
 
 export default function EmailFlowsExport() {
   const [loading, setLoading] = useState(false);
@@ -34,16 +23,7 @@ export default function EmailFlowsExport() {
 
   const download = () => {
     if (!data?.rows?.length) return;
-    const groups = data.rows.reduce((acc, r) => {
-      (acc[r.fluxo] = acc[r.fluxo] || []).push(r);
-      return acc;
-    }, {});
-    const wb = XLSX.utils.book_new();
-    Object.entries(groups).sort(([a], [b]) => a.localeCompare(b)).forEach(([fluxo, rows]) => {
-      const aoa = [COLS.map(([, l]) => l), ...rows.map((r) => COLS.map(([k]) => r[k] ?? ""))];
-      XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(aoa), fluxo.slice(0, 31));
-    });
-    XLSX.writeFile(wb, `fluxos-email-clientes-${new Date().toISOString().slice(0, 10)}.xlsx`);
+    downloadEmailFlowsWorkbook(data);
   };
 
   const counts = data?.rows
