@@ -18,6 +18,7 @@ import ProjecaoLongoPrazo from './pages/ProjecaoLongoPrazo.jsx';
 import AtivosCustos from './pages/AtivosCustos.jsx';
 import DetalhamentoFinanceiro from './pages/DetalhamentoFinanceiro.jsx';
 import RdStationCallback from './pages/RdStationCallback.jsx';
+import FluxosEmail from './pages/FluxosEmail.jsx';
 import { ErpSourceProvider } from '@/lib/ErpSourceContext';
 import { ErpSnapshotProvider } from '@/lib/ErpSnapshotContext';
 import { EmpresaFilterProvider } from '@/lib/EmpresaFilterContext';
@@ -115,6 +116,11 @@ const AuthenticatedApp = () => {
       <Route path="/DetalhamentoFinanceiro" element={
         <LayoutWrapper currentPageName="DetalhamentoFinanceiro">
           <DetalhamentoFinanceiro />
+        </LayoutWrapper>
+      } />
+      <Route path="/FluxosEmail" element={
+        <LayoutWrapper currentPageName="FluxosEmail">
+          <FluxosEmail />
         </LayoutWrapper>
       } />
       <Route path="/Integracoes" element={
