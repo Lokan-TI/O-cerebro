@@ -337,8 +337,145 @@ export default async function (req: Request): Promise<Response> {
       unexplained_divergences_vs_sisloc_ground_truth: null,
     };
 
+    const periodChurn = {
+      status: 'CANDIDATE_EPISODE_ENGINE_NOT_TRUSTED',
+      trusted: false,
+      period_start: ctx.periodStart,
+      period_end_exclusive: ctx.periodEnd,
+      eligible_customers_at_period_start_raw: periodEligibleRaw.length,
+      excluded_current_operational_audit: periodEligibleRaw.length - periodEligible.length,
+      eligible_customers_at_period_start: periodEligible.length,
+      new_churn_customers: periodChurnCustomers.length,
+      new_churn_events: periodChurnEvents,
+      period_churn_rate: Number(periodChurnRate.toFixed(4)),
+      historical_churn_events_detected: historicalChurnEvents.length,
+      historical_churns_with_later_reactivation: reactivatedAfterChurn.length,
+      methodology: 'Fichas ativadas -> intervalos -> união de contratos sobrepostos -> episódio -> churn_date = episode_end + N meses, somente se não houver novo episódio até essa data.',
+      caveat: 'Ainda NÃO TRUSTED: precisa ser reconciliado em amostra dirigida, principalmente devoluções parciais, fichas abertas stale e diferenças entre fim operacional e cobertura faturada.',
+    };
+
+    const divergenceBreakdown = Object.entries(normalized.reduce((acc: Record<string, number>, r: any) => {
+      const key = String(r.divergence_type || 'NAO_CLASSIFICADO');
+      acc[key] = (acc[key] || 0) + 1;
+      return acc;
+    }, {})).map(([type, count]) => ({
+      type,
+      count,
+      explanation: DIVERGENCE_EXPLANATIONS[type] || null,
+    })).sort((a: any, b: any) => b.count - a.count);
+
+    // Materializa a amostra dirigida para que a homologação sobreviva ao refresh da tela.
+    const detailsByCustomer = new Map<string, any[]>();
+    for (const f of fichaDetails) {
+      const key = String(f.cd_pessoa || '');
+      if (!detailsByCustomer.has(key)) detailsByCustomer.set(key, []);
+      detailsByCustomer.get(key)!.push(f);
+    }
+
+    const runId = `CHURNV4-${source.id}-${ctx.asOfDate}-${Date.now()}`;
+    const auditCaseRecords = auditCandidates.map((c: any) => {
+      const r = c.row;
+      const fichas = detailsByCustomer.get(String(r.cd_pessoa)) || [];
+      const operationalStates = [...new Set(fichas.map((f: any) => String(f.operational_state || '')).filter(Boolean))];
+      const saldoFisico = fichas.reduce((s: number, f: any) => s + (Number(f.saldo_fisico_atual) || 0), 0);
+      const devolucoesPendentes = fichas.reduce((s: number, f: any) => s + (Number(f.devolucoes_pendentes) || 0), 0);
+      const evidence = {
+        customer: {
+          cd_pessoa: r.cd_pessoa,
+          nm_pessoa: r.nm_pessoa || null,
+          v3_status: r.v3_status,
+          v4_status: r.v4_status,
+          divergence_type: r.divergence_type,
+          relationship_end_date: r.relationship_end_date,
+          churn_date: r.churn_date,
+          v3_last_nf: r.v3_last_nf,
+          last_valid_linked_nf: r.last_valid_linked_nf,
+          active_operational_fichas: Number(r.active_operational_fichas) || 0,
+          inconsistent_fichas: Number(r.inconsistent_fichas) || 0,
+          valid_linked_nf_count: Number(r.valid_linked_nf_count) || 0,
+          canonical_nf_count: Number(r.canonical_nf_count) || 0,
+        },
+        fichas,
+      };
+      return {
+        run_id: runId,
+        source_id: source.id,
+        case_type: c.case_type,
+        priority: c.priority,
+        cd_pessoa: String(r.cd_pessoa),
+        nm_pessoa: r.nm_pessoa || '',
+        cd_controle: fichas.length === 1 ? String(fichas[0].cd_controle || '') : '',
+        v3_status: String(r.v3_status || ''),
+        v4_status: String(r.v4_status || ''),
+        operational_status: operationalStates.join(', ').slice(0, 500),
+        divergence_type: String(r.divergence_type || ''),
+        relationship_end_date: r.relationship_end_date || '',
+        churn_date: r.churn_date || '',
+        last_rental_nf: r.last_valid_linked_nf || r.v3_last_nf || '',
+        active_operational_fichas: Number(r.active_operational_fichas) || 0,
+        inconsistent_fichas: Number(r.inconsistent_fichas) || 0,
+        physical_balance: saldoFisico,
+        pending_returns: devolucoesPendentes,
+        valid_linked_nf_count: Number(r.valid_linked_nf_count) || 0,
+        canonical_nf_count: Number(r.canonical_nf_count) || 0,
+        evidence_json: JSON.stringify(evidence).slice(0, 60000),
+        sisloc_observed_status: '',
+        verdict: 'pending',
+        reviewed: false,
+        explanation: '',
+      };
+    });
+
+    let persistenceWarning: string | null = null;
+    if (body?.persist !== false) {
+      try {
+        await base44.asServiceRole.entities.ChurnV4ReconciliationRun.create({
+          run_id: runId,
+          source_id: source.id,
+          source_name: source.name || '',
+          version: RENTAL_CHURN_V4_VERSION,
+          as_of_date: ctx.asOfDate,
+          period_start: ctx.periodStart,
+          period_end: ctx.periodEnd,
+          inactivity_months: ctx.inactivityMonths,
+          status: 'reviewing',
+          trusted: false,
+          historically_activated_customers: summary.historically_activated_customers,
+          v3_population_customers: summary.v3_population_customers,
+          v4_churn_snapshot_customers: summary.v4_churn_snapshot_customers,
+          known_rule_divergences: summary.known_rule_divergences,
+          comparable_customers: summary.comparable_customers,
+          churn_class_agreement_pct: summary.churn_class_agreement_pct,
+          false_churn_v3_open_contract: summary.false_churn_v3_open_contract,
+          false_churn_v3_temporal_anchor: summary.false_churn_v3_temporal_anchor,
+          stale_open_ficha_v3_requires_audit: summary.stale_open_ficha_v3_requires_audit,
+          v4_operational_audit_customers: summary.v4_operational_audit_customers,
+          fiscal_universe_divergence_customers: summary.fiscal_universe_divergence_customers,
+          eligible_customers_at_period_start: periodChurn.eligible_customers_at_period_start,
+          new_churn_customers: periodChurn.new_churn_customers,
+          new_churn_events: periodChurn.new_churn_events,
+          period_churn_rate: periodChurn.period_churn_rate,
+          historical_churns_with_later_reactivation: periodChurn.historical_churns_with_later_reactivation,
+          unexplained_divergences: -1,
+          summary_json: JSON.stringify(summary),
+          period_churn_json: JSON.stringify(periodChurn),
+          divergence_breakdown_json: JSON.stringify(divergenceBreakdown),
+          generated_at: new Date().toISOString(),
+          generated_by_name: user.full_name || user.email || '',
+          notes: 'Run persistido automaticamente pela reconciliação v4. unexplained_divergences=-1 significa ground truth ainda não concluído.',
+        });
+        if (auditCaseRecords.length) {
+          await base44.asServiceRole.entities.ChurnV4AuditCase.bulkCreate(auditCaseRecords.slice(0, 100));
+        }
+      } catch (persistError) {
+        persistenceWarning = `Reconciliação calculada, mas não foi possível persistir o run: ${persistError?.message || String(persistError)}`;
+      }
+    }
+
     return Response.json({
       success: true,
+      run_id: runId,
+      persistence_warning: persistenceWarning,
       engine: {
         version: RENTAL_CHURN_V4_VERSION,
         status: RENTAL_CHURN_V4_STATUS,
@@ -358,33 +495,11 @@ export default async function (req: Request): Promise<Response> {
         period_end_exclusive: ctx.periodEnd,
       },
       summary,
-      period_churn: {
-        status: 'CANDIDATE_EPISODE_ENGINE_NOT_TRUSTED',
-        trusted: false,
-        period_start: ctx.periodStart,
-        period_end_exclusive: ctx.periodEnd,
-        eligible_customers_at_period_start_raw: periodEligibleRaw.length,
-        excluded_current_operational_audit: periodEligibleRaw.length - periodEligible.length,
-        eligible_customers_at_period_start: periodEligible.length,
-        new_churn_customers: periodChurnCustomers.length,
-        new_churn_events: periodChurnEvents,
-        period_churn_rate: Number(periodChurnRate.toFixed(4)),
-        historical_churn_events_detected: historicalChurnEvents.length,
-        historical_churns_with_later_reactivation: reactivatedAfterChurn.length,
-        methodology: 'Fichas ativadas -> intervalos -> união de contratos sobrepostos -> episódio -> churn_date = episode_end + N meses, somente se não houver novo episódio até essa data.',
-        caveat: 'Ainda NÃO TRUSTED: precisa ser reconciliado em amostra dirigida, principalmente devoluções parciais, fichas abertas stale e diferenças entre fim operacional e cobertura faturada.',
-      },
+      period_churn: periodChurn,
       period_churn_events: churnEventsInPeriodRows.slice(0, 500),
-      divergence_breakdown: Object.entries(normalized.reduce((acc: Record<string, number>, r: any) => {
-        const key = String(r.divergence_type || 'NAO_CLASSIFICADO');
-        acc[key] = (acc[key] || 0) + 1;
-        return acc;
-      }, {})).map(([type, count]) => ({
-        type,
-        count,
-        explanation: DIVERGENCE_EXPLANATIONS[type] || null,
-      })).sort((a: any, b: any) => b.count - a.count),
+      divergence_breakdown: divergenceBreakdown,
       top_divergences: divergenceRows,
+      audit_cases: auditCaseRecords.map(({ evidence_json, ...r }: any) => r),
       ficha_evidence: fichaDetails,
       queries: body?.include_queries === true ? { customer: customerSql, episodes: episodeSql, detail: detailSql } : undefined,
       duration_ms: Date.now() - started,
