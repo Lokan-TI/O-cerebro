@@ -15,13 +15,17 @@ export default function FinYoYAccumulated({ rows = [], metric = "car", title = "
     const cur = years[years.length - 1];
     const prev = years[years.length - 2];
     const acc = { [cur]: 0, [prev]: 0 };
+    // Quando o "ano atual" é o ano corrente, a curva para no mês corrente:
+    // meses futuros trazem apenas lançamentos programados e distorcem a leitura.
+    const now = new Date();
+    const lastMonth = cur === now.getFullYear() ? now.getMonth() + 1 : 12;
     const data = MESES.map((m, idx) => {
       const mes = idx + 1;
       const vCur = norm.find((r) => r.ano === cur && r.mes === mes)?.[metric] || 0;
       const vPrev = norm.find((r) => r.ano === prev && r.mes === mes)?.[metric] || 0;
       acc[cur] += vCur;
       acc[prev] += vPrev;
-      const hasCur = norm.some((r) => r.ano === cur && r.mes === mes);
+      const hasCur = mes <= lastMonth && norm.some((r) => r.ano === cur && r.mes === mes);
       return {
         label: m,
         atual: hasCur ? acc[cur] : null,
