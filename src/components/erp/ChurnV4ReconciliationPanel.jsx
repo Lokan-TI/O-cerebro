@@ -151,6 +151,67 @@ export default function ChurnV4ReconciliationPanel({ sourceId, asOfDate, periodS
     return data.ficha_evidence.filter((r) => String(r.cd_pessoa) === String(selectedCustomer));
   }, [data, selectedCustomer]);
 
+  const selectedAudit = useMemo(
+    () => auditCases.find((c) => String(c.id) === String(selectedAuditId)) || null,
+    [auditCases, selectedAuditId],
+  );
+
+  useEffect(() => {
+    if (!selectedAudit) return;
+    setReviewDraft({
+      sisloc_observed_status: selectedAudit.sisloc_observed_status || "",
+      verdict: selectedAudit.verdict || "pending",
+      explanation: selectedAudit.explanation || "",
+    });
+    setSelectedCustomer(selectedAudit.cd_pessoa || null);
+  }, [selectedAudit]);
+
+  const auditStats = useMemo(() => ({
+    total: auditCases.length,
+    pending: auditCases.filter((c) => !c.reviewed || c.verdict === "pending").length,
+    match: auditCases.filter((c) => c.verdict === "match").length,
+    explained: auditCases.filter((c) => c.verdict === "explained").length,
+    fail: auditCases.filter((c) => c.verdict === "fail").length,
+  }), [auditCases]);
+
+  const saveReview = async () => {
+    if (!selectedAudit) return;
+    setSavingReview(true);
+    setError(null);
+    try {
+      const user = await base44.auth.me();
+      const reviewed = reviewDraft.verdict !== "pending";
+      await base44.entities.ChurnV4AuditCase.update(selectedAudit.id, {
+        sisloc_observed_status: reviewDraft.sisloc_observed_status,
+        verdict: reviewDraft.verdict,
+        reviewed,
+        explanation: reviewDraft.explanation,
+        reviewer_name: user?.full_name || user?.email || "",
+        reviewed_at: reviewed ? new Date().toISOString() : null,
+      });
+      const cases = await loadCasesForRun(data?.run_id || selectedAudit.run_id);
+      const pending = cases.filter((c) => !c.reviewed || c.verdict === "pending").length;
+      const fail = cases.filter((c) => c.verdict === "fail").length;
+      const runs = await base44.entities.ChurnV4ReconciliationRun.filter({ run_id: data?.run_id || selectedAudit.run_id }, "-generated_at", 1);
+      if (runs?.[0]) {
+        await base44.entities.ChurnV4ReconciliationRun.update(runs[0].id, {
+          unexplained_divergences: fail,
+          status: pending > 0 ? "reviewing" : fail > 0 ? "failed" : "candidate",
+          trusted: false,
+          notes: pending > 0
+            ? `Ground truth em andamento: ${pending} caso(s) pendente(s), ${fail} falha(s) não explicada(s).`
+            : fail > 0
+              ? `Ground truth concluído com ${fail} falha(s) não explicada(s). Regra não pode ser promovida.`
+              : "Amostra dirigida concluída sem falhas não explicadas. Ainda requer decisão formal antes de promover TRUSTED.",
+        });
+      }
+    } catch (e) {
+      setError(`Falha ao salvar homologação: ${String(e?.message || e)}`);
+    } finally {
+      setSavingReview(false);
+    }
+  };
+
   const s = data?.summary || {};
   const pc = data?.period_churn || {};
 
