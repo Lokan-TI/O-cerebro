@@ -138,6 +138,9 @@ Deno.serve(async (req) => {
 
       if (emPosse) { emLocacaoAtiva++; continue; }
 
+      const email = String(p.en_mail_pessoa || '').trim();
+      if (!email) { semEmail++; if (somenteComEmail) continue; }
+
       let fluxo = '';
       if (temLocacao) fluxo = 'Fluxo 05 - Pós-locação';
       else if (ultOrcamento && diasOrcamento !== null && diasOrcamento <= 30) fluxo = 'Fluxo 03 - Interesse comercial';
@@ -152,7 +155,7 @@ Deno.serve(async (req) => {
         cd_pessoa: Number(p.cd_pessoa) || key,
         nome: String(p.nm_pessoa || '').trim(),
         nome_fantasia: String(p.nm_fan_pessoa || '').trim(),
-        email: String(p.en_mail_pessoa || '').trim(),
+        email,
         telefone: String(p.tel_pessoa || '').trim(),
         celular: String(p.tl_cel_pessoa || '').trim(),
         cpf: String(p.nr_cpf_pessoa || '').trim(),
@@ -182,6 +185,8 @@ Deno.serve(async (req) => {
       total: out.length,
       counts,
       excluidos_em_locacao_ativa: emLocacaoAtiva,
+      clientes_sem_email: semEmail,
+      somente_com_email: somenteComEmail,
       generated_at: new Date().toISOString(),
     });
   } catch (error) {
