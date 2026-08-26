@@ -54,6 +54,32 @@ const brl = (v) => Number(v || 0).toLocaleString("pt-BR", { style: "currency", c
 const num = (v) => Number(v || 0).toLocaleString("pt-BR");
 const dateBr = (v) => v ? new Date(`${v}T00:00:00`).toLocaleDateString("pt-BR") : "—";
 
+function mergeGrowthFleet(core, fleet) {
+  if (!core) return core;
+  const patTotal = fleet?.frota?.pat_total;
+  const patLocados = fleet?.frota?.pat_locados;
+  const receita = Number(core?.receita?.vl_gerado || 0);
+  return {
+    ...core,
+    partial: Boolean(core?.partial || fleet?.partial),
+    frota: {
+      ...(core.frota || {}),
+      ...(fleet?.frota || {}),
+      remessas: core?.frota?.remessas,
+      devolucoes: core?.frota?.devolucoes,
+    },
+    receita: {
+      ...(core.receita || {}),
+      revpae: Number(patLocados) > 0 ? receita / Number(patLocados) : null,
+      receita_por_patrimonio: Number(patTotal) > 0 ? receita / Number(patTotal) : null,
+    },
+    warnings: [...(core.warnings || []), ...(fleet?.warnings || [])],
+    queries: [...(core.queries || []), ...(fleet?.queries || [])],
+    duration_ms: Number(core.duration_ms || 0) + Number(fleet?.duration_ms || 0),
+    fleet_execution_id: fleet?.execution_id || null,
+  };
+}
+
 function Overview({ growth, loading, error, dept, load, selectedSource }) {
   return (
     <div className="space-y-6">
@@ -212,19 +238,64 @@ export default function GrowthMarketing() {
     : undefined;
 
   const loadGrowth = useCallback(async () => {
-    setLoading(true); setError(null);
+    setLoading(true);
+    setError(null);
+    const cacheKey = `growth-overview:${sourceId || "matriz"}:${period.start}:${period.endExclusive}`;
+
     try {
-      const res = await base44.functions.invoke("analyzeGrowth", {
+      const coreResponse = await base44.functions.invoke("analyzeGrowth", {
         ...(sourceId ? { source_id: sourceId } : {}),
         start_date: period.start,
         end_date: period.end,
         end_date_exclusive: period.endExclusive,
       });
-      const result = res?.data || res;
-      if (result?.error) setError(result.error); else setGrowth(result);
+      const core = coreResponse?.data || coreResponse;
+      if (!core?.success) throw new Error(core?.error || "O núcleo comercial de Growth não retornou dados.");
+
+      // Renderiza a camada comercial imediatamente. Frota/idle é um complemento isolado,
+      // portanto não pode mais provocar tela vazia ou HTTP 502 na área inteira.
+      setGrowth(core);
+      try { localStorage.setItem(cacheKey, JSON.stringify(core)); } catch {}
+
+      try {
+        const fleetResponse = await base44.functions.invoke("analyzeGrowthFleet", {
+          ...(sourceId ? { source_id: sourceId } : {}),
+          start_date: period.start,
+          end_date: period.end,
+          end_date_exclusive: period.endExclusive,
+        });
+        const fleet = fleetResponse?.data || fleetResponse;
+        if (fleet?.success) {
+          const merged = mergeGrowthFleet(core, fleet);
+          setGrowth(merged);
+          try { localStorage.setItem(cacheKey, JSON.stringify(merged)); } catch {}
+        } else {
+          setGrowth((previous) => ({
+            ...previous,
+            warnings: [...(previous?.warnings || []), fleet?.error || "A camada de frota não respondeu; os indicadores comerciais permanecem disponíveis."],
+          }));
+        }
+      } catch (fleetError) {
+        setGrowth((previous) => ({
+          ...previous,
+          warnings: [
+            ...(previous?.warnings || []),
+            `Frota/idle indisponível nesta atualização: ${String(fleetError?.message || fleetError).slice(0, 180)}`,
+          ],
+        }));
+      }
     } catch (e) {
-      setError("Não foi possível consultar o ERP agora. Detalhe: " + String(e?.message || e).slice(0, 220));
-    } finally { setLoading(false); }
+      let cached = null;
+      try { cached = JSON.parse(localStorage.getItem(cacheKey) || "null"); } catch {}
+      if (cached) {
+        setGrowth(cached);
+        setError(`O ERP não respondeu nesta tentativa. Exibindo a última leitura salva para esta janela. Detalhe: ${String(e?.message || e).slice(0, 180)}`);
+      } else {
+        setError("Não foi possível consultar o ERP agora. Detalhe: " + String(e?.message || e).slice(0, 220));
+      }
+    } finally {
+      setLoading(false);
+    }
   }, [sourceId, period.start, period.end, period.endExclusive]);
 
   const loadChurn = useCallback(async () => {

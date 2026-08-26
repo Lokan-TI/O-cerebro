@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { base44 } from "@/api/base44Client";
 import { Loader2, AlertTriangle, CheckCircle2 } from "lucide-react";
 
 // Rota de retorno (callback) do OAuth do RD Station CRM.
@@ -24,11 +25,24 @@ export default function RdStationCallback() {
       });
       return;
     }
-    setState({
-      phase: "pending",
-      message:
-        "Código de autorização recebido. A troca por token será concluída assim que as credenciais do app (Client ID e Client Secret) forem cadastradas no Cérebro.",
-    });
+    base44.functions
+      .invoke("rdStationOAuth", { action: "exchange", code })
+      .then((r) => {
+        if (r.data?.error) {
+          setState({ phase: "error", message: r.data.error });
+          return;
+        }
+        setState({
+          phase: "pending",
+          message: "Conta RD Station conectada. O Cérebro já pode ler os dados da conta.",
+        });
+      })
+      .catch((e) =>
+        setState({
+          phase: "error",
+          message: e?.response?.data?.error || e.message || "Falha ao concluir a autorização.",
+        }),
+      );
   }, []);
 
   return (
