@@ -10,8 +10,15 @@ import { useErpSnapshot } from "@/lib/ErpSnapshotContext";
 import { useEmpresaFilter } from "@/lib/EmpresaFilterContext";
 import { getEmpresaLabel } from "@/lib/empresaLabels";
 import { fmtCur, fmtNum, fmtMonthLabel } from "@/lib/erpFormat";
+import { sortMonthly } from "@/lib/finMonthParse";
+import FinKpiStrip from "@/components/financeiro/FinKpiStrip";
+import FinYoYAccumulated from "@/components/financeiro/FinYoYAccumulated";
+import FinRankBars from "@/components/financeiro/FinRankBars";
+import FinCompositionDonut from "@/components/financeiro/FinCompositionDonut";
+import FinProgressGoal from "@/components/financeiro/FinProgressGoal";
+import FinMonthlyMatrix from "@/components/financeiro/FinMonthlyMatrix";
 import {
-  TrendingUp, TrendingDown, AlertTriangle, FileText, Calculator, BarChart3,
+  AlertTriangle, BarChart3,
 } from "lucide-react";
 import {
   ResponsiveContainer, ComposedChart, Bar, Line, XAxis, YAxis,
@@ -44,10 +51,10 @@ export default function TabFinanceiro() {
   const carEmp = aView.carByEmp;
   const balancete = analytics.plano_balancete || [];
 
-  const carVsCapMonthly = (analytics.car_vs_cap_monthly || []).map((r) => ({
-    label: r.label || fmtMonthLabel(r.mes, r.ano), ano: r.ano, car: r.car || 0, cap: r.cap || 0,
+  const carVsCapMonthly = sortMonthly((analytics.car_vs_cap_monthly || []).map((r) => ({
+    label: r.label || fmtMonthLabel(r.mes, r.ano), ano: r.ano, mes: r.mes, car: r.car || 0, cap: r.cap || 0,
     car_baixado: r.car_baixado || 0, cap_baixado: r.cap_baixado || 0,
-  }));
+  })));
 
   // Agregado ano a ano (sem detalhe mensal)
   const carVsCapYearly = Object.values(
@@ -76,62 +83,17 @@ export default function TabFinanceiro() {
         </div>
       </div>
 
-      {/* KPIs principais — 4 blocos */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="rounded-xl border border-green-700/40 bg-green-950/30 p-4">
-          <div className="flex items-center gap-2 mb-2"><TrendingUp className="w-4 h-4 text-green-400" /><span className="text-xs text-gray-400 uppercase">Faturamento NF</span></div>
-          <div className="text-2xl font-bold text-white">{fmtCur(receita)}</div>
-          <div className="text-xs text-gray-500 mt-1">
-            Ano anterior: {fmtCur(receitaAnt)}
-            {crescimento != null && (<> · <span className={crescimento >= 0 ? "text-green-400" : "text-red-400"}>{crescimento >= 0 ? "+" : ""}{crescimento.toFixed(1)}%</span></>)}
-          </div>
-        </div>
-        <div className="rounded-xl border border-blue-700/40 bg-blue-950/30 p-4">
-          <div className="flex items-center gap-2 mb-2"><FileText className="w-4 h-4 text-blue-400" /><span className="text-xs text-gray-400 uppercase">Contas a Receber</span></div>
-          <div className="text-2xl font-bold text-white">{fmtCur(k.car_total)}</div>
-          <div className="text-xs text-blue-400/60 mt-1">Em aberto: {fmtCur(k.car_aberto)} · Vencido: {fmtCur(k.car_vencido)}</div>
-        </div>
-        <div className="rounded-xl border border-red-700/40 bg-red-950/30 p-4">
-          <div className="flex items-center gap-2 mb-2"><TrendingDown className="w-4 h-4 text-red-400" /><span className="text-xs text-gray-400 uppercase">Contas a Pagar</span></div>
-          <div className="text-2xl font-bold text-white">{fmtCur(k.cap_total)}</div>
-          <div className="text-xs text-red-400/60 mt-1">Em aberto: {fmtCur(k.cap_aberto)} · Vencido: {fmtCur(k.cap_vencido)}</div>
-        </div>
-        <div className={`rounded-xl border p-4 ${resultado >= 0 ? "border-purple-700/40 bg-purple-950/30" : "border-red-700/40 bg-red-950/30"}`}>
-          <div className="flex items-center gap-2 mb-2"><Calculator className="w-4 h-4 text-purple-400" /><span className="text-xs text-gray-400 uppercase">Resultado oper. estimado</span></div>
-          <div className="text-2xl font-bold text-white">{fmtCur(resultado)}</div>
-          <div className="text-xs text-gray-500 mt-1">
-            {margemResult != null ? `${margemResult.toFixed(1)}% de margem · ` : ""}Faturamento NF − CAP
-          </div>
-        </div>
-      </div>
-
-      {/* Pré-faturamento (fl_fatura) vs faturamento NF (nf) */}
-      {gerada != null && (
-        <div className="bg-gray-900 border border-cyan-800/40 rounded-xl p-4">
-          <div className="flex items-center gap-2 mb-3">
-            <BarChart3 className="w-4 h-4 text-cyan-400" />
-            <span className="text-xs text-gray-400 uppercase tracking-wide">Pré-faturamento vs faturamento NF</span>
-            <span className="text-xs text-gray-600">· pré-faturamento</span>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="rounded-lg bg-cyan-950/30 border border-cyan-800/30 p-3">
-              <div className="text-xs text-gray-500 mb-1">Pré-faturamento (fl_fatura)</div>
-              <div className="text-xl font-bold text-cyan-300">{fmtCur(gerada)}</div>
-              <div className="text-xs text-gray-600 mt-1">Valor operacional pré-faturamento</div>
-            </div>
-            <div className="rounded-lg bg-green-950/30 border border-green-800/30 p-3">
-              <div className="text-xs text-gray-500 mb-1">Receita realizada (NFs emitidas)</div>
-              <div className="text-xl font-bold text-green-400">{fmtCur(receita)}</div>
-              <div className="text-xs text-gray-600 mt-1">Notas fiscais emitidas no período</div>
-            </div>
-            <div className={`rounded-lg p-3 border ${diff >= 0 ? "bg-gray-800/40 border-gray-700" : "bg-red-950/30 border-red-800/30"}`}>
-              <div className="text-xs text-gray-500 mb-1">Diferença (realizada − gerada)</div>
-              <div className={`text-xl font-bold ${diff >= 0 ? "text-white" : "text-red-400"}`}>{fmtCur(diff)}</div>
-              <div className="text-xs text-gray-600 mt-1">{pct != null ? `${pct >= 0 ? "+" : ""}${pct.toFixed(1)}% vs gerada` : "—"}</div>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Faixa de KPIs — leitura executiva em uma linha */}
+      <FinKpiStrip
+        items={[
+          { label: "Faturamento NF", value: receita, delta: crescimento ?? undefined, sub: `Ano anterior: ${fmtCur(receitaAnt)}` },
+          { label: "Pré-faturamento (fl_fatura)", value: gerada ?? 0, sub: pct != null ? `${pct >= 0 ? "+" : ""}${pct.toFixed(1)}% NF vs pré` : "—" },
+          { label: "Contas a Receber", value: k.car_total, sub: `Aberto ${fmtCur(k.car_aberto)} · Vencido ${fmtCur(k.car_vencido)}` },
+          { label: "Contas a Pagar", value: k.cap_total, sub: `Aberto ${fmtCur(k.cap_aberto)} · Vencido ${fmtCur(k.cap_vencido)}` },
+          { label: "Resultado oper. estimado", value: resultado, sub: margemResult != null ? `${margemResult.toFixed(1)}% de margem` : "Faturamento NF − CAP" },
+          { label: "Inadimplência sobre CAR", value: k.car_total > 0 ? `${((k.car_vencido / k.car_total) * 100).toFixed(1)}%` : "—", raw: true, sub: `Vencido ${fmtCur(k.car_vencido)}` },
+        ]}
+      />
 
       {/* Aviso: CAP sem dimensão empresa */}
       {!isAll && (
@@ -161,31 +123,83 @@ export default function TabFinanceiro() {
 
       {sub === "exportar" && <FinanceiroExportTab empresas={carEmp.map((r) => r.cd_empresa)} />}
 
-      {/* Resumo mensal: CAR vs CAP */}
-      {sub === "resumo" && (
-        <div className="bg-gray-900 border border-gray-800 rounded-xl p-5">
-          <div className="flex items-center justify-between flex-wrap gap-3 mb-4">
-            <h3 className="text-white font-semibold text-sm flex items-center gap-2">
-              <BarChart3 className="w-4 h-4 text-purple-400" /> CAR vs CAP — {resumoView === "anual" ? "comparativo ano a ano" : "série mensal"}
-            </h3>
-            <div className="flex gap-1 bg-gray-800 border border-gray-700 rounded-lg p-0.5">
-              <button onClick={() => setResumoView("mensal")} className={`px-3 py-1 rounded-md text-xs font-medium transition-colors ${resumoView === "mensal" ? "bg-purple-600 text-white" : "text-gray-400 hover:text-gray-200"}`}>Mensal</button>
-              <button onClick={() => setResumoView("anual")} className={`px-3 py-1 rounded-md text-xs font-medium transition-colors ${resumoView === "anual" ? "bg-purple-600 text-white" : "text-gray-400 hover:text-gray-200"}`}>Ano a ano</button>
+      {/* Resumo: leitura executiva em painéis */}
+      {sub === "resumo" && (() => {
+        const topSaidas = [...balancete]
+          .filter((r) => (r.vl_saidas || 0) > 0)
+          .sort((a, b) => (b.vl_saidas || 0) - (a.vl_saidas || 0))
+          .slice(0, 10)
+          .map((r) => ({ label: r.ds_planfin || r.nr_planfin, value: r.vl_saidas }));
+        const topEntradas = [...balancete]
+          .filter((r) => (r.vl_entradas || 0) > 0)
+          .sort((a, b) => (b.vl_entradas || 0) - (a.vl_entradas || 0))
+          .slice(0, 10)
+          .map((r) => ({ label: r.ds_planfin || r.nr_planfin, value: r.vl_entradas }));
+        const donut = (() => {
+          const top = topSaidas.slice(0, 5);
+          const outras = topSaidas.slice(5).reduce((s, i) => s + i.value, 0);
+          return outras > 0 ? [...top, { label: "Outras contas", value: outras }] : top;
+        })();
+        const recebido = carVsCapMonthly.reduce((s, r) => s + (r.car_baixado || 0), 0);
+
+        return (
+          <div className="space-y-4">
+            <FinYoYAccumulated rows={carVsCapMonthly} metric="car" />
+
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+              <div className="lg:col-span-2 bg-gray-900 border border-gray-800 rounded-xl p-5">
+                <div className="flex items-center justify-between flex-wrap gap-3 mb-4">
+                  <h3 className="text-white font-semibold text-sm flex items-center gap-2">
+                    <BarChart3 className="w-4 h-4 text-purple-400" /> CAR vs CAP — {resumoView === "anual" ? "comparativo ano a ano" : "série mensal"}
+                  </h3>
+                  <div className="flex gap-1 bg-gray-800 border border-gray-700 rounded-lg p-0.5">
+                    <button onClick={() => setResumoView("mensal")} className={`px-3 py-1 rounded-md text-xs font-medium transition-colors ${resumoView === "mensal" ? "bg-purple-600 text-white" : "text-gray-400 hover:text-gray-200"}`}>Mensal</button>
+                    <button onClick={() => setResumoView("anual")} className={`px-3 py-1 rounded-md text-xs font-medium transition-colors ${resumoView === "anual" ? "bg-purple-600 text-white" : "text-gray-400 hover:text-gray-200"}`}>Ano a ano</button>
+                  </div>
+                </div>
+                <ResponsiveContainer width="100%" height={280}>
+                  <ComposedChart data={resumoView === "anual" ? carVsCapYearly : carVsCapMonthly}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#222" />
+                    <XAxis dataKey="label" stroke="#666" fontSize={11} />
+                    <YAxis stroke="#666" fontSize={11} tickFormatter={(v) => fmtCur(v).replace("R$", "")} />
+                    <Tooltip contentStyle={{ backgroundColor: "#111", border: "1px solid #333" }} formatter={(v) => fmtCur(v)} />
+                    <Legend wrapperStyle={{ fontSize: 12 }} />
+                    <Bar dataKey="cap" name="CAP (Pagar)" fill="#ef4444" radius={[4, 4, 0, 0]} />
+                    <Bar dataKey="car" name="CAR (Receber)" fill="#22c55e" radius={[4, 4, 0, 0]} />
+                    <Line type="monotone" dataKey="car_baixado" name="Recebido" stroke="#0ea5e9" dot={false} />
+                  </ComposedChart>
+                </ResponsiveContainer>
+              </div>
+              <div className="space-y-4">
+                <FinCompositionDonut title="Composição das saídas (top contas)" items={donut} />
+                <FinProgressGoal
+                  title="Realização de recebimento"
+                  current={recebido}
+                  target={k.car_total}
+                  note="Baixas de CAR no período sobre o total gerado"
+                />
+              </div>
             </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              <FinRankBars
+                title="Top 10 contas de entrada"
+                subtitle="Recebimentos baixados por conta do plano financeiro"
+                items={topEntradas}
+                color="bg-emerald-500"
+              />
+              <FinRankBars
+                title="Top 10 contas de saída"
+                subtitle="Pagamentos baixados por conta do plano financeiro"
+                items={topSaidas}
+                color="bg-red-500"
+              />
+            </div>
+
+            <FinMonthlyMatrix rows={carVsCapMonthly} />
           </div>
-          <ResponsiveContainer width="100%" height={320}>
-            <ComposedChart data={resumoView === "anual" ? carVsCapYearly : carVsCapMonthly}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#222" />
-              <XAxis dataKey="label" stroke="#666" fontSize={11} />
-              <YAxis stroke="#666" fontSize={11} tickFormatter={(v) => fmtCur(v).replace("R$", "")} />
-              <Tooltip contentStyle={{ backgroundColor: "#111", border: "1px solid #333" }} formatter={(v) => fmtCur(v)} />
-              <Legend wrapperStyle={{ fontSize: 12 }} />
-              <Bar dataKey="cap" name="CAP (Pagar)" stackId="fin" fill="#ef4444" />
-              <Bar dataKey="car" name="CAR (Receber)" stackId="fin" fill="#22c55e" radius={[4, 4, 0, 0]} />
-            </ComposedChart>
-          </ResponsiveContainer>
-        </div>
-      )}
+        );
+      })()}
 
       {/* CAR por empresa */}
       {sub === "car_empresa" && (
