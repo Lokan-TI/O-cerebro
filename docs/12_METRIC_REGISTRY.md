@@ -56,9 +56,12 @@ Receita menos devoluções, cancelamentos e descontos. Depende de eventos de dev
 Base = clientes ACTIVE no período anterior; retidos = com atividade no período atual. Exige lifecycle v1 aprovado.
 
 ## MTR-010 · Churn Rate / MTR-011 · Revenue Churn
-- formula: `churned no período / base elegível no início do período`, `as_of_date` obrigatório, `lifecycle_version` declarada.
-- candidato específico de locação v2 (doc 26): hard churn somente quando **não há contrato vigente** e **não há atividade válida de locação por N meses** (`N=13` padrão). Atividade = remessa realizada, faturamento da ficha, última geração ou movimento operacional ligado ao contrato. Ciclo de faturamento e horizonte do contrato são dimensões separadas.
-- status: **BLOQUEADA / EM HOMOLOGAÇÃO** até Comercial/Growth aprovar a v2 e a reconciliação mostrar os falsos churn removidos.
+- formula alvo MTR-010: `clientes da base elegível no início que cruzaram churn_date no período / base elegível no início`, com `as_of_date`, `period_start`, `period_end` e `lifecycle_version` explícitos.
+- candidato de locação v4 (doc 27): estado operacional da ficha primeiro; `relationship_end_date` somente após todas as fichas ativadas deixarem de bloquear churn; `churn_date = relationship_end_date + N meses` (`N=13` padrão).
+- para incidência temporal, fichas ativadas viram intervalos por cliente, contratos sobrepostos são unidos em episódios e um churn histórico permanece registrado mesmo se houver reativação posterior.
+- universo de NF da locação nasce de `fich_loc -> fl_fatura -> cd_nf/cd_nf_mo -> nf`; o filtro fiscal genérico `fl_ent_sai='S'` permanece em reconciliação explícita e não pode eliminar silenciosamente documento vinculado.
+- implementação paralela: `reconcileRentalChurnV4` + `rentalChurnV4.ts`; v3 permanece baseline, sem substituição automática.
+- status: **BLOQUEADA / EM HOMOLOGAÇÃO v4 / NÃO TRUSTED** até `unexplained_divergences = 0` contra amostra dirigida do SISLOC. MTR-011 continua adicionalmente dependente da homologação do valor de receita associado ao churn.
 
 ## MTR-012 · Reactivation Rate · MTR-013 · Repeat Rental Rate
 Derivadas de eventos de lifecycle.
