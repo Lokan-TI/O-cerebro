@@ -1,5 +1,5 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.40';
-import { buildConfig, runQuery, closePool } from '../../shared/erpConnection.ts';
+import { buildConfig, execRead, closePool } from '../../shared/erpConnection.ts';
 
 // Segmentação de clientes do ERP nos 5 fluxos de automação de e-mail.
 // Base: pessoa (cadastro) + mkt_orcamento (orçamentos) + fich_loc/fl_remessa/fl_rem_equ
@@ -13,7 +13,16 @@ import { buildConfig, runQuery, closePool } from '../../shared/erpConnection.ts'
 //  02 Nutrição técnica   → cadastro antigo, sem orçamento e sem locação
 // (clientes com equipamento em posse hoje ficam fora — estão em locação ativa)
 
-const rowsOf = (res: any) => res?.recordset || [];
+function rowsOf(res: any) {
+  if (!res) return [];
+  if (Array.isArray(res.recordset) && res.recordset.length > 0) return res.recordset;
+  if (Array.isArray(res.recordsets)) {
+    for (let i = res.recordsets.length - 1; i >= 0; i--) {
+      if (Array.isArray(res.recordsets[i]) && res.recordsets[i].length > 0) return res.recordsets[i];
+    }
+  }
+  return [];
+}
 
 const toDate = (v: any) => {
   if (!v) return null;
@@ -42,6 +51,9 @@ Deno.serve(async (req) => {
       return Response.json({ error: 'Apenas administradores podem gerar esta segmentação.' }, { status: 403 });
     }
     if (!buildConfig(source)) return Response.json({ error: 'Configuração de conexão incompleta.' }, { status: 500 });
+
+    const body = await req.json().catch(() => ({}));
+    const somenteComEmail = body?.somente_com_email !== false;
 
     const queries = {
       pessoas: `SELECT p.cd_pessoa, p.nm_pessoa, p.nm_fan_pessoa, p.nr_cpf_pessoa, p.nr_cnpj_pessoa,
@@ -90,7 +102,7 @@ Deno.serve(async (req) => {
     // Execução serial — o ERP não suporta consultas concorrentes de agregação.
     const data: Record<string, any[]> = {};
     for (const [key, sql] of Object.entries(queries)) {
-      data[key] = rowsOf(await runQuery(source, sql, 60000));
+      data[key] = rowsOf(await execRead(source, sql, 60000));
     }
 
     const idx = (rows: any[]) => {
@@ -106,6 +118,7 @@ Deno.serve(async (req) => {
 
     const out: any[] = [];
     let emLocacaoAtiva = 0;
+    let semEmail = 0;
 
     for (const p of data.pessoas) {
       const key = String(p.cd_pessoa).trim();
