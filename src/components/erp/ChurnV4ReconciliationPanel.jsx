@@ -52,6 +52,7 @@ export default function ChurnV4ReconciliationPanel({ sourceId, asOfDate, periodS
   const [auditCases, setAuditCases] = useState([]);
   const [loading, setLoading] = useState(false);
   const [loadingSaved, setLoadingSaved] = useState(false);
+  const [checkedSaved, setCheckedSaved] = useState(false);
   const [error, setError] = useState(null);
   const [selectedCustomer, setSelectedCustomer] = useState(null);
   const [selectedAuditId, setSelectedAuditId] = useState(null);
@@ -100,6 +101,7 @@ export default function ChurnV4ReconciliationPanel({ sourceId, asOfDate, periodS
   useEffect(() => {
     let cancelled = false;
     const loadLatest = async () => {
+      setCheckedSaved(false);
       setLoadingSaved(true);
       try {
         const list = sourceId
@@ -109,7 +111,10 @@ export default function ChurnV4ReconciliationPanel({ sourceId, asOfDate, periodS
       } catch {
         // A ausência de run persistido não impede uma nova execução.
       } finally {
-        if (!cancelled) setLoadingSaved(false);
+        if (!cancelled) {
+          setLoadingSaved(false);
+          setCheckedSaved(true);
+        }
       }
     };
     loadLatest();
@@ -145,6 +150,13 @@ export default function ChurnV4ReconciliationPanel({ sourceId, asOfDate, periodS
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    if (!checkedSaved || data || loading || loadingSaved || error || !asOfDate) return;
+    run();
+    // Primeira execução automática somente quando não existe histórico persistido.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [checkedSaved, data, loading, loadingSaved, error, asOfDate, sourceId]);
 
   const selectedEvidence = useMemo(() => {
     if (!selectedCustomer || !data?.ficha_evidence) return [];
@@ -231,7 +243,7 @@ export default function ChurnV4ReconciliationPanel({ sourceId, asOfDate, periodS
         </div>
         <button
           onClick={run}
-          disabled={loading || !asOfDate}
+          disabled={loading || loadingSaved || !asOfDate}
           className="flex items-center gap-2 px-4 py-2 rounded-lg bg-amber-600 hover:bg-amber-500 disabled:opacity-50 text-white text-sm font-medium"
         >
           {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
