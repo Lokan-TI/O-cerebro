@@ -206,9 +206,17 @@ export default async function (req: Request): Promise<Response> {
       .sort((a: any, b: any) => priority(b) - priority(a))
       .slice(0, maxDivergences);
 
+    // Amostra dirigida: cobre divergências e também controles positivos/negativos.
+    // O objetivo não é inferir o status do SISLOC, e sim preparar os casos que precisam
+    // ser confrontados manualmente com a tela/relatório operacional para fechar ground truth.
+    const auditCandidates = buildDirectedAuditCandidates(normalized, ctx.asOfDate);
+
     // Nome é enriquecimento apenas; a lógica de classificação permanece integralmente no ERP.
     const names: Record<string, string> = {};
-    const nameCodes = [...new Set(divergenceRows.map((r: any) => r.cd_pessoa).filter((v: string) => /^\d+$/.test(v)))];
+    const nameCodes = [...new Set([
+      ...divergenceRows.map((r: any) => r.cd_pessoa),
+      ...auditCandidates.map((c: any) => c.row.cd_pessoa),
+    ].filter((v: string) => /^\d+$/.test(v)))];
     for (let i = 0; i < nameCodes.length; i += 400) {
       const batch = nameCodes.slice(i, i + 400);
       if (!batch.length) continue;
@@ -221,12 +229,16 @@ export default async function (req: Request): Promise<Response> {
       } catch { /* opcional */ }
     }
     for (const r of divergenceRows) r.nm_pessoa = names[r.cd_pessoa] || null;
+    for (const c of auditCandidates) c.row.nm_pessoa = names[c.row.cd_pessoa] || null;
 
-    // Evidência ficha a ficha somente para as maiores divergências, para manter a resposta auditável
-    // sem transportar toda a base detalhada ao navegador.
+    // Evidência ficha a ficha para divergências e para a amostra dirigida. Mantemos limite
+    // explícito para não transportar a base inteira ao navegador nem sobrecarregar o wrapper.
     const includeDetails = body?.include_details !== false;
-    const detailLimit = Math.max(1, Math.min(Number(body?.detail_limit) || 50, 100));
-    const detailCodes = divergenceRows.slice(0, detailLimit).map((r: any) => r.cd_pessoa);
+    const detailLimit = Math.max(1, Math.min(Number(body?.detail_limit) || 80, 120));
+    const detailCodes = [...new Set([
+      ...divergenceRows.slice(0, detailLimit).map((r: any) => r.cd_pessoa),
+      ...auditCandidates.map((c: any) => c.row.cd_pessoa),
+    ])].slice(0, detailLimit);
     let fichaDetails: any[] = [];
     let detailSql: string | null = null;
     if (includeDetails && detailCodes.length) {
