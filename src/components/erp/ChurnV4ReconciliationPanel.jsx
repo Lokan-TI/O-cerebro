@@ -227,6 +227,7 @@ export default function ChurnV4ReconciliationPanel({ sourceId, asOfDate, periodS
           <p className="text-xs text-gray-500 mt-1 max-w-4xl">
             Reconciliação paralela v3 × v4. A v4 usa saldo físico, devolução, cobertura de faturamento, encerramento e NF vinculada à ficha. Nenhum resultado deste painel substitui o churn atual até a validação dirigida contra o SISLOC atingir zero divergência não explicada.
           </p>
+          {data?.run_id && <p className="text-[11px] text-gray-600 mt-1">Run: <span className="text-gray-400 font-mono">{data.run_id}</span>{data.persisted ? " · carregado do histórico" : " · execução atual persistida"}</p>}
         </div>
         <button
           onClick={run}
@@ -248,9 +249,13 @@ export default function ChurnV4ReconciliationPanel({ sourceId, asOfDate, periodS
         </div>
       )}
 
-      {!data && !loading && !error && (
+      {!data && loadingSaved && !loading && (
+        <div className="p-5 text-xs text-gray-500 flex items-center gap-2"><Loader2 className="w-4 h-4 animate-spin" /> Carregando a última reconciliação persistida…</div>
+      )}
+
+      {!data && !loading && !loadingSaved && !error && (
         <div className="p-5 text-xs text-gray-500">
-          Execução manual para evitar carga desnecessária no ERP. Corte preparado: <span className="text-gray-300">{asOfDate || "—"}</span> · janela dura: <span className="text-gray-300">{inactivityMonths} meses</span>.
+          Nenhum run persistido ainda. Execução manual para evitar carga desnecessária no ERP. Corte preparado: <span className="text-gray-300">{asOfDate || "—"}</span> · janela dura: <span className="text-gray-300">{inactivityMonths} meses</span>.
         </div>
       )}
 
@@ -282,7 +287,8 @@ export default function ChurnV4ReconciliationPanel({ sourceId, asOfDate, periodS
                 <CheckCircle2 className="w-4 h-4 text-emerald-400" /> Critério para promover a v4
               </div>
               <div className="text-xs text-gray-500 mt-2">
-                Divergências não explicadas contra o SISLOC: <span className="text-amber-300 font-medium">ainda não medidas</span>. O painel já explica divergências v3 × v4, mas a homologação final continua dependendo da amostra dirigida no ERP.
+                Amostra dirigida: <span className="text-gray-300 font-medium">{num(auditStats.total)} casos</span> · pendentes: <span className="text-amber-300 font-medium">{num(auditStats.pending)}</span> · falhas não explicadas: <span className={auditStats.fail ? "text-red-300 font-medium" : "text-emerald-300 font-medium"}>{num(auditStats.fail)}</span>.
+                A v4 só pode avançar quando não houver pendências e `fail = 0`; mesmo assim, a promoção para TRUSTED continua sendo uma decisão formal separada.
               </div>
             </div>
             <div className="rounded-lg border border-gray-800 bg-gray-950 p-3">
