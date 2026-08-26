@@ -395,6 +395,8 @@ SELECT
   CASE
     WHEN cr.activated_fichas > 0 AND ISNULL(v3r.v3_ref_events,0) = 0 THEN 'POPULACAO_V3_OMITE_CLIENTE_ATIVADO'
     WHEN cr.active_operational_fichas > 0 AND cr.inconsistent_fichas > 0 THEN 'V4_ATIVO_COM_INCONSISTENCIA'
+    WHEN ISNULL(v3r.v3_ref_events,0) > 0 AND cr.v3_open_contract = 1
+      AND cr.active_operational_fichas = 0 AND cr.open_without_balance_fichas > 0 THEN 'FICHA_ABERTA_STALE_V3_EXIGE_AUDITORIA'
     WHEN cr.inconsistent_fichas > 0 THEN 'AUDITORIA_OPERACIONAL_V4'
     WHEN ISNULL(v3r.v3_ref_events,0) > 0 AND cr.v3_open_contract = 0 AND cr.v3_last_nf IS NOT NULL
       AND cr.v3_last_nf < '${dates.analysisStart}' AND cr.active_operational_fichas > 0 THEN 'FALSO_CHURN_V3_CONTRATO_ATIVO'
@@ -402,10 +404,6 @@ SELECT
       AND cr.v3_last_nf < '${dates.analysisStart}'
       AND ce.relationship_end_date IS NOT NULL
       AND DATEADD(month, ${ctx.inactivityMonths}, ce.relationship_end_date) > '${ctx.asOfDate}' THEN 'FALSO_CHURN_V3_ANCORA_TEMPORAL'
-    WHEN ISNULL(v3r.v3_ref_events,0) > 0 AND cr.v3_open_contract = 1
-      AND cr.active_operational_fichas = 0 AND cr.inconsistent_fichas = 0
-      AND ce.relationship_end_date IS NOT NULL
-      AND DATEADD(month, ${ctx.inactivityMonths}, ce.relationship_end_date) <= '${ctx.asOfDate}' THEN 'CHURN_OCULTO_V3_FICHA_ABERTA_STALE'
     WHEN ISNULL(v3r.v3_ref_events,0) > 0 AND cr.v3_last_nf IS NULL AND cr.valid_linked_nf_count > 0 THEN 'UNIVERSO_FISCAL_V3_EXCLUI_NF_VINCULADA'
     ELSE 'SEM_DIVERGENCIA_REGRA'
   END AS divergence_type,
