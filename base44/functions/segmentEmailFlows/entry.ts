@@ -184,6 +184,18 @@ Deno.serve(async (req) => {
     const counts: Record<string, number> = {};
     for (const r of out) counts[r.fluxo] = (counts[r.fluxo] || 0) + 1;
 
+    // Campos vazios são removidos para reduzir o tamanho da resposta (a planilha
+    // já trata ausência como vazio). Evita estouro de payload na base completa.
+    for (const r of out) {
+      for (const k of Object.keys(r)) {
+        if (r[k] === '' || r[k] === null || r[k] === undefined) delete r[k];
+      }
+    }
+
+    // O pool precisa ser liberado também no caminho de sucesso, senão as conexões
+    // do ERP se esgotam e as chamadas seguintes falham com 500.
+    try { await closePool(source); } catch { /* ignore */ }
+
     return Response.json({
       success: true,
       rows: out,
