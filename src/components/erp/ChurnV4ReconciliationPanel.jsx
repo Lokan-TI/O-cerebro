@@ -12,7 +12,7 @@ const LABELS = {
   AUDITORIA_OPERACIONAL_V4: "Auditoria operacional v4",
   FALSO_CHURN_V3_CONTRATO_ATIVO: "Falso churn v3 · contrato ativo",
   FALSO_CHURN_V3_ANCORA_TEMPORAL: "Falso churn v3 · âncora temporal",
-  CHURN_OCULTO_V3_FICHA_ABERTA_STALE: "Churn oculto v3 · ficha stale",
+  FICHA_ABERTA_STALE_V3_EXIGE_AUDITORIA: "Ficha aberta stale v3 · exige auditoria",
   UNIVERSO_FISCAL_V3_EXCLUI_NF_VINCULADA: "NF vinculada fora do universo fiscal v3",
   SEM_DIVERGENCIA_REGRA: "Sem divergência de regra",
 };
@@ -115,7 +115,7 @@ export default function ChurnV4ReconciliationPanel({ sourceId, asOfDate, periodS
             <Kpi label="Congruência classe v3 × v4" value={pct(s.churn_class_agreement_pct)} sub={`${num(s.comparable_customers)} clientes comparáveis`} />
             <Kpi label="Falso churn · contrato ativo" value={num(s.false_churn_v3_open_contract)} />
             <Kpi label="Falso churn · âncora temporal" value={num(s.false_churn_v3_temporal_anchor)} />
-            <Kpi label="Churn oculto por ficha stale" value={num(s.hidden_churn_v3_stale_open_ficha)} />
+            <Kpi label="Ficha stale v3 em auditoria" value={num(s.stale_open_ficha_v3_requires_audit)} />
             <Kpi label="Auditoria operacional" value={num(s.v4_operational_audit_customers)} />
             <Kpi label="Divergência universo fiscal" value={num(s.fiscal_universe_divergence_customers)} sub={`${num(s.fiscal_linked_valid_documents)} vinculadas vs ${num(s.fiscal_canonical_documents)} canônicas`} />
           </div>
