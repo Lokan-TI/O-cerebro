@@ -49,9 +49,73 @@ function Kpi({ label, value, sub }) {
 
 export default function ChurnV4ReconciliationPanel({ sourceId, asOfDate, periodStart, periodEnd, inactivityMonths = 13 }) {
   const [data, setData] = useState(null);
+  const [auditCases, setAuditCases] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [loadingSaved, setLoadingSaved] = useState(false);
   const [error, setError] = useState(null);
   const [selectedCustomer, setSelectedCustomer] = useState(null);
+  const [selectedAuditId, setSelectedAuditId] = useState(null);
+  const [reviewDraft, setReviewDraft] = useState({ sisloc_observed_status: "", verdict: "pending", explanation: "" });
+  const [savingReview, setSavingReview] = useState(false);
+
+  const loadCasesForRun = async (runId) => {
+    if (!runId) return [];
+    const cases = await base44.entities.ChurnV4AuditCase.filter({ run_id: runId }, "-priority", 100);
+    setAuditCases(cases || []);
+    return cases || [];
+  };
+
+  const hydratePersistedRun = async (runRecord) => {
+    if (!runRecord) return;
+    const cases = await loadCasesForRun(runRecord.run_id);
+    const evidence = cases.flatMap((c) => safeJson(c.evidence_json, {})?.fichas || []);
+    const top = cases
+      .filter((c) => c.divergence_type && c.divergence_type !== "SEM_DIVERGENCIA_REGRA")
+      .map((c) => ({
+        cd_pessoa: c.cd_pessoa,
+        nm_pessoa: c.nm_pessoa,
+        divergence_type: c.divergence_type,
+        v3_status: c.v3_status,
+        v4_status: c.v4_status,
+        relationship_end_date: c.relationship_end_date,
+        churn_date: c.churn_date,
+        active_operational_fichas: c.active_operational_fichas,
+        inconsistent_fichas: c.inconsistent_fichas,
+      }));
+    setData({
+      success: true,
+      persisted: true,
+      run_id: runRecord.run_id,
+      summary: safeJson(runRecord.summary_json, {}),
+      period_churn: safeJson(runRecord.period_churn_json, {}),
+      divergence_breakdown: safeJson(runRecord.divergence_breakdown_json, []),
+      top_divergences: top,
+      ficha_evidence: evidence,
+      persisted_run: runRecord,
+    });
+    setSelectedCustomer(top?.[0]?.cd_pessoa || cases?.[0]?.cd_pessoa || null);
+    setSelectedAuditId(cases?.[0]?.id || null);
+  };
+
+  useEffect(() => {
+    let cancelled = false;
+    const loadLatest = async () => {
+      setLoadingSaved(true);
+      try {
+        const list = sourceId
+          ? await base44.entities.ChurnV4ReconciliationRun.filter({ source_id: sourceId }, "-generated_at", 1)
+          : await base44.entities.ChurnV4ReconciliationRun.list("-generated_at", 1);
+        if (!cancelled && list?.[0]) await hydratePersistedRun(list[0]);
+      } catch {
+        // A ausência de run persistido não impede uma nova execução.
+      } finally {
+        if (!cancelled) setLoadingSaved(false);
+      }
+    };
+    loadLatest();
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sourceId]);
 
   const run = async () => {
     setLoading(true);
@@ -64,13 +128,17 @@ export default function ChurnV4ReconciliationPanel({ sourceId, asOfDate, periodS
         period_end: periodEnd,
         inactivity_months: inactivityMonths,
         max_divergences: 200,
-        detail_limit: 50,
+        detail_limit: 80,
         include_details: true,
+        persist: true,
       });
       const result = res?.data || res;
       if (!result?.success) throw new Error(result?.error || "Falha na reconciliação v4.");
       setData(result);
       setSelectedCustomer(result?.top_divergences?.[0]?.cd_pessoa || null);
+      const cases = await loadCasesForRun(result.run_id);
+      setSelectedAuditId(cases?.[0]?.id || null);
+      if (result?.persistence_warning) setError(result.persistence_warning);
     } catch (e) {
       setError(String(e?.message || e));
     } finally {
