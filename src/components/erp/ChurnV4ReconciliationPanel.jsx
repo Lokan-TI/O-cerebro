@@ -187,7 +187,7 @@ export default function ChurnV4ReconciliationPanel({ sourceId, asOfDate, periodS
         reviewed,
         explanation: reviewDraft.explanation,
         reviewer_name: user?.full_name || user?.email || "",
-        reviewed_at: reviewed ? new Date().toISOString() : null,
+        reviewed_at: reviewed ? new Date().toISOString() : (selectedAudit.reviewed_at || ""),
       });
       const cases = await loadCasesForRun(data?.run_id || selectedAudit.run_id);
       const pending = cases.filter((c) => !c.reviewed || c.verdict === "pending").length;
