@@ -79,7 +79,12 @@ async function marketingAccessToken(): Promise<string> {
 }
 
 // Leitura genérica: sempre GET, sempre em um recurso do produto escolhido.
-export async function rdRead(product: string, path: string, params: Record<string, unknown> = {}) {
+export async function rdRead(
+  product: string,
+  path: string,
+  params: Record<string, unknown> = {},
+  bearer?: string,
+) {
   const cfg = (RD_PRODUCTS as any)[product];
   if (!cfg) throw new Error(`Produto RD Station desconhecido: ${product}`);
 
@@ -95,7 +100,8 @@ export async function rdRead(product: string, path: string, params: Record<strin
   if (product === 'crm') {
     url.searchParams.set('token', requireSecret('RDSTATION_CRM_TOKEN'));
   } else if (product === 'marketing') {
-    headers.Authorization = `Bearer ${await marketingAccessToken()}`;
+    // Preferimos o acesso OAuth conectado pelo app do Cérebro; se não houver, caímos no refresh token legado.
+    headers.Authorization = `Bearer ${bearer || (await marketingAccessToken())}`;
   } else {
     headers.Authorization = `Bearer ${requireSecret('RDSTATION_CONVERSAS_TOKEN')}`;
   }

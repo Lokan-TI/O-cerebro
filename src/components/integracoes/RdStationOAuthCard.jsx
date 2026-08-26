@@ -50,7 +50,7 @@ export default function RdStationOAuthCard() {
         <KeyRound className="w-5 h-5 text-purple-400" /> Conexão RD Station (OAuth)
       </h2>
       <p className="text-sm text-gray-500 mt-1">
-        Autorize a conta RD Station uma única vez. O Cérebro guarda o acesso e renova sozinho.
+        Autorize a conta RD Station uma única vez — vale para CRM e Marketing. O Cérebro guarda o acesso e renova sozinho.
       </p>
 
       <div className="flex items-center gap-2 mt-4 text-sm">

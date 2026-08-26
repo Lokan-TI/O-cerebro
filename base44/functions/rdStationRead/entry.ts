@@ -1,5 +1,6 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.40';
 import { RD_PRODUCTS, rdRead } from '../../shared/rdStation.ts';
+import { ensureAccessToken } from '../../shared/rdOAuth.ts';
 
 // Gateway somente leitura para as APIs do RD Station (CRM, Marketing, Conversas).
 // Sem catálogo → retorna o catálogo de recursos disponíveis (o que o Cérebro sabe ler).
@@ -27,7 +28,13 @@ export default async function (req: Request): Promise<Response> {
       });
     }
 
-    const result = await rdRead(product, body?.endpoint || '', body?.params || {});
+    // Marketing usa o acesso OAuth conectado na tela de Integrações, quando disponível.
+    let bearer: string | undefined;
+    if (product === 'marketing') {
+      bearer = await ensureAccessToken(base44).catch(() => undefined);
+    }
+
+    const result = await rdRead(product, body?.endpoint || '', body?.params || {}, bearer);
     return Response.json(result, { status: result.ok ? 200 : 502 });
   } catch (error) {
     return Response.json({ error: error?.message || String(error) }, { status: 500 });
