@@ -3,13 +3,6 @@ import { execRead } from '../../shared/erpConnection.ts';
 import { resolvePeriod } from '../../shared/periodContract.ts';
 import { empFilter } from '../../shared/empresaScope.ts';
 
-// KPIs de Growth Marketing apurados diretamente no Sisloc, conforme o dicionário de dados:
-//  · fich_loc      → proposta/ficha de locação (dt_pedido, dt_validade, dt_aprovacao)
-//  · fl_remessa    → saída física do equipamento (dt_saida, fl_rem_cancelada)
-//  · fl_rem_equ    → item da remessa por patrimônio (qt_remessa vs qt_devolucao)
-//  · fl_devolucao / fl_dev_equ → retorno do equipamento ao pátio (dt_devolucao)
-//  · patrimon      → frota própria (base de ocupação e tempo de pátio)
-//  · fl_fatura     → receita gerada pelas locações no período
 const rowsOf = (result: any): any[] => {
   if (Array.isArray(result?.recordset) && result.recordset.length > 0) return result.recordset;
   if (Array.isArray(result?.recordsets)) {
@@ -20,55 +13,94 @@ const rowsOf = (result: any): any[] => {
   }
   return [];
 };
-const num = (v: unknown) => (v === null || v === undefined || v === '' ? 0 : Number(v) || 0);
 
+const num = (value: unknown) => value === null || value === undefined || value === '' ? 0 : Number(value) || 0;
+
+async function resolveSource(base44: any, sourceId?: string) {
+  if (sourceId && sourceId !== '__all__') {
+    return await base44.asServiceRole.entities.ErpDataSource.get(sourceId);
+  }
+  const sources = await base44.asServiceRole.entities.ErpDataSource.list();
+  const active = (sources || []).filter((source: any) => source?.is_active !== false);
+  return active.find((source: any) => String(source?.status || '').toLowerCase() === 'connected')
+    || active.find((source: any) => String(source?.name || '').toLowerCase() === 'matriz')
+    || active.find((source: any) => source?.credential_reference === 'env')
+    || active[0]
+    || null;
+}
+
+// Visão comercial essencial de Growth.
+//
+// Esta função foi deliberadamente reduzida a UMA consulta ao SISLOC. A versão anterior
+// executava sete consultas pesadas em sequência; em caso de lentidão cada uma podia aguardar
+// até 25 segundos, excedendo a janela do gateway Base44 e produzindo HTTP 502 antes de a
+// função conseguir devolver os avisos. Frota e idle time são carregados separadamente por
+// analyzeGrowthFleet, sem impedir a renderização desta visão principal.
 export default async function (req: Request): Promise<Response> {
+  const started = Date.now();
+  const executionId = `GROWTH-CORE-${Date.now()}-${crypto.randomUUID().slice(0, 8)}`;
+  let base44: any = null;
+  let traceId: string | null = null;
+  let source: any = null;
+  let periodStart = '';
+  let periodEnd = '';
+
+  const trace = async (patch: Record<string, unknown>) => {
+    if (!base44) return;
+    try {
+      const payload = { ...patch, updated_at: new Date().toISOString(), duration_ms: Date.now() - started };
+      if (!traceId) {
+        const created = await base44.asServiceRole.entities.GrowthExecutionLog.create({
+          execution_id: executionId,
+          status: 'started',
+          step: 'request_received',
+          started_at: new Date(started).toISOString(),
+          period_start: periodStart,
+          period_end: periodEnd,
+          ...payload,
+        });
+        traceId = created?.id || null;
+      } else {
+        await base44.asServiceRole.entities.GrowthExecutionLog.update(traceId, payload);
+      }
+    } catch {
+      // Telemetria nunca pode derrubar o indicador.
+    }
+  };
+
   try {
-    const base44 = createClientFromRequest(req);
+    base44 = createClientFromRequest(req);
     const user = await base44.auth.me();
-    if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 });
+    if (!user) return Response.json({ success: false, error: 'Unauthorized' }, { status: 401 });
 
     const body = await req.json().catch(() => ({}));
     const today = new Date().toISOString().slice(0, 10);
     const defaultStart = new Date(new Date(`${today}T12:00:00Z`).getTime() - 365 * 86400000).toISOString().slice(0, 10);
-    const resolvedPeriod = resolvePeriod({
+    const period = resolvePeriod({
       start: body?.start_date,
       endInclusive: body?.end_date,
       endExclusive: body?.end_date_exclusive,
       defaultStart,
       defaultEndInclusive: today,
     });
-    const start = resolvedPeriod.start;
-    const end = resolvedPeriod.endInclusive;
-    const endExcl = `'${resolvedPeriod.endExclusive}'`;
+    periodStart = period.start;
+    periodEnd = period.endExclusive;
+    await trace({ status: 'started', step: 'period_resolved', period_start: periodStart, period_end: periodEnd });
 
-    let source: Record<string, unknown> | null = null;
-    if (body?.source_id && body.source_id !== '__all__') {
-      source = await base44.asServiceRole.entities.ErpDataSource.get(body.source_id);
-    } else {
-      const sources = await base44.asServiceRole.entities.ErpDataSource.list();
-      const active = (sources || []).filter((s) => s?.is_active !== false);
-      source = active.find((s) => String(s?.status || '').toLowerCase() === 'connected')
-        || active.find((s) => String(s?.name || '').toLowerCase() === 'matriz')
-        || active.find((s) => s?.credential_reference === 'env')
-        || active[0]
-        || null;
+    source = await resolveSource(base44, body?.source_id);
+    if (!source) {
+      await trace({ status: 'error', step: 'source_not_found', error_message: 'Nenhuma fonte ERP ativa e utilizável foi encontrada.' });
+      return Response.json({ success: false, error: 'Nenhuma fonte ERP ativa e utilizável foi encontrada.' }, { status: 404 });
     }
-    if (!source) return Response.json({ error: 'Nenhuma fonte ERP ativa e utilizável foi encontrada.' }, { status: 404 });
+    await trace({
+      status: 'source_resolved',
+      step: 'source_resolved',
+      source_id: source.id || '',
+      source_name: source.name || '',
+    });
 
-    const t0 = Date.now();
-    const warnings: string[] = [];
-    const run = async (label: string, sql: string, ms = 25000) => {
-      try {
-        return rowsOf(await execRead(source, sql, ms));
-      } catch (e) {
-        warnings.push(`${label}: ${((e as Error)?.message || String(e)).slice(0, 120)}`);
-        return [];
-      }
-    };
-
-    // 1 · Demanda comercial — propostas de locação criadas e aprovadas (fich_loc)
-    const sqlDemanda = `SELECT
+    const sqlCore = `WITH demanda AS (
+      SELECT
         COUNT(*) AS propostas,
         SUM(CASE WHEN dt_aprovacao IS NOT NULL THEN 1 ELSE 0 END) AS aprovadas,
         SUM(CASE WHEN dt_enc_ficha IS NOT NULL THEN 1 ELSE 0 END) AS encerradas,
@@ -76,145 +108,151 @@ export default async function (req: Request): Promise<Response> {
         COUNT(DISTINCT cd_pessoa) AS clientes,
         SUM(COALESCE(vl_minimo_locacao,0)) AS vl_minimo,
         AVG(CASE WHEN dt_aprovacao IS NOT NULL
-            THEN CAST(DATEDIFF(day, dt_pedido, dt_aprovacao) AS FLOAT) END) AS dias_aprovacao
+          THEN CAST(DATEDIFF(day, dt_pedido, dt_aprovacao) AS FLOAT) END) AS dias_aprovacao
       FROM fich_loc WITH (NOLOCK)
-      WHERE dt_pedido >= '${start}' AND dt_pedido < ${endExcl}
-        ${empFilter()}`;
-
-    // 2 · Ativação — propostas que viraram saída física de equipamento
-    const sqlAtivacao = `SELECT
+      WHERE dt_pedido >= '${period.start}' AND dt_pedido < '${period.endExclusive}'
+        ${empFilter()}
+    ),
+    ativacao AS (
+      SELECT
         COUNT(DISTINCT r.cd_controle) AS fichas_com_saida,
         COUNT(*) AS remessas,
         COUNT(DISTINCT f.cd_pessoa) AS clientes_atendidos
       FROM fl_remessa r WITH (NOLOCK)
       INNER JOIN fich_loc f WITH (NOLOCK) ON f.cd_controle = r.cd_controle
-      WHERE r.dt_saida >= '${start}' AND r.dt_saida < ${endExcl}
+      WHERE r.dt_saida >= '${period.start}' AND r.dt_saida < '${period.endExclusive}'
         AND UPPER(COALESCE(r.fl_rem_cancelada,'N')) <> 'S'
-        ${empFilter('f')}`;
-
-    // 3 · Devoluções no período
-    const sqlDevolucoes = `SELECT COUNT(*) AS devolucoes, COUNT(DISTINCT d.cd_controle) AS fichas_devolvidas
+        ${empFilter('f')}
+    ),
+    devolucoes AS (
+      SELECT
+        COUNT(*) AS devolucoes,
+        COUNT(DISTINCT d.cd_controle) AS fichas_devolvidas
       FROM fl_devolucao d WITH (NOLOCK)
       INNER JOIN fich_loc f WITH (NOLOCK) ON f.cd_controle = d.cd_controle
-      WHERE d.dt_devolucao >= '${start}' AND d.dt_devolucao < ${endExcl}
+      WHERE d.dt_devolucao >= '${period.start}' AND d.dt_devolucao < '${period.endExclusive}'
         AND UPPER(COALESCE(d.fl_dev_cancelada,'N')) <> 'S'
-        ${empFilter('f')}`;
-
-    // 4 · Frota própria disponível para locação
-    const sqlFrota = `SELECT COUNT(*) AS pat_total, SUM(COALESCE(vl_aqu_patrimonio,0)) AS vl_frota
-      FROM patrimon WITH (NOLOCK)
-      WHERE UPPER(COALESCE(fl_vendido,'N')) <> 'S'`;
-
-    // 5 · Patrimônios em campo agora (remessa com saída e item ainda não devolvido)
-    const sqlLocados = `SELECT COUNT(DISTINCT re.cd_patrimonio) AS pat_locados
-      FROM fl_rem_equ re WITH (NOLOCK)
-      INNER JOIN fl_remessa r WITH (NOLOCK) ON r.cd_flremessa = re.cd_flremessa
-      INNER JOIN fich_loc f WITH (NOLOCK) ON f.cd_controle = r.cd_controle
-      WHERE re.cd_patrimonio > 0
-        AND r.dt_saida IS NOT NULL AND r.dt_saida >= DATEADD(year, -3, ${endExcl})
-        AND UPPER(COALESCE(r.fl_rem_cancelada,'N')) <> 'S'
-        AND COALESCE(re.qt_devolucao,0) < COALESCE(re.qt_remessa,0)
-        ${empFilter('f')}`;
-
-    // 6 · Tempo de pátio (idle time) — dias desde a última devolução dos itens que voltaram
-    const sqlIdle = `SELECT COUNT(*) AS pat_patio,
-        AVG(CAST(DATEDIFF(day, x.ult, GETDATE()) AS FLOAT)) AS idle_medio,
-        SUM(CASE WHEN DATEDIFF(day, x.ult, GETDATE()) > 60 THEN 1 ELSE 0 END) AS idle_60
-      FROM (
-        SELECT re.cd_patrimonio, MAX(d.dt_devolucao) AS ult
-        FROM fl_dev_equ de WITH (NOLOCK)
-        INNER JOIN fl_devolucao d WITH (NOLOCK) ON d.cd_fldevolucao = de.cd_fldevolucao
-        INNER JOIN fl_rem_equ re WITH (NOLOCK) ON re.cd_flremequ = de.cd_flremequ
-        INNER JOIN fl_remessa rr WITH (NOLOCK) ON rr.cd_flremessa = re.cd_flremessa
-        INNER JOIN fich_loc ff WITH (NOLOCK) ON ff.cd_controle = rr.cd_controle
-        WHERE d.dt_devolucao >= DATEADD(month, -24, GETDATE()) AND re.cd_patrimonio > 0
-          ${empFilter('ff')}
-        GROUP BY re.cd_patrimonio
-      ) x
-      WHERE x.cd_patrimonio NOT IN (
-        SELECT re2.cd_patrimonio FROM fl_rem_equ re2 WITH (NOLOCK)
-        INNER JOIN fl_remessa r2 WITH (NOLOCK) ON r2.cd_flremessa = re2.cd_flremessa
-        INNER JOIN fich_loc f2 WITH (NOLOCK) ON f2.cd_controle = r2.cd_controle
-        WHERE re2.cd_patrimonio > 0 AND r2.dt_saida IS NOT NULL
-          AND UPPER(COALESCE(r2.fl_rem_cancelada,'N')) <> 'S'
-          AND COALESCE(re2.qt_devolucao,0) < COALESCE(re2.qt_remessa,0)
-          ${empFilter('f2')}
-      )`;
-
-    // 7 · Receita gerada pelas locações no período (fl_fatura)
-    const sqlReceita = `SELECT COUNT(*) AS qtd_faturas, SUM(COALESCE(fat.vl_fatura,0)) AS vl_gerado
+        ${empFilter('f')}
+    ),
+    receita AS (
+      SELECT
+        COUNT(*) AS qtd_faturas,
+        SUM(COALESCE(fat.vl_fatura,0)) AS vl_gerado
       FROM fl_fatura fat WITH (NOLOCK)
       INNER JOIN fich_loc f WITH (NOLOCK) ON f.cd_controle = fat.cd_controle
-      WHERE fat.dt_geracao >= '${start}' AND fat.dt_geracao < ${endExcl}
-        ${empFilter('f')}`;
+      WHERE fat.dt_geracao >= '${period.start}' AND fat.dt_geracao < '${period.endExclusive}'
+        ${empFilter('f')}
+    )
+    SELECT
+      d.propostas, d.aprovadas, d.encerradas, d.ativas, d.clientes, d.vl_minimo, d.dias_aprovacao,
+      a.fichas_com_saida, a.remessas, a.clientes_atendidos,
+      v.devolucoes, v.fichas_devolvidas,
+      r.qtd_faturas, r.vl_gerado
+    FROM demanda d
+    CROSS JOIN ativacao a
+    CROSS JOIN devolucoes v
+    CROSS JOIN receita r`;
 
-    const [dem] = await run('Demanda (fich_loc)', sqlDemanda);
-    const [ati] = await run('Ativação (fl_remessa)', sqlAtivacao);
-    const [dev] = await run('Devoluções (fl_devolucao)', sqlDevolucoes);
-    const [fro] = await run('Frota própria (patrimon)', sqlFrota, 15000);
-    const [loc] = await run('Patrimônios em campo (fl_rem_equ)', sqlLocados);
-    const [idl] = await run('Tempo de pátio (fl_dev_equ)', sqlIdle);
-    const [rec] = await run('Receita gerada (fl_fatura)', sqlReceita);
+    await trace({ status: 'core_query', step: 'commercial_core_started' });
+    let row: any = null;
+    const warnings: string[] = [];
+    try {
+      const result = await execRead(source, sqlCore, 18000);
+      row = rowsOf(result)[0] || null;
+    } catch (error) {
+      warnings.push(`Núcleo comercial: ${((error as Error)?.message || String(error)).slice(0, 220)}`);
+    }
 
-    const propostas = num(dem?.propostas);
-    const aprovadas = num(dem?.aprovadas);
-    const fichasComSaida = num(ati?.fichas_com_saida);
-    const patTotal = num(fro?.pat_total);
-    const patLocados = num(loc?.pat_locados);
-    const receita = num(rec?.vl_gerado);
+    if (!row) {
+      await trace({
+        status: 'error',
+        step: 'commercial_core_failed',
+        core_rows: 0,
+        warnings_count: warnings.length,
+        warnings_json: JSON.stringify(warnings),
+        error_message: warnings[0] || 'Consulta comercial sem retorno.',
+        completed_at: new Date().toISOString(),
+      });
+      return Response.json({
+        success: false,
+        error: warnings[0] || 'O SISLOC não retornou os indicadores comerciais.',
+        warnings,
+        source: { id: source.id || null, name: source.name || null, status: source.status || null },
+        period: { start: period.start, end: period.endInclusive },
+        execution_id: executionId,
+      });
+    }
 
-    return Response.json({
+    const propostas = num(row.propostas);
+    const aprovadas = num(row.aprovadas);
+    const fichasComSaida = num(row.fichas_com_saida);
+    const receita = num(row.vl_gerado);
+    const clientesAtendidos = num(row.clientes_atendidos);
+
+    const payload = {
+      success: true,
+      partial: true,
+      execution_id: executionId,
       generated_at: new Date().toISOString(),
-      source: {
-        id: source?.id || null,
-        name: source?.name || null,
-        status: source?.status || null,
-      },
-      period: { start, end },
+      source: { id: source.id || null, name: source.name || null, status: source.status || null },
+      period: { start: period.start, end: period.endInclusive },
       demanda: {
         propostas,
         aprovadas,
         aprovacao_pct: propostas ? (aprovadas / propostas) * 100 : null,
         ativadas: fichasComSaida,
         ativacao_pct: propostas ? (fichasComSaida / propostas) * 100 : null,
-        dias_aprovacao: dem?.dias_aprovacao == null ? null : Number(dem.dias_aprovacao),
-        clientes: num(dem?.clientes),
-        clientes_atendidos: num(ati?.clientes_atendidos),
+        dias_aprovacao: row.dias_aprovacao == null ? null : Number(row.dias_aprovacao),
+        clientes: num(row.clientes),
+        clientes_atendidos: clientesAtendidos,
         ticket_contrato: fichasComSaida ? receita / fichasComSaida : null,
-        ativas: num(dem?.ativas),
-        encerradas: num(dem?.encerradas),
+        ativas: num(row.ativas),
+        encerradas: num(row.encerradas),
       },
       frota: {
-        pat_total: patTotal,
-        vl_frota: num(fro?.vl_frota),
-        pat_locados: patLocados,
-        ocupacao_pct: patTotal ? (patLocados / patTotal) * 100 : null,
-        remessas: num(ati?.remessas),
-        devolucoes: num(dev?.devolucoes),
-        pat_patio: num(idl?.pat_patio),
-        idle_medio: idl?.idle_medio == null ? null : Number(idl.idle_medio),
-        idle_60: num(idl?.idle_60),
+        pat_total: null,
+        vl_frota: null,
+        pat_locados: null,
+        ocupacao_pct: null,
+        remessas: num(row.remessas),
+        devolucoes: num(row.devolucoes),
+        pat_patio: null,
+        idle_medio: null,
+        idle_60: null,
       },
       receita: {
         vl_gerado: receita,
-        qtd_faturas: num(rec?.qtd_faturas),
-        revpae: patLocados ? receita / patLocados : null,
-        receita_por_patrimonio: patTotal ? receita / patTotal : null,
-        receita_por_cliente: num(ati?.clientes_atendidos) ? receita / num(ati.clientes_atendidos) : null,
+        qtd_faturas: num(row.qtd_faturas),
+        revpae: null,
+        receita_por_patrimonio: null,
+        receita_por_cliente: clientesAtendidos ? receita / clientesAtendidos : null,
       },
       warnings,
-      duration_ms: Date.now() - t0,
-      queries: [
-        { label: 'Demanda comercial', description: 'fich_loc — propostas criadas, aprovadas e tempo até aprovação', sql: sqlDemanda },
-        { label: 'Ativação', description: 'fl_remessa + fich_loc — propostas que geraram saída física', sql: sqlAtivacao },
-        { label: 'Devoluções', description: 'fl_devolucao — retornos ao pátio no período', sql: sqlDevolucoes },
-        { label: 'Frota própria', description: 'patrimon — base de patrimônios não vendidos', sql: sqlFrota },
-        { label: 'Patrimônios em campo', description: 'fl_rem_equ — itens com saída e sem devolução', sql: sqlLocados },
-        { label: 'Tempo de pátio', description: 'fl_dev_equ + fl_devolucao — dias parados desde a última devolução', sql: sqlIdle },
-        { label: 'Receita gerada', description: 'fl_fatura — receita das locações no período', sql: sqlReceita },
-      ],
+      duration_ms: Date.now() - started,
+      queries: [{
+        label: 'Núcleo comercial de Growth',
+        description: 'fich_loc + fl_remessa + fl_devolucao + fl_fatura em uma única consulta',
+        sql: sqlCore,
+      }],
+    };
+
+    await trace({
+      status: warnings.length ? 'partial' : 'success',
+      step: 'commercial_core_completed',
+      core_rows: 1,
+      warnings_count: warnings.length,
+      warnings_json: JSON.stringify(warnings),
+      completed_at: new Date().toISOString(),
     });
+
+    return Response.json(payload);
   } catch (error) {
-    return Response.json({ error: (error as Error)?.message || String(error) }, { status: 500 });
+    await trace({
+      status: 'error',
+      step: 'unhandled_error',
+      error_message: (error as Error)?.message || String(error),
+      completed_at: new Date().toISOString(),
+    });
+    return Response.json({ success: false, error: (error as Error)?.message || String(error), execution_id: executionId }, { status: 500 });
   }
 }

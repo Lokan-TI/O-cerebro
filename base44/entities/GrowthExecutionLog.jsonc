@@ -1,0 +1,102 @@
+{
+  "name": "GrowthExecutionLog",
+  "type": "object",
+  "properties": {
+    "execution_id": {
+      "type": "string"
+    },
+    "source_id": {
+      "type": "string"
+    },
+    "source_name": {
+      "type": "string"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "started",
+        "source_resolved",
+        "core_query",
+        "fleet_query",
+        "idle_query",
+        "success",
+        "partial",
+        "error"
+      ],
+      "default": "started"
+    },
+    "step": {
+      "type": "string"
+    },
+    "period_start": {
+      "type": "string"
+    },
+    "period_end": {
+      "type": "string"
+    },
+    "core_rows": {
+      "type": "number",
+      "default": 0
+    },
+    "fleet_rows": {
+      "type": "number",
+      "default": 0
+    },
+    "idle_rows": {
+      "type": "number",
+      "default": 0
+    },
+    "warnings_count": {
+      "type": "number",
+      "default": 0
+    },
+    "warnings_json": {
+      "type": "string"
+    },
+    "started_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "updated_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "completed_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "duration_ms": {
+      "type": "number",
+      "default": 0
+    },
+    "error_message": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "execution_id",
+    "status"
+  ],
+  "rls": {
+    "read": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}
