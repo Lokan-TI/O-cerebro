@@ -1,0 +1,158 @@
+{
+  "name": "ChurnV4ReconciliationRun",
+  "type": "object",
+  "properties": {
+    "run_id": {
+      "type": "string"
+    },
+    "source_id": {
+      "type": "string"
+    },
+    "source_name": {
+      "type": "string"
+    },
+    "version": {
+      "type": "string"
+    },
+    "as_of_date": {
+      "type": "string"
+    },
+    "period_start": {
+      "type": "string"
+    },
+    "period_end": {
+      "type": "string"
+    },
+    "inactivity_months": {
+      "type": "number"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "candidate",
+        "reviewing",
+        "approved",
+        "failed"
+      ],
+      "default": "candidate"
+    },
+    "trusted": {
+      "type": "boolean",
+      "default": false
+    },
+    "historically_activated_customers": {
+      "type": "number",
+      "default": 0
+    },
+    "v3_population_customers": {
+      "type": "number",
+      "default": 0
+    },
+    "v4_churn_snapshot_customers": {
+      "type": "number",
+      "default": 0
+    },
+    "known_rule_divergences": {
+      "type": "number",
+      "default": 0
+    },
+    "comparable_customers": {
+      "type": "number",
+      "default": 0
+    },
+    "churn_class_agreement_pct": {
+      "type": "number",
+      "default": 0
+    },
+    "false_churn_v3_open_contract": {
+      "type": "number",
+      "default": 0
+    },
+    "false_churn_v3_temporal_anchor": {
+      "type": "number",
+      "default": 0
+    },
+    "stale_open_ficha_v3_requires_audit": {
+      "type": "number",
+      "default": 0
+    },
+    "v4_operational_audit_customers": {
+      "type": "number",
+      "default": 0
+    },
+    "fiscal_universe_divergence_customers": {
+      "type": "number",
+      "default": 0
+    },
+    "eligible_customers_at_period_start": {
+      "type": "number",
+      "default": 0
+    },
+    "new_churn_customers": {
+      "type": "number",
+      "default": 0
+    },
+    "new_churn_events": {
+      "type": "number",
+      "default": 0
+    },
+    "period_churn_rate": {
+      "type": "number",
+      "default": 0
+    },
+    "historical_churns_with_later_reactivation": {
+      "type": "number",
+      "default": 0
+    },
+    "unexplained_divergences": {
+      "type": "number",
+      "default": -1
+    },
+    "summary_json": {
+      "type": "string"
+    },
+    "period_churn_json": {
+      "type": "string"
+    },
+    "divergence_breakdown_json": {
+      "type": "string"
+    },
+    "generated_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "generated_by_name": {
+      "type": "string"
+    },
+    "notes": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "run_id",
+    "source_id",
+    "version"
+  ],
+  "rls": {
+    "read": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

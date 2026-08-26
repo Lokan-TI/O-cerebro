@@ -45,6 +45,56 @@ const DIVERGENCE_EXPLANATIONS: Record<string, string> = {
   SEM_DIVERGENCIA_REGRA: 'Nenhuma divergência automática de regra identificada.',
 };
 
+function daysBetween(a: string | null, b: string | null) {
+  if (!a || !b) return null;
+  const av = new Date(`${a}T00:00:00Z`).getTime();
+  const bv = new Date(`${b}T00:00:00Z`).getTime();
+  if (!Number.isFinite(av) || !Number.isFinite(bv)) return null;
+  return Math.floor((bv - av) / 86400000);
+}
+
+function buildDirectedAuditCandidates(rows: any[], asOfDate: string) {
+  const out: any[] = [];
+  const seen = new Set<string>();
+  const add = (caseType: string, row: any, priority: number) => {
+    if (!row?.cd_pessoa) return;
+    const key = `${caseType}:${row.cd_pessoa}`;
+    if (seen.has(key)) return;
+    seen.add(key);
+    out.push({ case_type: caseType, priority, row });
+  };
+  const addWhere = (caseType: string, predicate: (r: any) => boolean, priority: number, limit = 3) => {
+    let n = 0;
+    for (const row of rows) {
+      if (!predicate(row)) continue;
+      add(caseType, row, priority);
+      if (++n >= limit) break;
+    }
+  };
+
+  // Caso do full log que originou a reconstrução da máquina de estado.
+  const fullLog = rows.find((r: any) => String(r.cd_pessoa) === '13442');
+  if (fullLog) add('FULL_LOG_GROUND_TRUTH_676399', fullLog, 120);
+
+  addWhere('FALSO_CHURN_V3_CONTRATO_ATIVO', (r) => r.divergence_type === 'FALSO_CHURN_V3_CONTRATO_ATIVO', 110, 5);
+  addWhere('FALSO_CHURN_V3_ANCORA_TEMPORAL', (r) => r.divergence_type === 'FALSO_CHURN_V3_ANCORA_TEMPORAL', 105, 5);
+  addWhere('FICHA_ABERTA_STALE', (r) => r.divergence_type === 'FICHA_ABERTA_STALE_V3_EXIGE_AUDITORIA', 100, 5);
+  addWhere('INCONSISTENCIA_OPERACIONAL', (r) => Number(r.inconsistent_fichas) > 0, 95, 5);
+  addWhere('UNIVERSO_FISCAL_DIVERGENTE', (r) => Number(r.fiscal_universe_divergence) === 1, 90, 5);
+  addWhere('MULTIPLAS_FICHAS_UMA_ATIVA', (r) => Number(r.activated_fichas) >= 2 && Number(r.active_operational_fichas) >= 1, 80, 3);
+  addWhere('ATIVO_CONTRATO_CONTROLE', (r) => r.v4_status === 'ATIVO_CONTRATO' && Number(r.inconsistent_fichas) === 0, 70, 3);
+  addWhere('ENCERRADO_PROTEGIDO_CONTROLE', (r) => r.v4_status === 'ENCERRADO_PROTEGIDO', 65, 3);
+  addWhere('CHURN_CONFIRMADO_CONTROLE', (r) => r.v4_status === 'CHURN_CONFIRMADO', 65, 3);
+  addWhere('ATIVADO_SEM_NF_VINCULADA', (r) => Number(r.activated_fichas) > 0 && Number(r.valid_linked_nf_count) === 0, 85, 5);
+  addWhere('FICHA_NUNCA_ATIVADA', (r) => Number(r.activated_fichas) === 0, 60, 3);
+  addWhere('SAZONAL_12_A_13_MESES', (r) => {
+    const d = daysBetween(r.relationship_end_date, asOfDate);
+    return r.v4_status === 'ENCERRADO_PROTEGIDO' && d != null && d >= 365 && d <= 405;
+  }, 88, 5);
+
+  return out.slice(0, 80);
+}
+
 export default async function (req: Request): Promise<Response> {
   const started = Date.now();
   try {

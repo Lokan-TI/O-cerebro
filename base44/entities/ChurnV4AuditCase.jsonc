@@ -1,0 +1,130 @@
+{
+  "name": "ChurnV4AuditCase",
+  "type": "object",
+  "properties": {
+    "run_id": {
+      "type": "string"
+    },
+    "source_id": {
+      "type": "string"
+    },
+    "case_type": {
+      "type": "string"
+    },
+    "priority": {
+      "type": "number",
+      "default": 0
+    },
+    "cd_pessoa": {
+      "type": "string"
+    },
+    "nm_pessoa": {
+      "type": "string"
+    },
+    "cd_controle": {
+      "type": "string"
+    },
+    "v3_status": {
+      "type": "string"
+    },
+    "v4_status": {
+      "type": "string"
+    },
+    "operational_status": {
+      "type": "string"
+    },
+    "divergence_type": {
+      "type": "string"
+    },
+    "relationship_end_date": {
+      "type": "string"
+    },
+    "churn_date": {
+      "type": "string"
+    },
+    "last_rental_nf": {
+      "type": "string"
+    },
+    "active_operational_fichas": {
+      "type": "number",
+      "default": 0
+    },
+    "inconsistent_fichas": {
+      "type": "number",
+      "default": 0
+    },
+    "physical_balance": {
+      "type": "number",
+      "default": 0
+    },
+    "pending_returns": {
+      "type": "number",
+      "default": 0
+    },
+    "valid_linked_nf_count": {
+      "type": "number",
+      "default": 0
+    },
+    "canonical_nf_count": {
+      "type": "number",
+      "default": 0
+    },
+    "evidence_json": {
+      "type": "string"
+    },
+    "sisloc_observed_status": {
+      "type": "string"
+    },
+    "verdict": {
+      "type": "string",
+      "enum": [
+        "pending",
+        "match",
+        "explained",
+        "fail"
+      ],
+      "default": "pending"
+    },
+    "reviewed": {
+      "type": "boolean",
+      "default": false
+    },
+    "explanation": {
+      "type": "string"
+    },
+    "reviewer_name": {
+      "type": "string"
+    },
+    "reviewed_at": {
+      "type": "string",
+      "format": "date-time"
+    }
+  },
+  "required": [
+    "run_id",
+    "case_type",
+    "cd_pessoa"
+  ],
+  "rls": {
+    "read": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}
