@@ -57,7 +57,7 @@ function requireSecret(name: string): string {
       `Credencial ausente: o segredo ${name} não está configurado. Cadastre-o nas variáveis de ambiente do app.`,
     );
   }
-  return value;
+  return value.trim();
 }
 
 async function marketingAccessToken(): Promise<string> {
