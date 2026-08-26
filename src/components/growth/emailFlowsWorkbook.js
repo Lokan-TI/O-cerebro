@@ -1,4 +1,4 @@
-import * as XLSX from "xlsx";
+import * as XLSX from "xlsx-js-style";
 
 // Colunas do arquivo: chave, título, largura e formato numérico opcional.
 export const COLS = [
@@ -24,26 +24,41 @@ export const COLS = [
   ["dias_sem_interacao", "Dias sem interação", 16, "0"],
 ];
 
+const BORDER = { style: "thin", color: { rgb: "D9D9D9" } };
+
+const HEADER_STYLE = {
+  font: { bold: true, sz: 11, color: { rgb: "FFFFFF" } },
+  fill: { fgColor: { rgb: "5B21B6" } },
+  alignment: { horizontal: "center", vertical: "center", wrapText: true },
+  border: { top: BORDER, bottom: BORDER, left: BORDER, right: BORDER },
+};
+
+const bodyStyle = (even, numeric) => ({
+  font: { sz: 10, color: { rgb: "1F2937" } },
+  fill: { fgColor: { rgb: even ? "F5F3FF" : "FFFFFF" } },
+  alignment: { horizontal: numeric ? "right" : "left", vertical: "center" },
+  border: { top: BORDER, bottom: BORDER, left: BORDER, right: BORDER },
+});
+
 function buildSheet(rows) {
   const aoa = [COLS.map(([, label]) => label), ...rows.map((r) => COLS.map(([k]) => r[k] ?? ""))];
   const ws = XLSX.utils.aoa_to_sheet(aoa);
 
-  // Larguras das colunas
   ws["!cols"] = COLS.map(([, , w]) => ({ wch: w }));
-  // Altura do cabeçalho
-  ws["!rows"] = [{ hpt: 22 }];
-  // Cabeçalho congelado + filtro automático
+  ws["!rows"] = [{ hpt: 26 }];
   ws["!freeze"] = { xSplit: 0, ySplit: 1, topLeftCell: "A2" };
   ws["!autofilter"] = {
     ref: XLSX.utils.encode_range({ s: { r: 0, c: 0 }, e: { r: rows.length, c: COLS.length - 1 } }),
   };
 
-  // Formatos numéricos por coluna (moeda e inteiros)
   COLS.forEach(([, , , fmt], c) => {
-    if (!fmt) return;
+    const header = ws[XLSX.utils.encode_cell({ r: 0, c })];
+    if (header) header.s = HEADER_STYLE;
     for (let r = 1; r <= rows.length; r++) {
       const cell = ws[XLSX.utils.encode_cell({ r, c })];
-      if (cell && cell.t === "n") cell.z = fmt;
+      if (!cell) continue;
+      cell.s = bodyStyle(r % 2 === 0, cell.t === "n");
+      if (fmt && cell.t === "n") cell.z = fmt;
     }
   });
 
@@ -51,18 +66,27 @@ function buildSheet(rows) {
 }
 
 function buildSummarySheet(groups, meta) {
-  const aoa = [
-    ["Fluxo", "Clientes"],
+  const body = [
     ...Object.entries(groups).sort(([a], [b]) => a.localeCompare(b)).map(([f, rows]) => [f, rows.length]),
-    [],
+    ["", ""],
     ["Total com e-mail", meta.total || 0],
     ["Sem e-mail (fora do arquivo)", meta.clientes_sem_email || 0],
     ["Com locação ativa (excluídos)", meta.excluidos_em_locacao_ativa || 0],
     ["Gerado em", new Date().toLocaleString("pt-BR")],
   ];
-  const ws = XLSX.utils.aoa_to_sheet(aoa);
-  ws["!cols"] = [{ wch: 36 }, { wch: 14 }];
+  const ws = XLSX.utils.aoa_to_sheet([["Fluxo", "Clientes"], ...body]);
+  ws["!cols"] = [{ wch: 36 }, { wch: 16 }];
+  ws["!rows"] = [{ hpt: 26 }];
   ws["!freeze"] = { xSplit: 0, ySplit: 1, topLeftCell: "A2" };
+
+  for (let c = 0; c <= 1; c++) {
+    const header = ws[XLSX.utils.encode_cell({ r: 0, c })];
+    if (header) header.s = HEADER_STYLE;
+    for (let r = 1; r <= body.length; r++) {
+      const cell = ws[XLSX.utils.encode_cell({ r, c })];
+      if (cell) cell.s = bodyStyle(r % 2 === 0, cell.t === "n");
+    }
+  }
   return ws;
 }
 
