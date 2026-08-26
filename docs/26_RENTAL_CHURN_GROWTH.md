@@ -1,6 +1,9 @@
 # 26 — CHURN DE LOCAÇÃO & GROWTH MARKETING
 
+> **SUPERSEDIDO PARA HOMOLOGAÇÃO EM 2026-08-26:** o full log do SISLOC revelou estados operacionais adicionais (saldo físico remetido/devolvido, devolução pendente/efetivada e diferença entre cobertura faturada e emissão fiscal). A especificação vigente para reconciliação é `docs/27_CHURN_SISLOC_FULL_LOG_RECONCILIATION.md`. O código v3 permanece apenas como baseline até a v4 atingir zero divergência não explicada.
+
 Versão 3.0-candidate · 2026-08-25 · Owner de negócio: Comercial / Growth Marketing
+Status atual: **BASELINE LEGACY PARA RECONCILIAÇÃO — NÃO TRUSTED**
 
 ## 1. Princípio central
 
