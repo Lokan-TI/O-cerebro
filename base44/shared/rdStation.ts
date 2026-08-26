@@ -43,7 +43,6 @@ export const RD_PRODUCTS = {
     secret: 'RDSTATION_CONVERSAS_TOKEN',
     endpoints: [
       { path: 'employees', label: 'Atendentes', description: 'Usuários/atendentes da conta.' },
-      { path: 'departments', label: 'Departamentos', description: 'Filas de atendimento.' },
       { path: 'contacts', label: 'Contatos', description: 'Contatos de WhatsApp.' },
       { path: 'chats', label: 'Conversas', description: 'Conversas de WhatsApp.' },
       { path: 'tags', label: 'Tags', description: 'Tags aplicadas às conversas.' },
