@@ -17,6 +17,7 @@ import GrowthMarketing from './pages/GrowthMarketing.jsx';
 import ProjecaoLongoPrazo from './pages/ProjecaoLongoPrazo.jsx';
 import AtivosCustos from './pages/AtivosCustos.jsx';
 import DetalhamentoFinanceiro from './pages/DetalhamentoFinanceiro.jsx';
+import RdStationCallback from './pages/RdStationCallback.jsx';
 import { ErpSourceProvider } from '@/lib/ErpSourceContext';
 import { ErpSnapshotProvider } from '@/lib/ErpSnapshotContext';
 import { EmpresaFilterProvider } from '@/lib/EmpresaFilterContext';
@@ -129,6 +130,11 @@ const AuthenticatedApp = () => {
       <Route path="/GerenciarFontes" element={
         <LayoutWrapper currentPageName="GerenciarFontes">
           <GerenciarFontes />
+        </LayoutWrapper>
+      } />
+      <Route path="/rdstation/callback" element={
+        <LayoutWrapper currentPageName="RdStationCallback">
+          <RdStationCallback />
         </LayoutWrapper>
       } />
       <Route path="*" element={<PageNotFound />} />
