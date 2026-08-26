@@ -156,6 +156,7 @@ export default async function (req: Request): Promise<Response> {
       last_billing_coverage_end: iso(r.last_billing_coverage_end),
       last_valid_linked_nf: iso(r.last_valid_linked_nf),
       last_canonical_nf: iso(r.last_canonical_nf),
+      v3_last_nf: iso(r.v3_last_nf),
       min_relationship_end_signal: iso(r.min_relationship_end_signal),
       relationship_end_date: iso(r.relationship_end_date),
       churn_date: iso(r.churn_date),
