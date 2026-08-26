@@ -40,7 +40,7 @@ const DIVERGENCE_EXPLANATIONS: Record<string, string> = {
   AUDITORIA_OPERACIONAL_V4: 'Remessa, saldo, devolução ou encerramento persistido apresentam sinais contraditórios; a v4 não força churn.',
   FALSO_CHURN_V3_CONTRATO_ATIVO: 'O v3 pode considerar churn pela NF antiga, mas a v4 encontrou ficha operacionalmente ativa por saldo/devolução/faturamento.',
   FALSO_CHURN_V3_ANCORA_TEMPORAL: 'A última NF antecede o fim real do relacionamento; o relógio v4 começa no relationship_end_date e ainda está dentro da proteção.',
-  CHURN_OCULTO_V3_FICHA_ABERTA_STALE: 'O v3 protege por ficha sem dt_enc_ficha, mas a v4 não encontrou saldo, devolução pendente, cobertura ou próxima geração que comprovem atividade.',
+  FICHA_ABERTA_STALE_V3_EXIGE_AUDITORIA: 'O v3 protege por ficha sem dt_enc_ficha, mas a v4 não encontrou saldo, devolução pendente, cobertura ou próxima geração que comprovem atividade; o caso vai para auditoria, não para churn automático.',
   UNIVERSO_FISCAL_V3_EXCLUI_NF_VINCULADA: 'Existe NF vinculada à fl_fatura e não cancelada/anulada que não entrou no universo fiscal genérico usado pelo v3.',
   SEM_DIVERGENCIA_REGRA: 'Nenhuma divergência automática de regra identificada.',
 };
@@ -124,7 +124,7 @@ export default async function (req: Request): Promise<Response> {
     const ruleDivergences = normalized.filter((r: any) => r.divergence_type !== 'SEM_DIVERGENCIA_REGRA' && r.divergence_type !== 'POPULACAO_V3_OMITE_CLIENTE_ATIVADO');
     const falseChurnContract = normalized.filter((r: any) => r.divergence_type === 'FALSO_CHURN_V3_CONTRATO_ATIVO');
     const falseChurnAnchor = normalized.filter((r: any) => r.divergence_type === 'FALSO_CHURN_V3_ANCORA_TEMPORAL');
-    const hiddenChurnV3 = normalized.filter((r: any) => r.divergence_type === 'CHURN_OCULTO_V3_FICHA_ABERTA_STALE');
+    const staleOpenV3Audit = normalized.filter((r: any) => r.divergence_type === 'FICHA_ABERTA_STALE_V3_EXIGE_AUDITORIA');
     const fiscalDivergence = normalized.filter((r: any) => Number(r.fiscal_universe_divergence) === 1);
     const anchorDivergence = normalized.filter((r: any) => Number(r.anchor_divergence_flag) === 1);
 
@@ -139,7 +139,7 @@ export default async function (req: Request): Promise<Response> {
     const priority = (r: any) => {
       const map: Record<string, number> = {
         FALSO_CHURN_V3_CONTRATO_ATIVO: 100,
-        CHURN_OCULTO_V3_FICHA_ABERTA_STALE: 95,
+        FICHA_ABERTA_STALE_V3_EXIGE_AUDITORIA: 95,
         FALSO_CHURN_V3_ANCORA_TEMPORAL: 90,
         AUDITORIA_OPERACIONAL_V4: 85,
         V4_ATIVO_COM_INCONSISTENCIA: 80,
@@ -266,7 +266,7 @@ export default async function (req: Request): Promise<Response> {
       known_rule_divergences: ruleDivergences.length,
       false_churn_v3_open_contract: falseChurnContract.length,
       false_churn_v3_temporal_anchor: falseChurnAnchor.length,
-      hidden_churn_v3_stale_open_ficha: hiddenChurnV3.length,
+      stale_open_ficha_v3_requires_audit: staleOpenV3Audit.length,
       fiscal_universe_divergence_customers: fiscalDivergence.length,
       fiscal_linked_valid_documents: normalized.reduce((s: number, r: any) => s + (Number(r.valid_linked_nf_count) || 0), 0),
       fiscal_canonical_documents: normalized.reduce((s: number, r: any) => s + (Number(r.canonical_nf_count) || 0), 0),
