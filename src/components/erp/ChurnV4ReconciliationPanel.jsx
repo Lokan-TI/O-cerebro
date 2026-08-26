@@ -64,6 +64,7 @@ export default function ChurnV4ReconciliationPanel({ sourceId, asOfDate, periodS
   }, [data, selectedCustomer]);
 
   const s = data?.summary || {};
+  const pc = data?.period_churn || {};
 
   return (
     <div className="bg-gray-900 border border-amber-800/50 rounded-xl overflow-hidden">
@@ -119,6 +120,13 @@ export default function ChurnV4ReconciliationPanel({ sourceId, asOfDate, periodS
             <Kpi label="Divergência universo fiscal" value={num(s.fiscal_universe_divergence_customers)} sub={`${num(s.fiscal_linked_valid_documents)} vinculadas vs ${num(s.fiscal_canonical_documents)} canônicas`} />
           </div>
 
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+            <Kpi label="Taxa churn do período · candidata" value={pct(pc.period_churn_rate)} sub="motor por episódios · NÃO TRUSTED" />
+            <Kpi label="Novos clientes em churn" value={num(pc.new_churn_customers)} sub={`${num(pc.new_churn_events)} evento(s) no período`} />
+            <Kpi label="Base elegível no início" value={num(pc.eligible_customers_at_period_start)} sub={`${num(pc.excluded_current_operational_audit)} excluído(s) por auditoria`} />
+            <Kpi label="Churns com reativação posterior" value={num(pc.historical_churns_with_later_reactivation)} sub="preservados pelo motor temporal" />
+          </div>
+
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
             <div className="rounded-lg border border-gray-800 bg-gray-950 p-3">
               <div className="flex items-center gap-2 text-xs font-medium text-gray-300">
@@ -129,9 +137,9 @@ export default function ChurnV4ReconciliationPanel({ sourceId, asOfDate, periodS
               </div>
             </div>
             <div className="rounded-lg border border-gray-800 bg-gray-950 p-3">
-              <div className="text-xs font-medium text-gray-300">Taxa de churn do período</div>
+              <div className="text-xs font-medium text-gray-300">Taxa de churn por episódios</div>
               <div className="text-xs text-gray-500 mt-2">
-                <span className="text-amber-300">Bloqueada corretamente.</span> A incidência temporal exige reconstruir episódios de relacionamento para não perder casos de churn seguidos de reativação. O motor não fabrica essa taxa a partir do snapshot atual.
+                <span className="text-amber-300">Candidata, ainda NÃO TRUSTED.</span> O motor une fichas sobrepostas em episódios e só cria `churn_date` quando o próximo episódio começa depois da janela de {inactivityMonths} meses. Assim um churn histórico continua existindo mesmo que o cliente seja reativado mais tarde.
               </div>
             </div>
           </div>
