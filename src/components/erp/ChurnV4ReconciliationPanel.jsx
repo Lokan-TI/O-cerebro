@@ -33,6 +33,10 @@ const LABELS = {
   SEM_DIVERGENCIA_REGRA: "Sem divergência de regra",
 };
 
+function safeJson(value, fallback) {
+  try { return value ? JSON.parse(value) : fallback; } catch { return fallback; }
+}
+
 function Kpi({ label, value, sub }) {
   return (
     <div className="bg-gray-950 border border-gray-800 rounded-lg p-3">
