@@ -1,0 +1,70 @@
+{
+  "name": "RdStationOAuth",
+  "type": "object",
+  "properties": {
+    "provider": {
+      "type": "string",
+      "default": "rdstation",
+      "description": "Provedor OAuth (rdstation)"
+    },
+    "access_token": {
+      "type": "string",
+      "description": "Access token atual (curta dura\u00e7\u00e3o)"
+    },
+    "refresh_token": {
+      "type": "string",
+      "description": "Refresh token para renova\u00e7\u00e3o autom\u00e1tica"
+    },
+    "expires_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Momento de expira\u00e7\u00e3o do access token"
+    },
+    "account_name": {
+      "type": "string",
+      "description": "Conta RD Station identificada na conex\u00e3o"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "connected",
+        "error",
+        "disconnected"
+      ],
+      "default": "disconnected"
+    },
+    "last_error": {
+      "type": "string",
+      "description": "\u00daltimo erro de autentica\u00e7\u00e3o"
+    },
+    "connected_at": {
+      "type": "string",
+      "format": "date-time"
+    }
+  },
+  "required": [
+    "provider"
+  ],
+  "rls": {
+    "read": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}
