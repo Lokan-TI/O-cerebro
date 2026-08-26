@@ -299,6 +299,116 @@ export default function ChurnV4ReconciliationPanel({ sourceId, asOfDate, periodS
             </div>
           </div>
 
+          {auditCases.length > 0 && (
+            <div className="rounded-lg border border-emerald-900/60 overflow-hidden">
+              <div className="px-3 py-3 bg-gray-950 border-b border-gray-800 flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <div className="text-xs font-semibold text-white">Matriz de ground truth · amostra dirigida</div>
+                  <div className="text-[11px] text-gray-500 mt-0.5">Compare cada caso com o SISLOC e registre o resultado. `match` = v4 reproduz o ERP; `explained` = divergência documental/operacional explicada; `fail` = regra v4 diverge do SISLOC.</div>
+                </div>
+                <div className="flex gap-2 text-[11px]">
+                  <span className="px-2 py-1 rounded bg-amber-950/40 text-amber-300">Pendentes {num(auditStats.pending)}</span>
+                  <span className="px-2 py-1 rounded bg-emerald-950/40 text-emerald-300">Match {num(auditStats.match)}</span>
+                  <span className="px-2 py-1 rounded bg-blue-950/40 text-blue-300">Explicados {num(auditStats.explained)}</span>
+                  <span className="px-2 py-1 rounded bg-red-950/40 text-red-300">Fail {num(auditStats.fail)}</span>
+                </div>
+              </div>
+              <div className="overflow-x-auto max-h-[360px] overflow-y-auto">
+                <table className="w-full text-xs">
+                  <thead className="sticky top-0 bg-gray-950 text-gray-500 uppercase">
+                    <tr>
+                      <th className="px-3 py-2 text-left">Caso</th>
+                      <th className="px-3 py-2 text-left">Cliente</th>
+                      <th className="px-3 py-2 text-left">v3</th>
+                      <th className="px-3 py-2 text-left">v4</th>
+                      <th className="px-3 py-2 text-left">Estado ficha</th>
+                      <th className="px-3 py-2 text-right">Saldo</th>
+                      <th className="px-3 py-2 text-right">Dev. pend.</th>
+                      <th className="px-3 py-2 text-left">Veredito</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {auditCases.map((c) => (
+                      <tr
+                        key={c.id}
+                        onClick={() => setSelectedAuditId(c.id)}
+                        className={`border-t border-gray-800 cursor-pointer hover:bg-gray-800/60 ${String(selectedAuditId) === String(c.id) ? "bg-emerald-950/20" : ""}`}
+                      >
+                        <td className="px-3 py-2 text-gray-300 min-w-[210px]">{CASE_LABELS[c.case_type] || c.case_type}</td>
+                        <td className="px-3 py-2 text-white font-medium whitespace-nowrap">{c.nm_pessoa || `#${c.cd_pessoa}`}</td>
+                        <td className="px-3 py-2 text-gray-400 whitespace-nowrap">{c.v3_status || "—"}</td>
+                        <td className="px-3 py-2 text-purple-300 whitespace-nowrap">{c.v4_status || "—"}</td>
+                        <td className="px-3 py-2 text-gray-300 min-w-[190px]">{c.operational_status || "—"}</td>
+                        <td className="px-3 py-2 text-right text-amber-300">{num(c.physical_balance)}</td>
+                        <td className="px-3 py-2 text-right text-gray-300">{num(c.pending_returns)}</td>
+                        <td className={`px-3 py-2 font-medium ${c.verdict === "fail" ? "text-red-300" : c.verdict === "match" ? "text-emerald-300" : c.verdict === "explained" ? "text-blue-300" : "text-amber-300"}`}>{c.verdict || "pending"}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {selectedAudit && (
+            <div className="rounded-lg border border-emerald-900/50 bg-gray-950 p-4 space-y-3">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <div className="text-xs font-semibold text-white">Homologar caso · {CASE_LABELS[selectedAudit.case_type] || selectedAudit.case_type}</div>
+                  <div className="text-[11px] text-gray-500 mt-1">Cliente {selectedAudit.nm_pessoa || selectedAudit.cd_pessoa} · v4 <span className="text-purple-300">{selectedAudit.v4_status}</span> · fim real {dateBr(selectedAudit.relationship_end_date)} · churn date {dateBr(selectedAudit.churn_date)}</div>
+                </div>
+                <div className="text-[11px] text-gray-500">Prioridade {num(selectedAudit.priority)}</div>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                <label className="space-y-1">
+                  <span className="text-[11px] text-gray-500">Status observado no SISLOC</span>
+                  <input
+                    value={reviewDraft.sisloc_observed_status}
+                    onChange={(e) => setReviewDraft((d) => ({ ...d, sisloc_observed_status: e.target.value }))}
+                    placeholder="Ex.: ficha aberta / encerrada / equipamento em campo"
+                    className="w-full bg-gray-900 border border-gray-700 rounded px-3 py-2 text-xs text-white"
+                  />
+                </label>
+                <label className="space-y-1">
+                  <span className="text-[11px] text-gray-500">Veredito</span>
+                  <select
+                    value={reviewDraft.verdict}
+                    onChange={(e) => setReviewDraft((d) => ({ ...d, verdict: e.target.value }))}
+                    className="w-full bg-gray-900 border border-gray-700 rounded px-3 py-2 text-xs text-white"
+                  >
+                    <option value="pending">Pendente</option>
+                    <option value="match">Match · v4 reproduz SISLOC</option>
+                    <option value="explained">Divergência explicada</option>
+                    <option value="fail">Fail · regra v4 diverge</option>
+                  </select>
+                </label>
+                <div className="grid grid-cols-2 gap-2">
+                  <Kpi label="NF vinculadas" value={num(selectedAudit.valid_linked_nf_count)} />
+                  <Kpi label="NF canônicas" value={num(selectedAudit.canonical_nf_count)} />
+                </div>
+              </div>
+              <label className="space-y-1 block">
+                <span className="text-[11px] text-gray-500">Evidência / justificativa</span>
+                <textarea
+                  value={reviewDraft.explanation}
+                  onChange={(e) => setReviewDraft((d) => ({ ...d, explanation: e.target.value }))}
+                  placeholder="Registre o que foi conferido no SISLOC e por que o caso é match, explicado ou fail."
+                  className="w-full min-h-[76px] bg-gray-900 border border-gray-700 rounded px-3 py-2 text-xs text-white resize-y"
+                />
+              </label>
+              <div className="flex justify-end">
+                <button
+                  onClick={saveReview}
+                  disabled={savingReview}
+                  className="px-4 py-2 rounded-lg bg-emerald-700 hover:bg-emerald-600 disabled:opacity-50 text-xs font-medium text-white flex items-center gap-2"
+                >
+                  {savingReview && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                  Salvar homologação do caso
+                </button>
+              </div>
+            </div>
+          )}
+
           <div className="rounded-lg border border-gray-800 overflow-hidden">
             <div className="px-3 py-2 bg-gray-950 border-b border-gray-800">
               <div className="text-xs font-semibold text-white">Principais divergências v3 × v4</div>
