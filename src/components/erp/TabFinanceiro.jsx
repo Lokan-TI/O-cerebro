@@ -89,7 +89,8 @@ export default function TabFinanceiro() {
           { label: "Faturamento NF", value: receita, delta: crescimento ?? undefined, sub: `Ano anterior: ${fmtCur(receitaAnt)}` },
           { label: "Pré-faturamento (fl_fatura)", value: gerada ?? 0, sub: pct != null ? `${pct >= 0 ? "+" : ""}${pct.toFixed(1)}% NF vs pré` : "—" },
           { label: "Contas a Receber", value: k.car_total, sub: `Aberto ${fmtCur(k.car_aberto)} · Vencido ${fmtCur(k.car_vencido)}` },
-          { label: "Contas a Pagar", value: k.cap_total, sub: `Aberto ${fmtCur(k.cap_aberto)} · Vencido ${fmtCur(k.cap_vencido)}` },
+          { label: "Contas a Pagar (despesa real)", value: k.cap_total, sub: `Aberto ${fmtCur(k.cap_aberto)} · Vencido ${fmtCur(k.cap_vencido)}` },
+          { label: "Transferências internas", value: k.cap_transferencias_internas || 0, sub: `Fora do CAP · total excluído ${fmtCur(k.cap_excluido_total || 0)}` },
           { label: "Resultado oper. estimado", value: resultado, sub: margemResult != null ? `${margemResult.toFixed(1)}% de margem` : "Faturamento NF − CAP" },
           { label: "Inadimplência sobre CAR", value: k.car_total > 0 ? `${((k.car_vencido / k.car_total) * 100).toFixed(1)}%` : "—", raw: true, sub: `Vencido ${fmtCur(k.car_vencido)}` },
         ]}

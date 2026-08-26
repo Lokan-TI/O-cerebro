@@ -20,10 +20,16 @@ export function buildAnalyticsView(a, emp) {
   const car_juros_multa = sum(carByEmp, "vl_juros_multa");
   const car_qtd = sum(carByEmp, "qtd");
   const car_qtd_com_juros = sum(carByEmp, "qtd_com_juros");
-  const cap_total = sum(a.cap_by_conta || [], "vl_total");
-  const cap_aberto = sum(a.cap_by_conta || [], "vl_aberto");
-  const cap_baixado = sum(a.cap_by_conta || [], "vl_baixado");
-  const cap_vencido = sum(a.cap_by_conta || [], "vl_vencido");
+  // CAP = despesa real: contas do grupo "1" do plano financeiro são entradas
+  // (incl. Transferência entre Contas) e ficam fora do total a pagar.
+  const capRows = (a.cap_by_conta || []).filter(r => r.natureza !== "entrada");
+  const capFora = (a.cap_by_conta || []).filter(r => r.natureza === "entrada");
+  const cap_total = sum(capRows, "vl_total");
+  const cap_aberto = sum(capRows, "vl_aberto");
+  const cap_baixado = sum(capRows, "vl_baixado");
+  const cap_vencido = sum(capRows, "vl_vencido");
+  const cap_transferencias_internas = sum(capFora.filter(r => r.is_transferencia), "vl_total");
+  const cap_excluido_total = sum(capFora, "vl_total");
   const fichloc_total = sum(fichByEmp, "qtd");
   const fichloc_ativas = sum(fichByEmp, "qtd_ativas");
   const fichloc_encerradas = sum(fichByEmp, "qtd_encerradas");
@@ -36,6 +42,7 @@ export function buildAnalyticsView(a, emp) {
     car_juros_multa, car_qtd, car_qtd_com_juros,
     car_juros_pct_titulos: car_qtd > 0 ? (car_qtd_com_juros / car_qtd * 100) : null,
     cap_total, cap_aberto, cap_baixado, cap_vencido,
+    cap_transferencias_internas, cap_excluido_total,
     fichloc_total, fichloc_ativas, fichloc_encerradas,
     est_mov_total, receita_gerada,
     margem_fluxo: car_total - cap_total,

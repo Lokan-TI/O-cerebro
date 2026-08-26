@@ -104,6 +104,8 @@ export async function computeAnalytics({ source, wrap, startDate, endDate, lastY
     // Total a pagar = Liquidado + A vencer + Vencido (sem Provisório) · cancelado (40) fora de tudo.
     const capSql = `SELECT
         c.cd_conta,
+        MAX(LTRIM(RTRIM(ISNULL(pl.nr_planfin,'')))) AS nr_planfin,
+        MAX(LTRIM(RTRIM(ISNULL(pl.ds_planfin,'')))) AS ds_planfin,
         COUNT(*) AS qtd,
         ISNULL(SUM(CASE WHEN c.fl_status_titulo IN (25, 30) OR (c.fl_status_titulo <> 40 AND c.dt_bai_cap IS NOT NULL) THEN v.val ELSE 0 END),0) AS vl_liquidado,
         ISNULL(SUM(CASE WHEN c.fl_status_titulo = 10 AND c.dt_bai_cap IS NULL AND c.dt_ven_cap >= CAST(GETDATE() AS date) THEN v.val ELSE 0 END),0) AS vl_a_vencer,
@@ -111,6 +113,7 @@ export async function computeAnalytics({ source, wrap, startDate, endDate, lastY
         ISNULL(SUM(CASE WHEN c.fl_status_titulo = 5 AND c.dt_bai_cap IS NULL AND c.dt_ven_cap >= CAST(GETDATE() AS date) THEN v.val ELSE 0 END),0) AS vl_provisorio,
         ISNULL(SUM(CASE WHEN c.fl_status_titulo = 40 THEN v.val ELSE 0 END),0) AS vl_cancelado
         FROM cap c WITH (NOLOCK)
+        LEFT JOIN plano pl WITH (NOLOCK) ON pl.cd_planfin = c.cd_conta
         CROSS APPLY (SELECT ROUND(COALESCE(c.vl_pre_cap,0)+COALESCE(c.vl_acr_cap,0)-COALESCE(c.vl_des_cap,0),2) AS val) v
         WHERE c.dt_emi_cap >= '${startDate}' AND c.dt_emi_cap < '${endDate}'
         GROUP BY c.cd_conta
@@ -119,8 +122,16 @@ export async function computeAnalytics({ source, wrap, startDate, endDate, lastY
       const liquidado = Number(r.vl_liquidado) || 0;
       const aVencer = Number(r.vl_a_vencer) || 0;
       const vencido = Number(r.vl_vencido) || 0;
+      const nr = String(r.nr_planfin || '');
+      // Natureza pelo plano financeiro: contas do grupo "1" são ENTRADAS
+      // (inclui 190100010 Transferência entre Contas) e não representam despesa da empresa.
+      const natureza = nr.startsWith('1') ? 'entrada' : (nr ? 'saida' : 'indefinida');
       return {
         cd_conta: Number(r.cd_conta) || null,
+        nr_planfin: nr,
+        ds_planfin: String(r.ds_planfin || ''),
+        natureza,
+        is_transferencia: nr.startsWith('19'),
         qtd: Number(r.qtd) || 0,
         vl_liquidado: liquidado,
         vl_a_vencer: aVencer,
@@ -170,8 +181,10 @@ export async function computeAnalytics({ source, wrap, startDate, endDate, lastY
       ISNULL(SUM(CASE WHEN c.fl_status_titulo IN (25, 30) OR (c.fl_status_titulo <> 40 AND c.dt_bai_cap IS NOT NULL) THEN v.val ELSE 0 END),0) AS vl_baixado,
       COUNT(*) AS qtd
       FROM cap c WITH (NOLOCK)
+      LEFT JOIN plano pl WITH (NOLOCK) ON pl.cd_planfin = c.cd_conta
       CROSS APPLY (SELECT ROUND(COALESCE(c.vl_pre_cap,0)+COALESCE(c.vl_acr_cap,0)-COALESCE(c.vl_des_cap,0),2) AS val) v
       WHERE c.dt_emi_cap >= '${lastYearStart}' AND c.dt_emi_cap < '${endDate}'
+        AND LEFT(LTRIM(RTRIM(ISNULL(pl.nr_planfin,'0'))),1) <> '1'
       GROUP BY YEAR(c.dt_emi_cap), MONTH(c.dt_emi_cap)
       ORDER BY 1, 2`;
     out.cap_monthly = getRows(await runQuery(source, wrap(capMonSql))).map(r => ({
@@ -394,11 +407,16 @@ export async function computeAnalytics({ source, wrap, startDate, endDate, lastY
     const carJurosMulta = out.car_by_empresa.reduce((s, r) => s + (r.vl_juros_multa || 0), 0);
     const carQtdComJuros = out.car_by_empresa.reduce((s, r) => s + (r.qtd_com_juros || 0), 0);
     const carQtd = out.car_by_empresa.reduce((s, r) => s + (r.qtd || 0), 0);
-    const capLiquidado = out.cap_by_conta.reduce((s, r) => s + (r.vl_liquidado || 0), 0);
-    const capAVencer = out.cap_by_conta.reduce((s, r) => s + (r.vl_a_vencer || 0), 0);
-    const capVencido = out.cap_by_conta.reduce((s, r) => s + r.vl_vencido, 0);
-    const capProvisorio = out.cap_by_conta.reduce((s, r) => s + (r.vl_provisorio || 0), 0);
-    const capCancelado = out.cap_by_conta.reduce((s, r) => s + (r.vl_cancelado || 0), 0);
+    // Despesa real: exclui contas de natureza entrada (grupo "1"), incluindo transferências entre contas.
+    const capDespesa = out.cap_by_conta.filter(r => r.natureza !== 'entrada');
+    const capEntradasNoCap = out.cap_by_conta.filter(r => r.natureza === 'entrada');
+    const capTransferencias = capEntradasNoCap.filter(r => r.is_transferencia).reduce((s, r) => s + (r.vl_total || 0), 0);
+    const capRepasses = capEntradasNoCap.filter(r => !r.is_transferencia).reduce((s, r) => s + (r.vl_total || 0), 0);
+    const capLiquidado = capDespesa.reduce((s, r) => s + (r.vl_liquidado || 0), 0);
+    const capAVencer = capDespesa.reduce((s, r) => s + (r.vl_a_vencer || 0), 0);
+    const capVencido = capDespesa.reduce((s, r) => s + r.vl_vencido, 0);
+    const capProvisorio = capDespesa.reduce((s, r) => s + (r.vl_provisorio || 0), 0);
+    const capCancelado = capDespesa.reduce((s, r) => s + (r.vl_cancelado || 0), 0);
     // Total a pagar = Liquidado + A vencer + Vencido (provisório fica à parte)
     const capTotal = capLiquidado + capAVencer + capVencido;
     const capAberto = capAVencer + capVencido;
@@ -438,6 +456,9 @@ export async function computeAnalytics({ source, wrap, startDate, endDate, lastY
       cap_provisorio: capProvisorio,
       cap_aberto_firme: capAberto,
       cap_cancelado: capCancelado,
+      cap_transferencias_internas: capTransferencias,
+      cap_repasses_entrada: capRepasses,
+      cap_excluido_total: capTransferencias + capRepasses,
       margem_fluxo: carTotal - capTotal,
       margem_percent: carTotal > 0 ? ((carTotal - capTotal) / carTotal * 100) : null,
       fichloc_total: fichTotal,
