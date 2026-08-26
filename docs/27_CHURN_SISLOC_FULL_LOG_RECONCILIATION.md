@@ -420,17 +420,62 @@ Somente então:
 
 ---
 
-## 11. Decisão de implementação
+## 11. Implementação de reconciliação entregue
 
-**Não substituir o motor v3 diretamente a partir de um único log.**
+**O motor v3 continua preservado. A v4 foi implementada em paralelo e permanece NÃO TRUSTED.**
 
-Próxima implementação correta:
+Entregues:
 
-1. criar `reconcileRentalChurnV4` em paralelo ao v3;
-2. produzir snapshot por ficha e cliente com evidências auditáveis;
-3. comparar v3 × v4;
-4. executar a amostra dirigida acima no ERP;
-5. corrigir somente divergências explicáveis por regra;
-6. quando chegar a zero divergência não explicada, promover v4.
+1. `base44/shared/rentalChurnV4.ts` — contrato executável da v4;
+2. `base44/functions/reconcileRentalChurnV4/entry.ts` — reconciliação admin v3 × v4;
+3. snapshot cliente a cliente com `relationship_end_date`, `churn_date`, estados operacionais e divergência explicada;
+4. evidência ficha a ficha para as maiores divergências;
+5. comparação entre NF vinculada válida e o universo fiscal canônico atual, sem resolver divergências silenciosamente;
+6. painel manual **Homologação Churn v4 · SISLOC Full Log** dentro da aba de churn;
+7. motor temporal de episódios para preservar churn histórico seguido de reativação.
 
-Esse processo é necessário para que “100% congruência” seja uma propriedade demonstrada, e não apenas uma afirmação da implementação.
+### 11.1 Motor temporal de episódios
+
+Para MTR-010, a v4 não usa apenas o último relacionamento. Cada ficha ativada gera um intervalo econômico-operacional. Fichas sobrepostas são unidas em um mesmo episódio por `cd_pessoa`.
+
+Para cada episódio:
+
+```text
+candidate_churn_date = episode_end + N meses
+```
+
+O evento somente existe se:
+
+```text
+next_episode_start IS NULL
+OR next_episode_start > candidate_churn_date
+```
+
+Assim, se um cliente fica 14 meses sem locar e depois retorna, o churn ocorrido no passado não desaparece do histórico por causa da reativação posterior.
+
+A base elegível no início do período é reconstruída pelo último evento conhecido antes de `period_start`: cliente precisa ter sido ativado e não pode continuar churnado sem uma reativação posterior.
+
+A taxa candidata é:
+
+```text
+period_churn_rate = clientes da base inicial que cruzaram churn_date no período
+                    / clientes elegíveis no início do período
+```
+
+Clientes com inconsistência operacional atual são excluídos conservadoramente da taxa candidata e contabilizados à parte.
+
+### 11.2 O que ainda bloqueia TRUSTED
+
+A implementação executável não equivale à homologação.
+
+Ainda é obrigatório:
+
+1. executar `reconcileRentalChurnV4` contra o ERP;
+2. validar a amostra dirigida da seção 10;
+3. comprovar o universo fiscal correto de `cd_nf` e `cd_nf_mo`;
+4. confirmar a precedência dos estados `ATIVA_EM_CAMPO`, `DEVOLUCAO_EM_ANDAMENTO`, `SUSPENSA`, `ATIVA_FATURAMENTO` e `ABERTA_SEM_SALDO`;
+5. reconciliar `relationship_end_date` quando `dt_enc_ficha`, `dt_entrada`, `dt_fim` e emissão da NF divergem;
+6. registrar manualmente o status exibido no SISLOC para os casos dirigidos;
+7. atingir `unexplained_divergences = 0`.
+
+Somente depois disso o v3 pode ser substituído e MTR-010/MTR-011 podem avançar de BLOQUEADA para candidata a TRUSTED.
