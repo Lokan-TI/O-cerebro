@@ -97,14 +97,55 @@ function buildDirectedAuditCandidates(rows: any[], asOfDate: string) {
 
 export default async function (req: Request): Promise<Response> {
   const started = Date.now();
+  const executionId = `CHURNV4-EXEC-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  let base44: any = null;
+  let executionLogId: string | null = null;
+
+  const trace = async (fields: Record<string, any>) => {
+    if (!base44 || !executionLogId) return;
+    try {
+      await base44.asServiceRole.entities.ChurnV4ExecutionLog.update(executionLogId, {
+        ...fields,
+        updated_at: new Date().toISOString(),
+        duration_ms: Date.now() - started,
+      });
+    } catch {
+      // A instrumentação jamais deve derrubar a reconciliação principal.
+    }
+  };
+
   try {
-    const base44 = createClientFromRequest(req);
+    base44 = createClientFromRequest(req);
     const user = await base44.auth.me();
     if (!user || user.role !== 'admin') {
       return Response.json({ error: 'Reconciliação de churn é restrita a administradores.' }, { status: 403 });
     }
 
     const body = await req.json().catch(() => ({}));
+
+    try {
+      const log = await base44.asServiceRole.entities.ChurnV4ExecutionLog.create({
+        execution_id: executionId,
+        status: 'started',
+        step: 'request_authenticated',
+        as_of_date: String(body?.as_of_date || '').slice(0, 10),
+        period_start: String(body?.period_start || '').slice(0, 10),
+        period_end: String(body?.period_end || '').slice(0, 10),
+        inactivity_months: Number(body?.inactivity_months) || 13,
+        started_at: new Date(started).toISOString(),
+        updated_at: new Date().toISOString(),
+        context_json: JSON.stringify({
+          source_id: body?.source_id || null,
+          include_details: body?.include_details !== false,
+          persist: body?.persist !== false,
+        }),
+      });
+      executionLogId = log?.id || null;
+    } catch {
+      // Continua sem telemetria caso a entidade ainda não esteja sincronizada no runtime.
+    }
+
+    await trace({ status: 'resolving_source', step: 'resolving_source' });
 
     let source: any = null;
     if (body?.source_id) {
@@ -118,7 +159,16 @@ export default async function (req: Request): Promise<Response> {
         || active[0]
         || null;
     }
-    if (!source) return Response.json({ error: 'Fonte ERP não encontrada.' }, { status: 404 });
+    if (!source) {
+      await trace({ status: 'error', step: 'source_not_found', error_message: 'Fonte ERP não encontrada.', completed_at: new Date().toISOString() });
+      return Response.json({ error: 'Fonte ERP não encontrada.' }, { status: 404 });
+    }
+    await trace({
+      status: 'resolving_source',
+      step: 'source_resolved',
+      source_id: source.id || '',
+      source_name: source.name || '',
+    });
 
     let asOfDate = String(body?.as_of_date || '').slice(0, 10);
     if (!/^\d{4}-\d{2}-\d{2}$/.test(asOfDate)) {
@@ -138,15 +188,27 @@ export default async function (req: Request): Promise<Response> {
     const dates = rentalChurnV4Dates(ctx);
 
     const customerSql = buildRentalChurnV4CustomerSql(ctx);
+    await trace({
+      status: 'customer_query',
+      step: 'customer_query_started',
+      as_of_date: ctx.asOfDate,
+      period_start: ctx.periodStart,
+      period_end: ctx.periodEnd,
+      inactivity_months: ctx.inactivityMonths,
+    });
     const customerRows = rowsOf(await execRead(source, customerSql, 120000));
+    await trace({ status: 'customer_query', step: 'customer_query_completed', customer_rows: customerRows.length });
 
     // Motor temporal separado: transforma fichas efetivamente ativadas em intervalos,
     // une contratos sobrepostos e cria um evento de churn apenas quando o gap até o
     // próximo episódio supera N meses. Assim um churn histórico seguido de reativação
     // não desaparece do período só porque o cliente alugou novamente depois.
     const episodeSql = buildRentalChurnV4EpisodeSql(ctx);
+    await trace({ status: 'episode_query', step: 'episode_query_started' });
     const episodeRows = rowsOf(await execRead(source, episodeSql, 120000));
+    await trace({ status: 'episode_query', step: 'episode_query_completed', episode_rows: episodeRows.length });
 
+    await trace({ status: 'normalizing', step: 'normalizing_results' });
     const normalized = customerRows.map((r: any) => ({
       ...r,
       cd_pessoa: String(r.cd_pessoa || ''),
@@ -242,10 +304,12 @@ export default async function (req: Request): Promise<Response> {
     ])].slice(0, detailLimit);
     let fichaDetails: any[] = [];
     let detailSql: string | null = null;
-    if (includeDetails && detailCodes.length) {
-      const detailCtx = normalizeRentalChurnV4Context({ ...ctx, customerIds: detailCodes });
-      detailSql = buildRentalChurnV4FichaDetailSql(detailCtx);
-      fichaDetails = rowsOf(await execRead(source, detailSql, 120000)).map((r: any) => ({
+        last_canonical_nf: iso(r.last_canonical_nf),
+      }));
+      await trace({ status: 'detail_query', step: 'detail_query_completed', detail_rows: fichaDetails.length, audit_cases: auditCandidates.length });
+    }
+
+    const episodeCustomers = new Map();
         ...r,
         cd_pessoa: String(r.cd_pessoa || ''),
         cd_controle: String(r.cd_controle || ''),
@@ -428,6 +492,7 @@ export default async function (req: Request): Promise<Response> {
 
     let persistenceWarning: string | null = null;
     if (body?.persist !== false) {
+      await trace({ status: 'persisting', step: 'persisting_run_and_audit_cases', run_id: runId, audit_cases: auditCaseRecords.length });
       try {
         await base44.asServiceRole.entities.ChurnV4ReconciliationRun.create({
           run_id: runId,
@@ -505,6 +570,12 @@ export default async function (req: Request): Promise<Response> {
       duration_ms: Date.now() - started,
     });
   } catch (error) {
-    return Response.json({ success: false, error: error?.message || String(error) }, { status: 500 });
+    await trace({
+      status: 'error',
+      step: 'unhandled_error',
+      error_message: error?.message || String(error),
+      completed_at: new Date().toISOString(),
+    });
+    return Response.json({ success: false, execution_id: executionId, error: error?.message || String(error) }, { status: 500 });
   }
 }
