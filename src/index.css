@@ -77,6 +77,62 @@
 
 
 
+/* Padrão visual global das tabelas — aplica-se a qualquer <table> do app.
+   Usa seletores de elemento, portanto classes utilitárias nas células continuam
+   prevalecendo (nenhuma lógica ou layout existente é alterado). */
+@layer components {
+  table {
+    border-collapse: separate;
+    border-spacing: 0;
+    width: 100%;
+  }
+
+  table thead th {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    background-color: rgba(17, 24, 39, 0.95);
+    backdrop-filter: blur(4px);
+    font-size: 0.6875rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    white-space: nowrap;
+    border-bottom: 1px solid rgb(38, 38, 45);
+    padding: 0.625rem 0.75rem;
+  }
+
+  table tbody td {
+    padding: 0.5rem 0.75rem;
+    border-bottom: 1px solid rgba(38, 38, 45, 0.6);
+    vertical-align: middle;
+  }
+
+  table tbody tr:nth-child(even) {
+    background-color: rgba(255, 255, 255, 0.018);
+  }
+
+  table tbody tr {
+    transition: background-color 120ms ease;
+  }
+
+  table tbody tr:hover {
+    background-color: rgba(139, 92, 246, 0.07);
+  }
+
+  table tbody tr:last-child td {
+    border-bottom: none;
+  }
+
+  table tfoot td,
+  table tfoot th {
+    padding: 0.625rem 0.75rem;
+    border-top: 1px solid rgb(55, 55, 64);
+    background-color: rgba(31, 31, 38, 0.6);
+    font-weight: 600;
+  }
+}
+
 @layer base {
   * {
     @apply border-border outline-ring/50;
