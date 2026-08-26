@@ -4,6 +4,7 @@ import {
   RENTAL_CHURN_V4_STATUS,
   RENTAL_CHURN_V4_VERSION,
   buildRentalChurnV4CustomerSql,
+  buildRentalChurnV4EpisodeSql,
   buildRentalChurnV4FichaDetailSql,
   normalizeRentalChurnV4Context,
   rentalChurnV4Dates,
@@ -88,6 +89,13 @@ export default async function (req: Request): Promise<Response> {
 
     const customerSql = buildRentalChurnV4CustomerSql(ctx);
     const customerRows = rowsOf(await execRead(source, customerSql, 120000));
+
+    // Motor temporal separado: transforma fichas efetivamente ativadas em intervalos,
+    // une contratos sobrepostos e cria um evento de churn apenas quando o gap até o
+    // próximo episódio supera N meses. Assim um churn histórico seguido de reativação
+    // não desaparece do período só porque o cliente alugou novamente depois.
+    const episodeSql = buildRentalChurnV4EpisodeSql(ctx);
+    const episodeRows = rowsOf(await execRead(source, episodeSql, 120000));
 
     const normalized = customerRows.map((r: any) => ({
       ...r,
@@ -200,10 +208,48 @@ export default async function (req: Request): Promise<Response> {
       }));
     }
 
-    // Importante: incidência de churn por período exige episódios históricos. O snapshot
-    // desta função não inventa uma taxa usando apenas o último relacionamento; isso fica
-    // explicitamente bloqueado até o motor de episódios unir contratos sobrepostos e detectar
-    // gaps > N meses, inclusive churn seguido de reativação.
+    const episodeCustomers = new Map();
+    for (const r of episodeRows) {
+      const key = String(r.cd_pessoa || '');
+      if (!key) continue;
+      if (!episodeCustomers.has(key)) {
+        episodeCustomers.set(key, {
+          cd_pessoa: key,
+          eligible_at_period_start: Number(r.eligible_at_period_start) === 1,
+          churn_events_in_period: Number(r.churn_events_in_period) || 0,
+          current_inconsistent_fichas: Number(r.current_inconsistent_fichas) || 0,
+          first_activation_date: iso(r.first_activation_date),
+          latest_activation_before_period: iso(r.latest_activation_before_period),
+          latest_churn_before_period: iso(r.latest_churn_before_period),
+          last_churn_event_in_period: iso(r.last_churn_event_in_period),
+        });
+      }
+    }
+    const episodeCustomerRows = [...episodeCustomers.values()];
+    const periodEligibleRaw = episodeCustomerRows.filter((r: any) => r.eligible_at_period_start);
+    const periodEligible = periodEligibleRaw.filter((r: any) => r.current_inconsistent_fichas === 0);
+    const periodChurnCustomers = periodEligible.filter((r: any) => r.churn_events_in_period > 0);
+    const periodChurnEvents = periodChurnCustomers.reduce((s: number, r: any) => s + r.churn_events_in_period, 0);
+    const periodChurnRate = periodEligible.length ? (periodChurnCustomers.length / periodEligible.length * 100) : 0;
+    const historicalChurnEvents = episodeRows.filter((r: any) => Number(r.is_churn_event) === 1);
+    const reactivatedAfterChurn = historicalChurnEvents.filter((r: any) => r.next_episode_start != null);
+    const churnEventsInPeriodRows = episodeRows.filter((r: any) =>
+      Number(r.is_churn_event) === 1
+      && r.candidate_churn_date
+      && iso(r.candidate_churn_date) >= ctx.periodStart
+      && iso(r.candidate_churn_date) < ctx.periodEnd,
+    ).map((r: any) => ({
+      cd_pessoa: String(r.cd_pessoa || ''),
+      episode_id: Number(r.episode_id) || 0,
+      episode_start: iso(r.episode_start),
+      episode_end: iso(r.episode_end),
+      churn_date: iso(r.candidate_churn_date),
+      next_episode_start: iso(r.next_episode_start),
+      reactivated_after_churn: !!r.next_episode_start,
+      eligible_at_period_start: Number(r.eligible_at_period_start) === 1,
+      current_inconsistent_fichas: Number(r.current_inconsistent_fichas) || 0,
+    }));
+
     const summary = {
       all_people_with_ficha: normalized.length,
       historically_activated_customers: activated.length,
@@ -250,13 +296,22 @@ export default async function (req: Request): Promise<Response> {
       },
       summary,
       period_churn: {
-        status: 'BLOCKED_EPISODE_ENGINE',
+        status: 'CANDIDATE_EPISODE_ENGINE_NOT_TRUSTED',
         trusted: false,
-        reason: 'Taxa de churn por período exige reconstrução de episódios cliente-a-cliente para preservar churns históricos seguidos de reativação; o snapshot atual usa somente o relacionamento vigente/mais recente.',
-        new_churn_events: null,
-        eligible_customers_at_period_start: null,
-        period_churn_rate: null,
+        period_start: ctx.periodStart,
+        period_end_exclusive: ctx.periodEnd,
+        eligible_customers_at_period_start_raw: periodEligibleRaw.length,
+        excluded_current_operational_audit: periodEligibleRaw.length - periodEligible.length,
+        eligible_customers_at_period_start: periodEligible.length,
+        new_churn_customers: periodChurnCustomers.length,
+        new_churn_events: periodChurnEvents,
+        period_churn_rate: Number(periodChurnRate.toFixed(4)),
+        historical_churn_events_detected: historicalChurnEvents.length,
+        historical_churns_with_later_reactivation: reactivatedAfterChurn.length,
+        methodology: 'Fichas ativadas -> intervalos -> união de contratos sobrepostos -> episódio -> churn_date = episode_end + N meses, somente se não houver novo episódio até essa data.',
+        caveat: 'Ainda NÃO TRUSTED: precisa ser reconciliado em amostra dirigida, principalmente devoluções parciais, fichas abertas stale e diferenças entre fim operacional e cobertura faturada.',
       },
+      period_churn_events: churnEventsInPeriodRows.slice(0, 500),
       divergence_breakdown: Object.entries(normalized.reduce((acc: Record<string, number>, r: any) => {
         const key = String(r.divergence_type || 'NAO_CLASSIFICADO');
         acc[key] = (acc[key] || 0) + 1;
@@ -268,7 +323,7 @@ export default async function (req: Request): Promise<Response> {
       })).sort((a: any, b: any) => b.count - a.count),
       top_divergences: divergenceRows,
       ficha_evidence: fichaDetails,
-      queries: body?.include_queries === true ? { customer: customerSql, detail: detailSql } : undefined,
+      queries: body?.include_queries === true ? { customer: customerSql, episodes: episodeSql, detail: detailSql } : undefined,
       duration_ms: Date.now() - started,
     });
   } catch (error) {
