@@ -7,8 +7,8 @@ import { buildConfig, execRead, closePool } from '../../shared/erpConnection.ts'
 //
 // Regras (proxy do ERP, mutuamente exclusivas, avaliadas nesta ordem):
 //  05 Pós-locação        → já teve locação realizada e devolveu tudo (nada em posse)
-//  03 Interesse comercial→ orçamento nos últimos 30 dias e nunca locou
-//  04 Recuperação        → orçamento há mais de 30 dias e nunca locou
+//  03 Interesse comercial→ orçamento/proposta nos últimos 30 dias e nunca locou
+//  04 Recuperação        → orçamento/proposta há mais de 30 dias e nunca locou (pediu preço e sumiu)
 //  01 Boas-vindas        → cadastro nos últimos 30 dias, sem orçamento e sem locação
 //  02 Nutrição técnica   → cadastro antigo, sem orçamento e sem locação
 // (clientes com equipamento em posse hoje ficam fora — estão em locação ativa)
@@ -61,12 +61,17 @@ Deno.serve(async (req) => {
           p.dt_cad_pessoa, p.dt_ult_atividade
         FROM pessoa p WITH (NOLOCK)
         WHERE p.fl_cliente_pessoa = 1`,
-      orcamentos: `SELECT o.cd_pessoa_cli AS cd_pessoa, COUNT(*) AS qtd,
-          MAX(o.dt_orcamento) AS ult_orcamento,
-          MAX(CASE WHEN o.dt_aprovacao IS NOT NULL THEN o.dt_orcamento END) AS ult_aprovado
-        FROM mkt_orcamento o WITH (NOLOCK)
-        WHERE o.dt_cancelamento IS NULL AND o.cd_pessoa_cli IS NOT NULL
-        GROUP BY o.cd_pessoa_cli`,
+      // mkt_orcamento está vazia nesta base: o orçamento/proposta é a própria ficha de
+      // locação (fich_loc) que nunca gerou remessa com saída — "pediu preço e sumiu".
+      orcamentos: `SELECT f.cd_pessoa, COUNT(*) AS qtd,
+          MAX(f.dt_pedido) AS ult_orcamento,
+          MAX(CASE WHEN f.dt_aprovacao IS NOT NULL THEN f.dt_pedido END) AS ult_aprovado
+        FROM fich_loc f WITH (NOLOCK)
+        WHERE f.cd_pessoa IS NOT NULL AND f.cd_pessoa <> ''
+          AND NOT EXISTS (SELECT 1 FROM fl_remessa r WITH (NOLOCK)
+            WHERE r.cd_controle = f.cd_controle AND r.dt_saida IS NOT NULL
+              AND ISNULL(r.fl_rem_cancelada,'') <> 'S')
+        GROUP BY f.cd_pessoa`,
       locacoes: `SELECT f.cd_pessoa, COUNT(*) AS qtd, MAX(r.dt_saida) AS ult_saida
         ${REM_BASE}
         GROUP BY f.cd_pessoa`,
