@@ -479,3 +479,93 @@ Ainda é obrigatório:
 7. atingir `unexplained_divergences = 0`.
 
 Somente depois disso o v3 pode ser substituído e MTR-010/MTR-011 podem avançar de BLOQUEADA para candidata a TRUSTED.
+
+---
+
+## 12. Ground truth persistente no Cérebro
+
+A homologação v4 deixa de depender de prints, planilhas ou cópia manual de resultados.
+
+Foram criadas duas entidades administrativas:
+
+- `ChurnV4ReconciliationRun` — snapshot de cada execução da reconciliação;
+- `ChurnV4AuditCase` — matriz persistente dos casos dirigidos que precisam ser confrontados com o SISLOC.
+
+Cada run registra, entre outros:
+
+- fonte, corte e janela;
+- versão da regra;
+- cobertura populacional do v3;
+- churn snapshot v4;
+- divergências conhecidas;
+- falso churn por contrato ativo;
+- falso churn por âncora temporal;
+- fichas abertas stale que exigem auditoria;
+- divergência do universo fiscal;
+- taxa candidata por episódios;
+- número de clientes/eventos que cruzaram churn no período;
+- quantidade de churns históricos seguidos de reativação;
+- `unexplained_divergences`.
+
+A execução de `reconcileRentalChurnV4` persiste automaticamente o run e até 100 casos dirigidos, sem promover nenhum resultado para TRUSTED.
+
+### 12.1 Amostra dirigida automática
+
+O motor tenta selecionar exemplos para:
+
+1. caso do full log (`cd_pessoa=13442`, ficha de referência `676399`);
+2. falso churn v3 com contrato ativo;
+3. falso churn v3 por âncora temporal;
+4. ficha aberta stale;
+5. inconsistência operacional;
+6. divergência de universo fiscal;
+7. múltiplas fichas com ao menos uma ativa;
+8. controle positivo de contrato ativo;
+9. encerrado ainda protegido;
+10. churn confirmado;
+11. cliente ativado sem NF vinculada;
+12. ficha nunca ativada;
+13. cliente sazonal entre 12 e 13 meses.
+
+A seleção depende da existência real de cada arquétipo na base; ausência de caso não gera dado artificial.
+
+### 12.2 Veredito humano contra o SISLOC
+
+Cada `ChurnV4AuditCase` começa como `pending` e recebe:
+
+- `sisloc_observed_status` — o que o ERP efetivamente mostra;
+- `verdict`:
+  - `match` — v4 reproduz o SISLOC;
+  - `explained` — divergência operacional/documental explicada e aceita;
+  - `fail` — regra v4 diverge do SISLOC;
+- justificativa;
+- revisor e data de revisão.
+
+O run permanece `reviewing` enquanto houver casos pendentes. Quando todos forem revisados:
+
+- qualquer `fail` mantém o run bloqueado;
+- zero `fail` torna o run apenas `candidate`, nunca `trusted` automaticamente.
+
+### 12.3 Critério formal de promoção
+
+Para considerar a regra apta a substituir v3, devem ser verdadeiras simultaneamente:
+
+```text
+pending_cases = 0
+unexplained_divergences = 0
+fiscal_universe_conclusion = documented
+operational_state_precedence = documented
+relationship_end_anchor = documented
+business_owner_approval = explicit
+```
+
+Mesmo com todos os testes aprovados, `trusted=true` não é preenchido automaticamente. A promoção deve ser uma decisão de governança separada e rastreável.
+
+### 12.4 Execução inicial
+
+Ao abrir o painel de homologação:
+
+1. o Cérebro tenta carregar o último run persistido da fonte;
+2. se nenhum run existir, executa uma primeira reconciliação automaticamente;
+3. novas execuções permanecem disponíveis pelo botão manual;
+4. a carga automática não se repete quando já existe histórico persistido.
