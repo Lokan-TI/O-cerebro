@@ -54,6 +54,10 @@ Deno.serve(async (req) => {
 
     const body = await req.json().catch(() => ({}));
     const somenteComEmail = body?.somente_com_email !== false;
+    // Paginação: a base completa gera resposta grande demais para uma única
+    // requisição (gateway derruba com 500). O front busca em blocos.
+    const offset = Math.max(0, Number(body?.offset) || 0);
+    const limit = Math.min(20000, Math.max(1, Number(body?.limit) || 8000));
 
     const queries = {
       pessoas: `SELECT p.cd_pessoa, p.nm_pessoa, p.nm_fan_pessoa, p.nr_cpf_pessoa, p.nr_cnpj_pessoa,
@@ -184,13 +188,13 @@ Deno.serve(async (req) => {
     const counts: Record<string, number> = {};
     for (const r of out) counts[r.fluxo] = (counts[r.fluxo] || 0) + 1;
 
-    // Campos vazios são removidos para reduzir o tamanho da resposta (a planilha
-    // já trata ausência como vazio). Evita estouro de payload na base completa.
-    for (const r of out) {
-      for (const k of Object.keys(r)) {
-        if (r[k] === '' || r[k] === null || r[k] === undefined) delete r[k];
-      }
-    }
+    const page = out.slice(offset, offset + limit);
+
+    // Formato colunar: uma lista de colunas + matriz de valores. Reduz o payload
+    // em ~3x frente a objetos repetindo as chaves em cada cliente, o que fazia a
+    // resposta da base completa estourar o limite do gateway.
+    const columns = Object.keys(out[0] || {});
+    const values = page.map((r) => columns.map((c) => (r[c] === '' || r[c] == null ? null : r[c])));
 
     // O pool precisa ser liberado também no caminho de sucesso, senão as conexões
     // do ERP se esgotam e as chamadas seguintes falham com 500.
@@ -198,8 +202,12 @@ Deno.serve(async (req) => {
 
     return Response.json({
       success: true,
-      rows: out,
+      columns,
+      values,
       total: out.length,
+      offset,
+      limit,
+      has_more: offset + values.length < out.length,
       counts,
       excluidos_em_locacao_ativa: emLocacaoAtiva,
       clientes_sem_email: semEmail,

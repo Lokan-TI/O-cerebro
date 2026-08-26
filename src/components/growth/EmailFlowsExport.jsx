@@ -8,17 +8,36 @@ export default function EmailFlowsExport() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [data, setData] = useState(null);
+  const [progress, setProgress] = useState(null);
 
   const load = async () => {
-    setLoading(true); setError(null);
+    setLoading(true); setError(null); setProgress(null);
     try {
-      const res = await base44.functions.invoke("segmentEmailFlows", { somente_com_email: true });
-      const d = res?.data;
-      if (!d?.success) throw new Error(d?.error || "Falha ao segmentar clientes.");
-      setData(d);
+      const rows = [];
+      let meta = null;
+      let offset = 0;
+      // A base completa não cabe numa única resposta, então buscamos em blocos.
+      for (let page = 0; page < 40; page++) {
+        const res = await base44.functions.invoke("segmentEmailFlows", {
+          somente_com_email: true, offset, limit: 8000,
+        });
+        const d = res?.data;
+        if (!d?.success) throw new Error(d?.error || "Falha ao segmentar clientes.");
+        const cols = d.columns || [];
+        for (const v of d.values || []) {
+          const row = {};
+          cols.forEach((c, i) => { row[c] = v[i] ?? ""; });
+          rows.push(row);
+        }
+        meta = d;
+        setProgress({ loaded: rows.length, total: d.total });
+        if (!d.has_more || !d.values?.length) break;
+        offset = rows.length;
+      }
+      setData({ ...meta, rows });
     } catch (e) {
       setError(e.message || String(e));
-    } finally { setLoading(false); }
+    } finally { setLoading(false); setProgress(null); }
   };
 
   const download = () => {
@@ -35,7 +54,11 @@ export default function EmailFlowsExport() {
       <div className="flex gap-2 flex-wrap">
         <Button onClick={load} disabled={loading} className="bg-purple-600 hover:bg-purple-700">
           {loading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <RefreshCw className="w-4 h-4 mr-2" />}
-          {loading ? "Segmentando clientes…" : "Gerar segmentação"}
+          {loading
+            ? progress
+              ? `Carregando ${progress.loaded.toLocaleString("pt-BR")} de ${Number(progress.total || 0).toLocaleString("pt-BR")}…`
+              : "Segmentando clientes…"
+            : "Gerar segmentação"}
         </Button>
         <Button onClick={download} disabled={!data?.rows?.length} variant="outline" className="border-gray-700 bg-gray-900 text-gray-200 hover:bg-gray-800 hover:text-white">
           <Download className="w-4 h-4 mr-2" /> Baixar Excel (.xlsx)
