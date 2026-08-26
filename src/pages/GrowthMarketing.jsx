@@ -10,11 +10,13 @@ import QueryInspector from "@/components/erp/QueryInspector";
 import TabChurn from "@/components/erp/TabChurn";
 import ConversaoNovosClientes from "./ConversaoNovosClientes";
 import ConversasLeads from "./ConversasLeads";
+import EmailFlowsExport from "@/components/growth/EmailFlowsExport";
 import {
   AlertTriangle,
   ArrowRight,
   HeartPulse,
   Loader2,
+  Mail,
   RefreshCw,
   Repeat2,
   Rocket,
@@ -30,6 +32,7 @@ const TABS = [
   { id: "churn", label: "Retenção & Churn", icon: Repeat2 },
   { id: "reativacao", label: "Reativação de Carteira", icon: UsersRound },
   { id: "health", label: "Customer Health", icon: HeartPulse },
+  { id: "listas", label: "Listas & Fluxos de e-mail", icon: Mail },
 ];
 
 function minusMonths(iso, months) {
@@ -340,6 +343,18 @@ export default function GrowthMarketing() {
         {activeTab === "conversao" && <ConversaoNovosClientes />}
         {activeTab === "churn" && <TabChurn />}
         {activeTab === "reativacao" && <PortfolioPanel mode="reactivation" data={churnData} loading={churnLoading} error={churnError} onRefresh={loadChurn} onOpenChurn={() => setTab("churn")} />}
+        {activeTab === "listas" && (
+          <div className="space-y-5">
+            <div className="bg-gray-900 border border-gray-800 rounded-xl p-5">
+              <div className="flex items-center gap-2"><Mail className="w-5 h-5 text-purple-400" /><h2 className="text-lg font-semibold text-white">Listas & Fluxos de e-mail</h2></div>
+              <p className="text-sm text-gray-400 mt-1">
+                Segmentação da base do ERP em 5 fluxos — boas-vindas, nutrição técnica, interesse comercial,
+                recuperação (orçamento sem locação) e pós-locação. O Excel traz uma aba por fluxo.
+              </p>
+            </div>
+            <EmailFlowsExport />
+          </div>
+        )}
         {activeTab === "health" && <PortfolioPanel mode="health" data={churnData} loading={churnLoading} error={churnError} onRefresh={loadChurn} onOpenChurn={() => setTab("churn")} />}
       </div>
     </div>
