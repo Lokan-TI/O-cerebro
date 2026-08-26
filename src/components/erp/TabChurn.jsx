@@ -9,6 +9,7 @@ import ChurnTimeline from "./ChurnTimeline";
 import ChurnNameGroups from "./ChurnNameGroups";
 import ChurnSegmentsPanel from "./ChurnSegmentsPanel";
 import RetentionCanonicalPanel from "./RetentionCanonicalPanel";
+import ChurnV4ReconciliationPanel from "./ChurnV4ReconciliationPanel";
 import { AlertTriangle, UserMinus } from "lucide-react";
 import { toInclusiveEnd } from "@/lib/periodContract";
 
@@ -117,6 +118,13 @@ export default function TabChurn() {
           {data.monthly_churn?.length > 0 && <ChurnTimeline monthlyChurn={data.monthly_churn} />}
           <ChurnNameGroups clients={data.churned_clients} />
           <ChurnClientTable clients={data.churned_clients} />
+          <ChurnV4ReconciliationPanel
+            sourceId={effectiveSource?.id}
+            asOfDate={dates.analysis_end_inclusive}
+            periodStart={period.start}
+            periodEnd={period.endExclusive}
+            inactivityMonths={inactivityMonths}
+          />
         </>
       ) : !loading && !error ? (
         <div className="text-center py-12 text-gray-500">
