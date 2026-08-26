@@ -47,7 +47,7 @@ function Kpi({ label, value, sub }) {
   );
 }
 
-export default function ChurnV4ReconciliationPanel({ sourceId, asOfDate, periodStart, periodEnd, inactivityMonths = 13 }) {
+export default function ChurnV4ReconciliationPanel({ sourceId, asOfDate, periodStart, periodEnd, inactivityMonths = 13, autoRun = true }) {
   const [data, setData] = useState(null);
   const [auditCases, setAuditCases] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -152,11 +152,12 @@ export default function ChurnV4ReconciliationPanel({ sourceId, asOfDate, periodS
   };
 
   useEffect(() => {
-    if (!checkedSaved || data || loading || loadingSaved || error || !asOfDate) return;
+    if (!autoRun || !checkedSaved || data || loading || loadingSaved || error || !asOfDate) return;
     run();
     // Primeira execução automática somente quando não existe histórico persistido.
+    // O chamador pode adiar o início para evitar concorrência com outra consulta pesada.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [checkedSaved, data, loading, loadingSaved, error, asOfDate, sourceId]);
+  }, [autoRun, checkedSaved, data, loading, loadingSaved, error, asOfDate, sourceId]);
 
   const selectedEvidence = useMemo(() => {
     if (!selectedCustomer || !data?.ficha_evidence) return [];
