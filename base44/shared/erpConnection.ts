@@ -46,7 +46,9 @@ export function credentialOrigin(source) {
 export function buildConfig(source) {
   if (!source) return null;
   if (source.credential_reference === 'env') {
-    const clientId = Deno.env.get('DW_API_CLIENT_ID');
+    // O Client ID DW_API identifica a unidade no wrapper SISLOC — quando a fonte
+    // declara o seu, ele prevalece sobre o da Matriz (variável de ambiente).
+    const clientId = (source.dw_api_client_id || '').trim() || Deno.env.get('DW_API_CLIENT_ID');
     const host = Deno.env.get('SQL_SERVER_HOST');
     if (!clientId || !host) return null;
     return {
