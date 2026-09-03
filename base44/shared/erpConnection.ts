@@ -125,7 +125,7 @@ export async function runQuery(source, execSql, timeoutMs) {
   const built = buildConfig(source);
   if (!built) throw new Error('Configuração de conexão incompleta para a fonte selecionada.');
   const limit = timeoutMs && timeoutMs > 0 ? timeoutMs : 30000;
-  return await serialize(() =>
+  const attempt = () =>
     withDeadline(
       (async () => {
         const pool = await getPool(key, built.config);
@@ -139,8 +139,11 @@ export async function runQuery(source, execSql, timeoutMs) {
       // Descarta o pool para que a próxima tentativa reconecte em vez de reusar conexão travada.
       pools.delete(key);
       throw e;
-    }),
-  );
+    });
+
+  // Conexões reaproveitadas do pool às vezes chegam mortas (o wrapper DW_API encerra
+  // a sessão entre consultas), então a primeira falha é repetida uma vez com conexão nova.
+  return await serialize(() => attempt().catch(() => attempt()));
 }
 
 // Runs a read query respecting the DW_API wrapper when the source has a client id (SISLOC).
