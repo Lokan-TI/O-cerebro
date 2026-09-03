@@ -74,18 +74,37 @@ const TEXT_COLS = new Set(["cd_pessoa", "num_pessoa", "num_cob_pessoa", "cep_pes
 const DOC_COLS = new Set(["nr_cnpj_pessoa", "nr_cpf_pessoa"]);
 const asExcelText = (v) => (v ? `="${v}"` : "");
 
+const PAGE_SIZE = 250;
+
+// Busca uma página; o wrapper DW_API às vezes derruba a consulta (500/timeout),
+// então tentamos novamente algumas vezes antes de desistir da exportação.
+async function fetchPage(sourceId, after, attempt = 1) {
+  try {
+    const res = await base44.functions.invoke("listClientesCadastro", {
+      source_id: sourceId,
+      after,
+      limit: PAGE_SIZE,
+    });
+    const data = res?.data;
+    if (!data?.success) throw new Error(data?.error || "Falha ao carregar o cadastro de clientes.");
+    return data;
+  } catch (e) {
+    if (attempt >= 4) {
+      throw new Error(
+        "O banco do ERP não respondeu durante a exportação (a consulta foi tentada 4 vezes). Tente novamente em alguns minutos."
+      );
+    }
+    await new Promise((r) => setTimeout(r, 2000 * attempt));
+    return fetchPage(sourceId, after, attempt + 1);
+  }
+}
+
 // Percorre a base em páginas (keyset por cd_pessoa) até esgotar os registros.
 export async function fetchAllClientesCadastro(sourceId, onProgress) {
   const all = [];
   let after = 0;
-  for (let page = 0; page < 200; page++) {
-    const res = await base44.functions.invoke("listClientesCadastro", {
-      source_id: sourceId,
-      after,
-      limit: 500,
-    });
-    const data = res?.data;
-    if (!data?.success) throw new Error(data?.error || "Falha ao carregar o cadastro de clientes.");
+  for (let page = 0; page < 400; page++) {
+    const data = await fetchPage(sourceId, after);
     all.push(...(data.rows || []));
     onProgress?.(all.length);
     if (!data.next_cursor) break;
