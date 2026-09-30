@@ -4,7 +4,7 @@ import { getEmpresaLabel } from "@/lib/empresaLabels";
 import { fetchContratos, exportContratosXlsx } from "./contratosAbertosExport";
 
 export default function ContratosAbertosExport({ sourceId, empresas = [] }) {
-  const [empresa, setEmpresa] = useState("");
+  const [empresa, setEmpresa] = useState(empresas[0] ? String(empresas[0].cd_empresa) : "");
   const [loading, setLoading] = useState(false);
   const [msg, setMsg] = useState(null);
 
@@ -24,7 +24,7 @@ export default function ContratosAbertosExport({ sourceId, empresas = [] }) {
 
   return (
     <div className="px-4 py-3 border-b border-gray-800 flex flex-wrap items-center gap-2">
-      <span className="text-gray-300 text-xs font-medium">Contratos abertos (1 linha por contrato + bens):</span>
+      <span className="text-gray-300 text-xs font-medium">Fichas com status "Aberta" (igual ao Sisloc):</span>
       <select value={empresa} onChange={(e) => setEmpresa(e.target.value)} className="bg-gray-800 border border-gray-700 rounded-lg px-2 py-1.5 text-white text-xs">
         <option value="">Todas as empresas</option>
         {empresas.map((e) => <option key={String(e.cd_empresa)} value={String(e.cd_empresa)}>{getEmpresaLabel(e.cd_empresa, e.empresa_nome)}</option>)}
