@@ -52,7 +52,7 @@ Deno.serve(async (req) => {
         r.dt_ini_contrato, r.dt_fim_contrato, r.dt_encerramento AS dt_prev_retorno,
         e.cd_flremequ, e.cd_equipto, q.codigo AS cd_equipto_codigo, q.nm_equipto, e.ds_equipto,
         e.cd_patrimonio, q.cd_grupo, e.qt_remessa,
-        ISNULL((SELECT SUM(d.qt_devolucao) FROM fl_dev_equ d WITH (NOLOCK) WHERE d.cd_flremequ = e.cd_flremequ),0) AS qt_devolvida,
+        ISNULL(dv.qt,0) AS qt_devolvida,
         e.vl_uni_locacao, e.vl_uni_diaria, e.vl_uni_tabela, e.vl_uni_indenizacao, e.vl_nf,
         e.ds_latitude, e.ds_longitude
       FROM fich_loc f WITH (NOLOCK)
@@ -63,10 +63,11 @@ Deno.serve(async (req) => {
       LEFT JOIN atividade a WITH (NOLOCK) ON a.cd_atividade = f.cd_atividade
       LEFT JOIN regiao rg WITH (NOLOCK) ON rg.cd_regiao = f.cd_regiao
       LEFT JOIN calcfat cf WITH (NOLOCK) ON cf.cd_calcfat = f.cd_calcfat
-      WHERE ${ABERTA}
+      OUTER APPLY (SELECT SUM(d.qt_devolucao) AS qt FROM fl_dev_equ d WITH (NOLOCK) WHERE d.cd_flremequ = e.cd_flremequ) dv
+      WHERE ${ABERTA}${emp}
         AND r.fl_rem_cancelada = 'N'
-        AND e.qt_remessa > ISNULL((SELECT SUM(d.qt_devolucao) FROM fl_dev_equ d WITH (NOLOCK) WHERE d.cd_flremequ = e.cd_flremequ),0)
-        AND e.cd_flremequ > ${after}${emp}
+        AND e.qt_remessa > ISNULL(dv.qt,0)
+        AND e.cd_flremequ > ${after}
       ORDER BY e.cd_flremequ`;
 
     const sqlRenov = `SELECT TOP ${limit}
