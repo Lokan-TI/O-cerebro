@@ -2,6 +2,7 @@ import { useState } from "react";
 import * as XLSX from "xlsx";
 import { Download } from "lucide-react";
 import { getEmpresaLabel } from "@/lib/empresaLabels";
+import EmpresaResumoTable from "./EmpresaResumoTable";
 
 const COLS = [
   ["Código cliente", (c) => String(c.cd_pessoa ?? "")],
@@ -21,7 +22,7 @@ const COLS = [
 
 const sheetName = (s) => (s || "Sem empresa").replace(/[\\/?*[\]:]/g, " ").slice(0, 31);
 
-export default function EmpresaClientesExport({ clients = [], empresas = [] }) {
+export default function EmpresaClientesExport({ clients = [], empresas = [], children }) {
   const [empresa, setEmpresa] = useState("todas");
   const [status, setStatus] = useState("ATIVO");
   const [soContrato, setSoContrato] = useState(true);
@@ -53,6 +54,7 @@ export default function EmpresaClientesExport({ clients = [], empresas = [] }) {
 
   const sel = "bg-gray-800 border border-gray-700 rounded-lg px-2 py-1.5 text-white text-xs";
   return (
+    <>
     <div className="px-4 py-3 border-b border-gray-800 flex flex-wrap items-center gap-2">
       <select value={empresa} onChange={(e) => setEmpresa(e.target.value)} className={sel}>
         <option value="todas">Todas as empresas</option>
@@ -73,5 +75,8 @@ export default function EmpresaClientesExport({ clients = [], empresas = [] }) {
         <Download className="w-3.5 h-3.5" /> Exportar Excel
       </button>
     </div>
+    {children}
+    <EmpresaResumoTable clients={filtered} />
+    </>
   );
 }

@@ -103,32 +103,9 @@ export default function TabCliente360() {
           {(snapshot.by_empresa || []).length > 0 && (
             <div className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden">
               <div className="px-4 py-3 border-b border-gray-800 text-white text-sm font-medium">Por empresa</div>
-              <EmpresaClientesExport clients={snapshot.clients || []} empresas={snapshot.by_empresa} />
-              <ContratosAbertosExport sourceId={selectedSource?.id} empresas={snapshot.by_empresa} />
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="bg-gray-800/50 text-gray-400 text-xs uppercase tracking-wide">
-                    <th className="text-left px-4 py-2">Empresa</th>
-                    <th className="text-center px-4 py-2">Clientes</th>
-                    <th className="text-center px-4 py-2">Ativos</th>
-                    <th className="text-right px-4 py-2">Faturamento</th>
-                    <th className="text-right px-4 py-2">CAR aberto</th>
-                    <th className="text-right px-4 py-2">CAR vencido</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {snapshot.by_empresa.map((e) => (
-                    <tr key={String(e.cd_empresa)} className="border-t border-gray-800">
-                      <td className="px-4 py-2 text-white">{getEmpresaLabel(e.cd_empresa, e.empresa_nome)}</td>
-                      <td className="px-4 py-2 text-center text-gray-300">{e.clientes}</td>
-                      <td className="px-4 py-2 text-center text-green-400">{e.ativos}</td>
-                      <td className="px-4 py-2 text-right text-white">{brl(e.faturamento)}</td>
-                      <td className="px-4 py-2 text-right text-purple-300">{brl(e.car_aberto)}</td>
-                      <td className="px-4 py-2 text-right text-amber-400">{brl(e.car_vencido)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+              <EmpresaClientesExport clients={snapshot.clients || []} empresas={snapshot.by_empresa}>
+                <ContratosAbertosExport sourceId={selectedSource?.id} empresas={snapshot.by_empresa} />
+              </EmpresaClientesExport>
             </div>
           )}
 
