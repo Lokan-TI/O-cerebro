@@ -78,14 +78,32 @@ Deno.serve(async (req) => {
       LEFT JOIN pessoa p WITH (NOLOCK) ON p.cd_pessoa = f.cd_pessoa
       WHERE ${ABERTA} AND ft.cd_flfatura > ${after}${emp}
       ORDER BY ft.cd_flfatura`;
+    // Modos brutos: todas as colunas originais de cada tabela, sem simplificação
+    const openF = `FROM fich_loc f WITH (NOLOCK) WHERE ${ABERTA}${emp}`;
+    const RAW: Record<string, [string, string]> = {
+      raw_fichas: [`SELECT TOP ${limit} f.* ${openF} AND f.cd_controle > ${after} ORDER BY f.cd_controle`, 'cd_controle'],
+      raw_pessoas: [`SELECT TOP ${limit} p.* FROM pessoa p WITH (NOLOCK) WHERE p.cd_pessoa > ${after}
+        AND EXISTS (SELECT 1 ${openF} AND f.cd_pessoa = p.cd_pessoa) ORDER BY p.cd_pessoa`, 'cd_pessoa'],
+      raw_remessas: [`SELECT TOP ${limit} r.* FROM fl_remessa r WITH (NOLOCK) WHERE r.fl_rem_cancelada = 'N' AND r.cd_flremessa > ${after}
+        AND EXISTS (SELECT 1 ${openF} AND f.cd_controle = r.cd_controle) ORDER BY r.cd_flremessa`, 'cd_flremessa'],
+      raw_itens: [`SELECT TOP ${limit} e.*,
+          ISNULL((SELECT SUM(d.qt_devolucao) FROM fl_dev_equ d WITH (NOLOCK) WHERE d.cd_flremequ = e.cd_flremequ),0) AS qt_devolvida_calc
+        FROM fl_rem_equ e WITH (NOLOCK) JOIN fl_remessa r WITH (NOLOCK) ON r.cd_flremessa = e.cd_flremessa
+        WHERE r.fl_rem_cancelada = 'N' AND e.cd_flremequ > ${after}
+          AND EXISTS (SELECT 1 ${openF} AND f.cd_controle = r.cd_controle) ORDER BY e.cd_flremequ`, 'cd_flremequ'],
+      raw_faturas: [`SELECT TOP ${limit} ft.* FROM fl_fatura ft WITH (NOLOCK) WHERE ft.cd_flfatura > ${after}
+        AND EXISTS (SELECT 1 ${openF} AND f.cd_controle = ft.cd_controle) ORDER BY ft.cd_flfatura`, 'cd_flfatura'],
+    };
     const renov = body.mode === 'renovacoes';
+    const raw = RAW[body.mode];
+    const key = raw ? raw[1] : renov ? 'cd_flfatura' : 'cd_flremequ';
 
-    const rows = rowsOf(await execRead(source, renov ? sqlRenov : sql, 90000)).map((r: any) => {
+    const rows = rowsOf(await execRead(source, raw ? raw[0] : renov ? sqlRenov : sql, 90000)).map((r: any) => {
       const o: any = {};
-      for (const [k, v] of Object.entries(r)) o[k] = v instanceof Date ? iso(v) : v;
+      for (const [k, v] of Object.entries(r)) o[k] = v instanceof Date ? iso(v) : (v != null && typeof v === 'object' ? null : v);
       return o;
     });
-    const last = rows.length ? Number(rows[rows.length - 1][renov ? 'cd_flfatura' : 'cd_flremequ']) : after;
+    const last = rows.length ? Number(rows[rows.length - 1][key]) : after;
     return Response.json({ rows, next_after: last, has_more: rows.length === limit });
   } catch (error) {
     return Response.json({ error: (error as Error).message || String(error) }, { status: 500 });

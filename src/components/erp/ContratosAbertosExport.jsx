@@ -3,6 +3,7 @@ import { FileSpreadsheet, Loader2 } from "lucide-react";
 import { getEmpresaLabel } from "@/lib/empresaLabels";
 import { fetchContratos, exportContratosXlsx } from "./contratosAbertosExport";
 import { buildResumo } from "./contratosResumo";
+import { exportContratosBruto } from "./contratosBrutoExport";
 import ContratosResumoTable from "./ContratosResumoTable";
 
 export default function ContratosAbertosExport({ sourceId, empresas = [] }) {
@@ -29,6 +30,17 @@ export default function ContratosAbertosExport({ sourceId, empresas = [] }) {
     setLoading(false);
   };
 
+  const runBruto = async () => {
+    setLoading(true); setMsg("Buscando dados brutos...");
+    try {
+      const r = await exportContratosBruto(sourceId, empresa, setMsg);
+      setMsg(`${r.contratos} contratos · ${r.itens} itens exportados (bruto)`);
+    } catch (e) {
+      setMsg(`Erro: ${e.message}`);
+    }
+    setLoading(false);
+  };
+
   return (
     <>
     <div className="px-4 py-3 border-b border-gray-800 flex flex-wrap items-center gap-2">
@@ -38,7 +50,10 @@ export default function ContratosAbertosExport({ sourceId, empresas = [] }) {
         {empresas.map((e) => <option key={String(e.cd_empresa)} value={String(e.cd_empresa)}>{getEmpresaLabel(e.cd_empresa, e.empresa_nome)}</option>)}
       </select>
       {msg && <span className={`text-xs ${msg.startsWith("Erro") ? "text-red-400" : "text-gray-500"}`}>{msg}</span>}
-      <button onClick={run} disabled={loading || !sourceId} className="ml-auto flex items-center gap-1.5 px-3 py-1.5 bg-violet-700 hover:bg-violet-600 rounded-lg text-white text-xs font-medium disabled:opacity-50">
+      <button onClick={runBruto} disabled={loading || !sourceId} className="ml-auto flex items-center gap-1.5 px-3 py-1.5 bg-gray-700 hover:bg-gray-600 rounded-lg text-white text-xs font-medium disabled:opacity-50">
+        {loading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <FileSpreadsheet className="w-3.5 h-3.5" />} Exportar bruto (Sisloc)
+      </button>
+      <button onClick={run} disabled={loading || !sourceId} className="flex items-center gap-1.5 px-3 py-1.5 bg-violet-700 hover:bg-violet-600 rounded-lg text-white text-xs font-medium disabled:opacity-50">
         {loading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <FileSpreadsheet className="w-3.5 h-3.5" />} Exportar contratos
       </button>
     </div>
