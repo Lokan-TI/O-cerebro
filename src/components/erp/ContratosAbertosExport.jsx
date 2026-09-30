@@ -16,13 +16,14 @@ export default function ContratosAbertosExport({ sourceId, empresas = [] }) {
   }, [empresas]);
 
   const run = async () => {
-    setLoading(true); setMsg("Buscando contratos...");
+    setLoading(true); setMsg("Buscando fichas...");
     try {
+      const fichas = await fetchContratos(sourceId, empresa, (n) => setMsg(`${n} fichas carregadas...`), "fichas");
       const rows = await fetchContratos(sourceId, empresa, (n) => setMsg(`${n} itens carregados...`));
       setMsg("Buscando renovações...");
       const renovs = await fetchContratos(sourceId, empresa, (n) => setMsg(`${n} renovações carregadas...`), "renovacoes");
-      setResumo(buildResumo(rows));
-      const n = exportContratosXlsx(rows, renovs);
+      setResumo(buildResumo(fichas, rows));
+      const n = exportContratosXlsx(fichas, rows, renovs);
       setMsg(`${n} contratos abertos · ${rows.length} itens exportados`);
     } catch (e) {
       setMsg(`Erro: ${e.message}`);

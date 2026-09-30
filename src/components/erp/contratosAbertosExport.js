@@ -64,7 +64,7 @@ const contratoCols = (r) => ({
   "Observação": (r.observacao || "").trim(),
 });
 
-export function exportContratosXlsx(rows, renovs = []) {
+export function exportContratosXlsx(fichas, rows, renovs = []) {
   const ren = new Map();
   for (const f of renovs) {
     const r = ren.get(f.cd_controle) || { n: 0, ini: null, fim: null, vl: 0 };
@@ -74,18 +74,20 @@ export function exportContratosXlsx(rows, renovs = []) {
     ren.set(f.cd_controle, r);
   }
   const byContrato = new Map();
+  for (const f of fichas) byContrato.set(f.cd_controle, { base: f, itens: 0, emPosse: 0, qtPosse: 0, vlLocPosse: 0, bens: new Set() });
   for (const r of rows) {
-    const c = byContrato.get(r.cd_controle) || { base: r, itens: 0, emPosse: 0, qtPosse: 0, vlLocPosse: 0, bens: new Set() };
+    const c = byContrato.get(r.cd_controle);
+    if (!c) continue;
     c.itens++;
     const s = saldo(r);
     if (s > 0) {
       c.emPosse++; c.qtPosse += s; c.vlLocPosse += s * num(r.vl_uni_locacao);
       c.bens.add(r.nm_equipto || r.ds_equipto || txt(r.cd_equipto));
     }
-    byContrato.set(r.cd_controle, c);
   }
   const contratos = [...byContrato.values()].map((c) => ({
     ...contratoCols(c.base),
+    "Situação bens": c.emPosse > 0 ? "Com bens em posse" : "Sem bens em posse",
     "Itens enviados (linhas)": c.itens,
     "Itens em posse (linhas)": c.emPosse,
     "Qtd. bens em posse": c.qtPosse,
@@ -144,7 +146,7 @@ export function exportContratosXlsx(rows, renovs = []) {
     "Longitude": txt(r.ds_longitude),
   }));
   const wb = XLSX.utils.book_new();
-  for (const [name, data] of [["Resumo", buildResumo(rows)], ["Contratos", contratos], ["Itens (bens)", itens], ["Renovações", renovacoes]]) {
+  for (const [name, data] of [["Resumo", buildResumo(fichas, rows)], ["Contratos", contratos], ["Itens (bens)", itens], ["Renovações", renovacoes]]) {
     const ws = XLSX.utils.json_to_sheet(data);
     if (ws["!ref"]) ws["!autofilter"] = { ref: ws["!ref"] };
     ws["!cols"] = Object.keys(data[0] || {}).map((h) => ({ wch: Math.max(h.length + 2, 14) }));

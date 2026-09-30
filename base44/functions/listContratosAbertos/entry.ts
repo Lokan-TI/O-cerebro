@@ -94,6 +94,23 @@ Deno.serve(async (req) => {
       raw_faturas: [`SELECT TOP ${limit} ft.* FROM fl_fatura ft WITH (NOLOCK) WHERE ft.cd_flfatura > ${after}
         AND EXISTS (SELECT 1 ${openF} AND f.cd_controle = ft.cd_controle) ORDER BY ft.cd_flfatura`, 'cd_flfatura'],
     };
+    RAW.fichas = [`SELECT TOP ${limit}
+        f.cd_controle, f.numero_prefixo, f.numero, f.numero_sufixo, f.cd_empresa, f.cd_empresa_mov,
+        f.cd_pessoa, p.nm_pessoa, p.nm_fan_pessoa,
+        f.dt_pedido, f.dt_aprovacao, f.dt_fai_ficha, f.dt_faf_ficha, f.dt_prevista_devolucao,
+        f.dt_min_devolucao, f.dt_fau_ficha, f.dt_fat_ficha, f.dt_prox_reajuste,
+        f.cd_calcfat, cf.ds_calcfat, f.cd_atividade, a.ds_atividade, f.cd_regiao, rg.nm_regiao,
+        f.cd_tpcontrato, f.cd_condpagto, f.cd_tipocob, f.cd_tab_preco, f.cd_projeto, f.cd_cr,
+        f.vl_minimo_locacao, f.vl_preco_dia, f.vl_projeto, f.nr_periodos,
+        f.nm_entrega, f.en_entrega, f.num_entrega, f.comp_entrega, f.br_entrega, f.ci_entrega,
+        f.uf_entrega, f.cp_entrega, f.cnpj_entrega, f.contato, f.telefone, f.observacao
+      FROM fich_loc f WITH (NOLOCK)
+      LEFT JOIN pessoa p WITH (NOLOCK) ON p.cd_pessoa = f.cd_pessoa
+      LEFT JOIN atividade a WITH (NOLOCK) ON a.cd_atividade = f.cd_atividade
+      LEFT JOIN regiao rg WITH (NOLOCK) ON rg.cd_regiao = f.cd_regiao
+      LEFT JOIN calcfat cf WITH (NOLOCK) ON cf.cd_calcfat = f.cd_calcfat
+      WHERE ${ABERTA}${emp} AND f.cd_controle > ${after}
+      ORDER BY f.cd_controle`, 'cd_controle'];
     const renov = body.mode === 'renovacoes';
     const raw = RAW[body.mode];
     const key = raw ? raw[1] : renov ? 'cd_flfatura' : 'cd_flremequ';
