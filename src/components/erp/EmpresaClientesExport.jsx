@@ -1,6 +1,7 @@
 import { useState } from "react";
 import * as XLSX from "xlsx";
 import { Download } from "lucide-react";
+import { getEmpresaLabel } from "@/lib/empresaLabels";
 
 const COLS = [
   ["Código cliente", (c) => String(c.cd_pessoa ?? "")],
@@ -11,7 +12,8 @@ const COLS = [
   ["UF", (c) => c.uf || ""],
   ["Data cadastro", (c) => c.dt_cadastro || ""],
   ["Cód. empresa", (c) => String(c.cd_empresa ?? "")],
-  ["Empresa", (c) => c.empresa_nome || ""],
+  ["Empresa", (c) => getEmpresaLabel(c.cd_empresa, c.empresa_nome)],
+  ["Razão social empresa", (c) => c.empresa_nome || ""],
   ["Status", (c) => c.status || ""],
   ["Contratos abertos", (c) => Number(c.fichas_abertas) || 0],
   ["Última ficha", (c) => c.ultima_ficha || ""],
@@ -33,7 +35,7 @@ export default function EmpresaClientesExport({ clients = [], empresas = [] }) {
   const exportar = () => {
     const wb = XLSX.utils.book_new();
     const groups = {};
-    filtered.forEach((c) => { (groups[c.empresa_nome || "Sem empresa"] ||= []).push(c); });
+    filtered.forEach((c) => { (groups[c.cd_empresa == null ? "Sem empresa" : getEmpresaLabel(c.cd_empresa, c.empresa_nome)] ||= []).push(c); });
     const used = new Set();
     Object.entries(groups).forEach(([nome, rows]) => {
       const data = [COLS.map((c) => c[0]), ...rows.map((r) => COLS.map((c) => c[1](r)))];
@@ -54,7 +56,7 @@ export default function EmpresaClientesExport({ clients = [], empresas = [] }) {
     <div className="px-4 py-3 border-b border-gray-800 flex flex-wrap items-center gap-2">
       <select value={empresa} onChange={(e) => setEmpresa(e.target.value)} className={sel}>
         <option value="todas">Todas as empresas</option>
-        {empresas.map((e) => <option key={String(e.cd_empresa)} value={String(e.cd_empresa)}>{e.empresa_nome || `Empresa ${e.cd_empresa}`}</option>)}
+        {empresas.map((e) => <option key={String(e.cd_empresa)} value={String(e.cd_empresa)}>{getEmpresaLabel(e.cd_empresa, e.empresa_nome)}</option>)}
       </select>
       <select value={status} onChange={(e) => setStatus(e.target.value)} className={sel}>
         <option value="todos">Todos os status</option>

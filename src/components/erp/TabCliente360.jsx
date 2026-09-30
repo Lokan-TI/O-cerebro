@@ -7,6 +7,7 @@ import { toInclusiveEnd } from "@/lib/periodContract";
 import Cliente360Kpis from "./Cliente360Kpis";
 import Cliente360Table from "./Cliente360Table";
 import EmpresaClientesExport from "./EmpresaClientesExport";
+import { getEmpresaLabel } from "@/lib/empresaLabels";
 
 const brl = (v) => (Number(v) || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 });
 
@@ -116,7 +117,7 @@ export default function TabCliente360() {
                 <tbody>
                   {snapshot.by_empresa.map((e) => (
                     <tr key={String(e.cd_empresa)} className="border-t border-gray-800">
-                      <td className="px-4 py-2 text-white">{e.empresa_nome || `Empresa ${e.cd_empresa}`}</td>
+                      <td className="px-4 py-2 text-white">{getEmpresaLabel(e.cd_empresa, e.empresa_nome)}</td>
                       <td className="px-4 py-2 text-center text-gray-300">{e.clientes}</td>
                       <td className="px-4 py-2 text-center text-green-400">{e.ativos}</td>
                       <td className="px-4 py-2 text-right text-white">{brl(e.faturamento)}</td>
