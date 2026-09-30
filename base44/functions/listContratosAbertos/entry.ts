@@ -65,6 +65,7 @@ Deno.serve(async (req) => {
       LEFT JOIN calcfat cf WITH (NOLOCK) ON cf.cd_calcfat = f.cd_calcfat
       WHERE ${ABERTA}
         AND r.fl_rem_cancelada = 'N'
+        AND e.qt_remessa > ISNULL((SELECT SUM(d.qt_devolucao) FROM fl_dev_equ d WITH (NOLOCK) WHERE d.cd_flremequ = e.cd_flremequ),0)
         AND e.cd_flremequ > ${after}${emp}
       ORDER BY e.cd_flremequ`;
 

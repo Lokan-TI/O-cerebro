@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { FileSpreadsheet, Loader2 } from "lucide-react";
 import { getEmpresaLabel } from "@/lib/empresaLabels";
 import { fetchContratos, exportContratosXlsx } from "./contratosAbertosExport";
@@ -10,6 +10,9 @@ export default function ContratosAbertosExport({ sourceId, empresas = [] }) {
   const [loading, setLoading] = useState(false);
   const [msg, setMsg] = useState(null);
   const [resumo, setResumo] = useState(null);
+  useEffect(() => {
+    if (!empresa && empresas[0]) setEmpresa(String(empresas[0].cd_empresa));
+  }, [empresas]);
 
   const run = async () => {
     setLoading(true); setMsg("Buscando contratos...");
