@@ -1,6 +1,7 @@
 import * as XLSX from "xlsx";
 import { base44 } from "@/api/base44Client";
 import { getEmpresaLabel } from "@/lib/empresaLabels";
+import { buildResumo } from "./contratosResumo";
 
 const num = (v) => Number(v) || 0;
 const txt = (v) => (v == null ? "" : String(v));
@@ -143,7 +144,7 @@ export function exportContratosXlsx(rows, renovs = []) {
     "Longitude": txt(r.ds_longitude),
   }));
   const wb = XLSX.utils.book_new();
-  for (const [name, data] of [["Contratos", contratos], ["Itens (bens)", itens], ["Renovações", renovacoes]]) {
+  for (const [name, data] of [["Resumo", buildResumo(rows)], ["Contratos", contratos], ["Itens (bens)", itens], ["Renovações", renovacoes]]) {
     const ws = XLSX.utils.json_to_sheet(data);
     if (ws["!ref"]) ws["!autofilter"] = { ref: ws["!ref"] };
     ws["!cols"] = Object.keys(data[0] || {}).map((h) => ({ wch: Math.max(h.length + 2, 14) }));
