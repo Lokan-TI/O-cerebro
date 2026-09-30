@@ -12,7 +12,9 @@ export default function ContratosAbertosExport({ sourceId, empresas = [] }) {
     setLoading(true); setMsg("Buscando contratos...");
     try {
       const rows = await fetchContratos(sourceId, empresa, (n) => setMsg(`${n} itens carregados...`));
-      const n = exportContratosXlsx(rows);
+      setMsg("Buscando renovações...");
+      const renovs = await fetchContratos(sourceId, empresa, (n) => setMsg(`${n} renovações carregadas...`), "renovacoes");
+      const n = exportContratosXlsx(rows, renovs);
       setMsg(`${n} contratos abertos · ${rows.length} itens exportados`);
     } catch (e) {
       setMsg(`Erro: ${e.message}`);

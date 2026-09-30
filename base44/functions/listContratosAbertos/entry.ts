@@ -15,6 +15,9 @@ function rowsOf(res: any) {
   return [];
 }
 
+// Mesmo critério do filtro "Aberta" da tela Ficha de Locação do Sisloc
+const ABERTA = `f.dt_enc_ficha IS NULL AND f.dt_suspensao IS NULL AND f.tp_ope_pedido <> 'O'`;
+
 const iso = (v: any) => {
   if (!v || !(v instanceof Date) && typeof v !== 'string') return v ?? null;
   const d = new Date(v);
@@ -60,18 +63,28 @@ Deno.serve(async (req) => {
       LEFT JOIN atividade a WITH (NOLOCK) ON a.cd_atividade = f.cd_atividade
       LEFT JOIN regiao rg WITH (NOLOCK) ON rg.cd_regiao = f.cd_regiao
       LEFT JOIN calcfat cf WITH (NOLOCK) ON cf.cd_calcfat = f.cd_calcfat
-      WHERE f.dt_enc_ficha IS NULL
-        AND ISNULL(r.fl_rem_cancelada,'') <> 'S'
-        AND e.qt_remessa - ISNULL((SELECT SUM(d2.qt_devolucao) FROM fl_dev_equ d2 WITH (NOLOCK) WHERE d2.cd_flremequ = e.cd_flremequ),0) > 0
+      WHERE ${ABERTA}
+        AND r.fl_rem_cancelada = 'N'
         AND e.cd_flremequ > ${after}${emp}
       ORDER BY e.cd_flremequ`;
 
-    const rows = rowsOf(await execRead(source, sql, 90000)).map((r: any) => {
+    const sqlRenov = `SELECT TOP ${limit}
+        ft.cd_flfatura, ft.cd_controle, f.numero_prefixo, f.numero, f.numero_sufixo, f.cd_empresa,
+        f.cd_pessoa, p.nm_pessoa, ft.dt_geracao, ft.dt_inicio, ft.dt_fim, ft.dt_fim_ajuste,
+        ft.vl_fatura, ft.vl_minimo_locacao, ft.fatura_complementar, ft.cd_nf
+      FROM fl_fatura ft WITH (NOLOCK)
+      JOIN fich_loc f WITH (NOLOCK) ON f.cd_controle = ft.cd_controle
+      LEFT JOIN pessoa p WITH (NOLOCK) ON p.cd_pessoa = f.cd_pessoa
+      WHERE ${ABERTA} AND ft.cd_flfatura > ${after}${emp}
+      ORDER BY ft.cd_flfatura`;
+    const renov = body.mode === 'renovacoes';
+
+    const rows = rowsOf(await execRead(source, renov ? sqlRenov : sql, 90000)).map((r: any) => {
       const o: any = {};
       for (const [k, v] of Object.entries(r)) o[k] = v instanceof Date ? iso(v) : v;
       return o;
     });
-    const last = rows.length ? Number(rows[rows.length - 1].cd_flremequ) : after;
+    const last = rows.length ? Number(rows[rows.length - 1][renov ? 'cd_flfatura' : 'cd_flremequ']) : after;
     return Response.json({ rows, next_after: last, has_more: rows.length === limit });
   } catch (error) {
     return Response.json({ error: (error as Error).message || String(error) }, { status: 500 });

@@ -7,11 +7,11 @@ const txt = (v) => (v == null ? "" : String(v));
 const dt = (v) => (!v || String(v).startsWith("9999") ? "" : v);
 const saldo = (r) => num(r.qt_remessa) - num(r.qt_devolvida);
 
-export async function fetchContratos(sourceId, cdEmpresa, onProgress) {
+export async function fetchContratos(sourceId, cdEmpresa, onProgress, mode) {
   const rows = [];
   let after = 0;
   for (;;) {
-    const res = await base44.functions.invoke("listContratosAbertos", { source_id: sourceId, cd_empresa: cdEmpresa, after, limit: 1000 });
+    const res = await base44.functions.invoke("listContratosAbertos", { source_id: sourceId, cd_empresa: cdEmpresa, after, limit: 1000, mode });
     if (res.data?.error) throw new Error(res.data.error);
     rows.push(...res.data.rows);
     onProgress?.(rows.length);
@@ -63,7 +63,15 @@ const contratoCols = (r) => ({
   "Observação": (r.observacao || "").trim(),
 });
 
-export function exportContratosXlsx(rows) {
+export function exportContratosXlsx(rows, renovs = []) {
+  const ren = new Map();
+  for (const f of renovs) {
+    const r = ren.get(f.cd_controle) || { n: 0, ini: null, fim: null, vl: 0 };
+    r.n++; r.vl += num(f.vl_fatura);
+    if (f.dt_inicio && (!r.ini || f.dt_inicio < r.ini)) r.ini = f.dt_inicio;
+    if (f.dt_fim && (!r.fim || f.dt_fim > r.fim)) r.fim = f.dt_fim;
+    ren.set(f.cd_controle, r);
+  }
   const byContrato = new Map();
   for (const r of rows) {
     const c = byContrato.get(r.cd_controle) || { base: r, itens: 0, emPosse: 0, qtPosse: 0, vlLocPosse: 0, bens: new Set() };
@@ -82,6 +90,26 @@ export function exportContratosXlsx(rows) {
     "Qtd. bens em posse": c.qtPosse,
     "Vl. locação em posse (qtd × unit.)": c.vlLocPosse,
     "Bens em posse": [...c.bens].join(" | "),
+    "Renovações (períodos faturados)": ren.get(c.base.cd_controle)?.n || 0,
+    "1º período início": dt(ren.get(c.base.cd_controle)?.ini),
+    "Último período fim": dt(ren.get(c.base.cd_controle)?.fim),
+    "Vl. total faturado (períodos)": ren.get(c.base.cd_controle)?.vl || 0,
+  }));
+  const renovacoes = renovs.map((f) => ({
+    "ID contrato (ficha)": txt(f.cd_controle),
+    "Nº contrato": [f.numero_prefixo, f.numero, f.numero_sufixo].filter(Boolean).join(""),
+    "Empresa": getEmpresaLabel(f.cd_empresa),
+    "Cód. cliente": txt(f.cd_pessoa),
+    "Cliente": f.nm_pessoa || "",
+    "ID período": txt(f.cd_flfatura),
+    "Geração": dt(f.dt_geracao),
+    "Período início": dt(f.dt_inicio),
+    "Período fim": dt(f.dt_fim),
+    "Fim ajustado": dt(f.dt_fim_ajuste),
+    "Vl. fatura": num(f.vl_fatura),
+    "Vl. mínimo": num(f.vl_minimo_locacao),
+    "Complementar": txt(f.fatura_complementar),
+    "ID NF": txt(f.cd_nf),
   }));
   const itens = rows.map((r) => ({
     "ID contrato (ficha)": txt(r.cd_controle),
@@ -115,7 +143,7 @@ export function exportContratosXlsx(rows) {
     "Longitude": txt(r.ds_longitude),
   }));
   const wb = XLSX.utils.book_new();
-  for (const [name, data] of [["Contratos", contratos], ["Itens (bens)", itens]]) {
+  for (const [name, data] of [["Contratos", contratos], ["Itens (bens)", itens], ["Renovações", renovacoes]]) {
     const ws = XLSX.utils.json_to_sheet(data);
     if (ws["!ref"]) ws["!autofilter"] = { ref: ws["!ref"] };
     ws["!cols"] = Object.keys(data[0] || {}).map((h) => ({ wch: Math.max(h.length + 2, 14) }));
