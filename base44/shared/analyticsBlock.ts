@@ -74,7 +74,7 @@ export async function computeAnalytics({ source, wrap, startDate, endDate, lastY
       WHERE c.dt_emi_car >= '${startDate}' AND c.dt_emi_car < '${endDate}' ${empFcar}
       GROUP BY c.cd_empresa_gestora
       ORDER BY COUNT(*) DESC`;
-    out.car_by_empresa = getRows(await runQuery(source, wrap(carSql), 30000)).map(r => {
+    out.car_by_empresa = getRows(await runQuery(source, wrap(carSql), 90000)).map(r => {
       const liquidado = Number(r.vl_liquidado) || 0;
       const aVencer = Number(r.vl_a_vencer) || 0;
       const vencido = Number(r.vl_vencido) || 0;
@@ -162,7 +162,7 @@ export async function computeAnalytics({ source, wrap, startDate, endDate, lastY
       WHERE c.dt_emi_car >= '${lastYearStart}' AND c.dt_emi_car < '${endDate}' ${empFcar}
       GROUP BY YEAR(c.dt_emi_car), MONTH(c.dt_emi_car)
       ORDER BY 1, 2`;
-    out.car_monthly = getRows(await runQuery(source, wrap(carMonSql), 30000)).map(r => ({
+    out.car_monthly = getRows(await runQuery(source, wrap(carMonSql), 90000)).map(r => ({
       ano: Number(r.ano), mes: Number(r.mes),
       vl_total: Number(r.vl_total) || 0, vl_aberto: Number(r.vl_aberto) || 0,
       vl_baixado: Number(r.vl_baixado) || 0,
@@ -289,7 +289,7 @@ export async function computeAnalytics({ source, wrap, startDate, endDate, lastY
       ) s ON s.cd_conta = p.cd_planfin
       WHERE ISNULL(e.qtd,0) + ISNULL(s.qtd,0) > 0
       ORDER BY p.nr_planfin`;
-    out.plano_balancete = getRows(await runQuery(source, wrap(balSql), 30000)).map(r => ({
+    out.plano_balancete = getRows(await runQuery(source, wrap(balSql), 90000)).map(r => ({
       cd_planfin: Number(r.cd_planfin) || 0,
       nr_planfin: String(r.nr_planfin || ''),
       ds_planfin: String(r.ds_planfin || ''),
@@ -386,7 +386,7 @@ export async function computeAnalytics({ source, wrap, startDate, endDate, lastY
       WHERE f.dt_geracao >= '${startDate}' AND f.dt_geracao < '${endDate}' ${empFc}
       GROUP BY c.cd_empresa
       ORDER BY ISNULL(SUM(f.vl_fatura),0) DESC`;
-    out.receita_gerada_by_empresa = getRows(await runQuery(source, wrap(rgSql), 30000)).map(r => ({
+    out.receita_gerada_by_empresa = getRows(await runQuery(source, wrap(rgSql), 90000)).map(r => ({
       cd_empresa: Number(r.cd_empresa) || null,
       qtd: Number(r.qtd) || 0,
       vl_gerado: Number(r.vl_gerado) || 0,

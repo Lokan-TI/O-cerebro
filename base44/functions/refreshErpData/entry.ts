@@ -298,7 +298,7 @@ async function processRefresh(base44, source, run, version, previousVersion, sta
         MAX(dt_emi_nf) AS max_date
       FROM nf WHERE dt_emi_nf >= ${lastYearStart} AND dt_emi_nf < ${yearEnd} ${nfF} ${empF}`;
 
-      const kpiRes = await runQuery(source, wrap(kpiSql), 30000);
+      const kpiRes = await runQuery(source, wrap(kpiSql), 90000);
       queryCount++;
       kpiRow = getRows(kpiRes)[0] || {};
     } catch (e) {
@@ -316,7 +316,7 @@ async function processRefresh(base44, source, run, version, previousVersion, sta
         WHERE dt_pedido >= ${lastYearStart} AND dt_pedido < ${yearEnd}
           AND cd_pessoa IS NOT NULL AND cd_pessoa <> '' ${empF}
         GROUP BY cd_empresa`;
-      const fecRes = await runQuery(source, wrap(fecSql), 30000);
+      const fecRes = await runQuery(source, wrap(fecSql), 90000);
       queryCount++;
       for (const r of getRows(fecRes)) {
         const ce = Number(r.cd_empresa);
@@ -329,7 +329,7 @@ async function processRefresh(base44, source, run, version, previousVersion, sta
         FROM fich_loc WITH (NOLOCK)
         WHERE dt_pedido >= ${lastYearStart} AND dt_pedido < ${yearEnd}
           AND cd_pessoa IS NOT NULL AND cd_pessoa <> '' ${empF}`;
-      const gRes = await runQuery(source, wrap(gSql), 30000);
+      const gRes = await runQuery(source, wrap(gSql), 90000);
       queryCount++;
       const gRow = getRows(gRes)[0] || {};
       fichClients = { ano: Number(gRow.clientes_ano) || 0, mes: Number(gRow.clientes_mes) || 0 };
@@ -343,7 +343,7 @@ async function processRefresh(base44, source, run, version, previousVersion, sta
       const topClientsSql = `SELECT TOP 5000 cd_pessoa, ISNULL(SUM(vl_faturamento),0) AS total, COUNT(*) AS nfs, MAX(dt_emi_nf) AS ultima_nf
         FROM nf WHERE dt_emi_nf >= ${yearStart} AND dt_emi_nf < ${yearEnd} ${nfF} ${empF}
         GROUP BY cd_pessoa ORDER BY ISNULL(SUM(vl_faturamento),0) DESC`;
-      const topClientsRes = await runQuery(source, wrap(topClientsSql), 30000);
+      const topClientsRes = await runQuery(source, wrap(topClientsSql), 90000);
       queryCount++;
       topClients = getRows(topClientsRes).map(r => ({
         cd_pessoa: String(r.cd_pessoa || ''),
@@ -364,7 +364,7 @@ async function processRefresh(base44, source, run, version, previousVersion, sta
         WHERE dt_emi_nf >= ${yearStart} AND dt_emi_nf < ${yearEnd} ${nfF} ${empF}
         GROUP BY cd_empresa, cd_pessoa
       ) x WHERE rn <= 1000 ORDER BY cd_empresa, rn`;
-      const tceRes = await runQuery(source, wrap(tceSql), 30000);
+      const tceRes = await runQuery(source, wrap(tceSql), 90000);
       queryCount++;
       topClientsByEmpresa = getRows(tceRes).map(r => ({
         cd_empresa: Number(r.cd_empresa),
@@ -395,7 +395,7 @@ async function processRefresh(base44, source, run, version, previousVersion, sta
           AND c.cd_pessoa IS NOT NULL
         GROUP BY c.cd_pessoa, p.nm_fan_pessoa, p.nm_pessoa
         ORDER BY ISNULL(SUM(c.vl_base_comissao),0) DESC`;
-      const tvRes = await runQuery(source, wrap(topVendorsSql), 30000);
+      const tvRes = await runQuery(source, wrap(topVendorsSql), 90000);
       queryCount++;
       topVendors = getRows(tvRes).map(r => ({
         cd_pessoa_fun: Number(r.cd_pessoa) || 0,
@@ -422,7 +422,7 @@ async function processRefresh(base44, source, run, version, previousVersion, sta
           AND c.cd_pessoa IS NOT NULL
         GROUP BY n.cd_empresa, c.cd_pessoa, p.nm_fan_pessoa, p.nm_pessoa
       ) x WHERE rn <= 15 ORDER BY cd_empresa, rn`;
-      const tveRes = await runQuery(source, wrap(tveSql), 30000);
+      const tveRes = await runQuery(source, wrap(tveSql), 90000);
       queryCount++;
       topVendorsByEmpresa = getRows(tveRes).map(r => ({
         cd_empresa: Number(r.cd_empresa),
@@ -468,7 +468,7 @@ async function processRefresh(base44, source, run, version, previousVersion, sta
       const monthlySql = `SELECT cd_empresa, YEAR(dt_emi_nf) AS ano, MONTH(dt_emi_nf) AS mes, ISNULL(SUM(vl_faturamento),0) AS valor, COUNT(*) AS nfs, COUNT(DISTINCT cd_pessoa) AS clientes
         FROM nf WHERE dt_emi_nf >= DATEADD(month,-36,${monthStart}) /* janela longa */ AND dt_emi_nf < ${monthEnd} ${nfF} ${empF}
         GROUP BY cd_empresa, YEAR(dt_emi_nf), MONTH(dt_emi_nf) ORDER BY 1, 2, 3`;
-      const monthlyRes = await runQuery(source, wrap(monthlySql), 30000);
+      const monthlyRes = await runQuery(source, wrap(monthlySql), 90000);
       queryCount++;
       monthlyRevenue = getRows(monthlyRes).map(r => ({
         cd_empresa: Number(r.cd_empresa),
@@ -501,7 +501,7 @@ async function processRefresh(base44, source, run, version, previousVersion, sta
           ${nfF} ${empF}
           AND cd_pessoa IS NOT NULL
         GROUP BY cd_empresa, cd_pessoa`;
-      const cohortRows = getRows(await runQuery(source, wrap(cohortSql), 30000));
+      const cohortRows = getRows(await runQuery(source, wrap(cohortSql), 90000));
       queryCount++;
 
       // Consolidado (dedupe por cd_pessoa entre empresas) + agregação por empresa.
@@ -592,7 +592,7 @@ async function processRefresh(base44, source, run, version, previousVersion, sta
         WHERE dt_emi_nf >= ${prevStart} AND dt_emi_nf < GETDATE() ${nfF} ${empF}
           AND cd_pessoa IS NOT NULL
         GROUP BY cd_empresa, cd_pessoa`;
-      const c12Rows = getRows(await runQuery(source, wrap(c12Sql), 30000));
+      const c12Rows = getRows(await runQuery(source, wrap(c12Sql), 90000));
       queryCount++;
 
       // Acumulador reutilizado para consolidado e para cada empresa
@@ -685,7 +685,7 @@ async function processRefresh(base44, source, run, version, previousVersion, sta
         WHERE first_ficha >= ${yearStart} AND first_ficha < ${yearEnd}
         GROUP BY YEAR(first_ficha), MONTH(first_ficha)
         ORDER BY 1, 2`;
-      const ncmRes = await runQuery(source, wrap(ncmSql), 30000);
+      const ncmRes = await runQuery(source, wrap(ncmSql), 90000);
       queryCount++;
       newClientsMonthly = getRows(ncmRes).map(r => ({
         ano: Number(r.ano), mes: Number(r.mes), new_clients: Number(r.new_clients) || 0
@@ -703,7 +703,7 @@ async function processRefresh(base44, source, run, version, previousVersion, sta
           AND uf_destinatario IS NOT NULL AND uf_destinatario <> ''
         GROUP BY uf_destinatario
         ORDER BY ISNULL(SUM(vl_faturamento),0) DESC`;
-      const geoRes = await runQuery(source, wrap(geoSql), 30000);
+      const geoRes = await runQuery(source, wrap(geoSql), 90000);
       queryCount++;
       revenueByState = getRows(geoRes).map(r => ({
         uf: String(r.uf || ''),
@@ -732,7 +732,7 @@ async function processRefresh(base44, source, run, version, previousVersion, sta
       FROM nf WITH (NOLOCK)
       WHERE nf.dt_emi_nf >= ${lastYearStart} AND nf.dt_emi_nf < ${yearEnd} ${nfFnf} ${empFnf}
       GROUP BY nf.cd_empresa`;
-      const empKpiRes = await runQuery(source, wrap(empKpiSql), 30000);
+      const empKpiRes = await runQuery(source, wrap(empKpiSql), 90000);
       queryCount++;
       const empKpiRows = getRows(empKpiRes);
 
@@ -822,7 +822,7 @@ async function processRefresh(base44, source, run, version, previousVersion, sta
           GROUP BY cd_pessoa
         ) f ON f.cd_pessoa = y.cd_pessoa
         GROUP BY y.ano ORDER BY y.ano`;
-      const rows = getRows(await runQuery(source, wrap(evoSql), 30000)).map(mapEvoRow);
+      const rows = getRows(await runQuery(source, wrap(evoSql), 90000)).map(mapEvoRow);
       queryCount++;
       if (rows.length > 0) {
         const minYear = Math.min(...rows.map(r => r.ano));
@@ -851,7 +851,7 @@ async function processRefresh(base44, source, run, version, previousVersion, sta
           GROUP BY cd_empresa, cd_pessoa
         ) f ON f.cd_empresa = y.cd_empresa AND f.cd_pessoa = y.cd_pessoa
         GROUP BY y.cd_empresa, y.ano ORDER BY y.cd_empresa, y.ano`;
-      const rows = getRows(await runQuery(source, wrap(evoEmpSql), 30000)).map(mapEvoRow);
+      const rows = getRows(await runQuery(source, wrap(evoEmpSql), 90000)).map(mapEvoRow);
       queryCount++;
       if (rows.length > 0) {
         const minYear = Math.min(...rows.map(r => r.ano));
