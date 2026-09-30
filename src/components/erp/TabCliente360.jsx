@@ -7,6 +7,7 @@ import { toInclusiveEnd } from "@/lib/periodContract";
 import Cliente360Kpis from "./Cliente360Kpis";
 import Cliente360Table from "./Cliente360Table";
 import EmpresaClientesExport from "./EmpresaClientesExport";
+import ContratosAbertosExport from "./ContratosAbertosExport";
 import { getEmpresaLabel } from "@/lib/empresaLabels";
 
 const brl = (v) => (Number(v) || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 });
@@ -103,6 +104,7 @@ export default function TabCliente360() {
             <div className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden">
               <div className="px-4 py-3 border-b border-gray-800 text-white text-sm font-medium">Por empresa</div>
               <EmpresaClientesExport clients={snapshot.clients || []} empresas={snapshot.by_empresa} />
+              <ContratosAbertosExport sourceId={selectedSource?.id} empresas={snapshot.by_empresa} />
               <table className="w-full text-sm">
                 <thead>
                   <tr className="bg-gray-800/50 text-gray-400 text-xs uppercase tracking-wide">
