@@ -12,7 +12,10 @@ export const DEPARTMENTS = [
   {
     id: "cerebro",
     label: "Cérebro",
-    items: [{ label: "Consultor IA", to: "/" }],
+    items: [
+      { label: "Consultor IA", to: "/" },
+      { label: "Produtos", to: "/Produtos" },
+    ],
   },
   {
     id: "growth",

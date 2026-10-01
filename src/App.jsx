@@ -19,6 +19,7 @@ import AtivosCustos from './pages/AtivosCustos.jsx';
 import DetalhamentoFinanceiro from './pages/DetalhamentoFinanceiro.jsx';
 import RdStationCallback from './pages/RdStationCallback.jsx';
 import FluxosEmail from './pages/FluxosEmail.jsx';
+import Produtos from './pages/Produtos.jsx';
 import { ErpSourceProvider } from '@/lib/ErpSourceContext';
 import { ErpSnapshotProvider } from '@/lib/ErpSnapshotContext';
 import { EmpresaFilterProvider } from '@/lib/EmpresaFilterContext';
@@ -116,6 +117,11 @@ const AuthenticatedApp = () => {
       <Route path="/DetalhamentoFinanceiro" element={
         <LayoutWrapper currentPageName="DetalhamentoFinanceiro">
           <DetalhamentoFinanceiro />
+        </LayoutWrapper>
+      } />
+      <Route path="/Produtos" element={
+        <LayoutWrapper currentPageName="Produtos">
+          <Produtos />
         </LayoutWrapper>
       } />
       <Route path="/FluxosEmail" element={
