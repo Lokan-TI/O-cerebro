@@ -9,6 +9,7 @@ export default function ExecutivaPdfButton({ targetRef, fileLabel }) {
 
   const generate = async () => {
     setBusy(true);
+    let atoms = [];
     const canvas = await html2canvas(targetRef.current, {
       backgroundColor: "#030712",
       scale: 2,
@@ -20,6 +21,12 @@ export default function ExecutivaPdfButton({ targetRef, fileLabel }) {
           el.style.maxHeight = "none";
           el.style.overflow = "visible";
         });
+        // Mede, no layout final do clone, os blocos que não podem ser cortados.
+        const root = doc.querySelector("[data-pdf-root]");
+        const top0 = root.getBoundingClientRect().top;
+        atoms = [...root.querySelectorAll("tr, svg, h3, p, .rounded-xl, .rounded-lg")]
+          .map((el) => { const r = el.getBoundingClientRect(); return [r.top - top0, r.bottom - top0]; })
+          .filter(([t, b]) => b > t);
       },
     });
     const pdf = new jsPDF({ orientation: "p", unit: "mm", format: "a4" });
@@ -29,8 +36,20 @@ export default function ExecutivaPdfButton({ targetRef, fileLabel }) {
     const imgW = pageW - margin * 2;
     const pxPerMm = canvas.width / imgW;
     const sliceH = Math.floor((pageH - margin * 2) * pxPerMm);
-    for (let y = 0, page = 0; y < canvas.height; y += sliceH, page++) {
-      const h = Math.min(sliceH, canvas.height - y);
+    const s = canvas.width / targetRef.current.offsetWidth; // px DOM -> px canvas
+    const fits = atoms.filter(([t, b]) => (b - t) * s < sliceH);
+    const pickBreak = (y) => {
+      const max = y + sliceH;
+      if (max >= canvas.height) return canvas.height;
+      const cands = fits.flatMap(([t, b]) => [t * s - 4, b * s + 4])
+        .filter((c) => c > y + sliceH * 0.3 && c <= max)
+        .filter((c) => !fits.some(([t, b]) => t * s < c && b * s > c))
+        .sort((a, b) => b - a);
+      return Math.floor(cands[0] ?? max);
+    };
+    for (let y = 0, page = 0; y < canvas.height; page++) {
+      const end = pickBreak(y);
+      const h = end - y;
       const part = document.createElement("canvas");
       part.width = canvas.width;
       part.height = h;
@@ -42,6 +61,7 @@ export default function ExecutivaPdfButton({ targetRef, fileLabel }) {
       pdf.setFillColor(3, 7, 18);
       pdf.rect(0, 0, pageW, pageH, "F");
       pdf.addImage(part.toDataURL("image/jpeg", 0.92), "JPEG", margin, margin, imgW, h / pxPerMm);
+      y = end;
     }
     const safe = String(fileLabel).replace(/[^\w\-]+/g, "_");
     pdf.save(`visao_executiva_${safe}_${new Date().toISOString().slice(0, 10)}.pdf`);

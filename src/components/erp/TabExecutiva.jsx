@@ -120,7 +120,7 @@ export default function TabExecutiva() {
   const empLabel = isAll ? "Todas (consolidado)" : getEmpresaLabel(selectedEmpresa, empRow?.nm_empresa);
 
   return (
-    <div ref={pdfRef} className="space-y-6 bg-gray-950">
+    <div ref={pdfRef} data-pdf-root className="space-y-6 bg-gray-950">
       <div className="flex items-center justify-between flex-wrap gap-3">
         <ExecutivaPdfButton targetRef={pdfRef} fileLabel={empLabel} />
         <div className="text-sm text-gray-400 order-first">
