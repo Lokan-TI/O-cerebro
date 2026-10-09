@@ -5,7 +5,9 @@ import { fmtCur } from "@/lib/erpFormat";
 
 const DIM = { R: "Recência", F: "Frequência", M: "Valor Monetário" };
 
-export default function RfmClientList({ clients, sel, onClear }) {
+const fmtD = (d) => (d ? d.split("-").reverse().join("/") : "—");
+
+export default function RfmClientList({ clients, sel, onClear, orcLoc = {} }) {
   const [q, setQ] = useState("");
   const title = sel.type === "seg" ? SEGMENTS[sel.key].label : `${DIM[sel.type]} ${sel.type}${sel.key}`;
   const list = clients
@@ -24,7 +26,7 @@ export default function RfmClientList({ clients, sel, onClear }) {
       </div>
       <div className="max-h-96 overflow-y-auto">
         <table className="text-xs">
-          <thead><tr><th className="text-left text-gray-300">Cliente</th><th className="text-left text-gray-300">Segmento</th><th className="text-center text-gray-300">R</th><th className="text-center text-gray-300">F</th><th className="text-center text-gray-300">M</th><th className="text-right text-gray-300">Última NF</th><th className="text-right text-gray-300">Dias</th><th className="text-right text-gray-300">NFs</th><th className="text-right text-gray-300">Receita</th></tr></thead>
+          <thead><tr><th className="text-left text-gray-300">Cliente</th><th className="text-left text-gray-300">Segmento</th><th className="text-center text-gray-300">R</th><th className="text-center text-gray-300">F</th><th className="text-center text-gray-300">M</th><th className="text-right text-gray-300">Última NF</th><th className="text-right text-gray-300">Dias</th><th className="text-right text-gray-300">NFs</th><th className="text-right text-gray-300">Receita</th><th className="text-right text-gray-300">Orçamentos</th><th className="text-right text-gray-300">Locações</th><th className="text-right text-gray-300">Última locação</th></tr></thead>
           <tbody>
             {list.map((c, i) => (
               <tr key={i}>
@@ -35,6 +37,9 @@ export default function RfmClientList({ clients, sel, onClear }) {
                 <td className="text-right text-gray-300">{c.dias}</td>
                 <td className="text-right text-gray-300">{c.nfs}</td>
                 <td className="text-right text-green-400">{fmtCur(c.receita)}</td>
+                <td className="text-right text-amber-300">{orcLoc[c.id]?.orc ?? 0}</td>
+                <td className="text-right text-sky-300">{orcLoc[c.id]?.loc ?? 0}</td>
+                <td className="text-right text-gray-300">{fmtD(orcLoc[c.id]?.ultimaLoc)}</td>
               </tr>
             ))}
           </tbody>

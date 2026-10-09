@@ -10,6 +10,8 @@ import RfmDistChart from "./RfmDistChart";
 import RfmSegmentMap from "./RfmSegmentMap";
 import RfmClassTable from "./RfmClassTable";
 import RfmClientList from "./RfmClientList";
+import OrcLocPeriods from "./OrcLocPeriods";
+import useOrcLoc from "./useOrcLoc";
 
 const YEARS = Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - i);
 const card = "bg-gray-900 border border-gray-800 rounded-xl p-4";
@@ -24,6 +26,10 @@ export default function TabClientesRfm() {
   const [sel, setSel] = useState(null);
   const pick = (type, key) => setSel((s) => (s?.type === type && s.key === key ? null : { type, key }));
   const segSel = sel?.type === "seg" ? sel.key : null;
+  const [orc, setOrc] = useState(() => rfmWindow(YEARS[0]));
+  const [loc, setLoc] = useState(() => rfmWindow(YEARS[0]));
+  const srcId = selectedSource?.id && selectedSource.id !== ALL_SOURCES_ID ? selectedSource.id : null;
+  const orcLoc = useOrcLoc(srcId, orc, loc, selectedEmpresa);
 
   useEffect(() => {
     let alive = true;
@@ -75,7 +81,8 @@ export default function TabClientesRfm() {
             <div className={card}><RfmSegmentMap segs={rfm.segs} total={rfm.total} selected={segSel} onSelect={(k) => pick("seg", k)} /></div>
             <div className={card}><p className="text-sm font-semibold text-white mb-2">Classificação RFM</p><RfmClassTable segs={rfm.segs} selected={segSel} onSelect={(k) => pick("seg", k)} /></div>
           </div>
-          {sel ? <RfmClientList clients={rfm.clients} sel={sel} onClear={() => setSel(null)} />
+          <OrcLocPeriods orc={orc} setOrc={setOrc} loc={loc} setLoc={setLoc} loading={orcLoc.loading} error={orcLoc.error} />
+          {sel ? <RfmClientList clients={rfm.clients} sel={sel} onClear={() => setSel(null)} orcLoc={orcLoc.byClient} />
             : <p className="text-xs text-gray-500 text-center">Clique em um segmento ou barra para ver a lista de clientes.</p>}
         </>
       )}
