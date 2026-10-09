@@ -25,6 +25,7 @@ import { ErpSourceProvider } from '@/lib/ErpSourceContext';
 import { ErpSnapshotProvider } from '@/lib/ErpSnapshotContext';
 import { EmpresaFilterProvider } from '@/lib/EmpresaFilterContext';
 import { GlobalFilterProvider } from '@/lib/GlobalFilterContext';
+import AdminOnly from '@/components/auth/AdminOnly';
 
 const { Pages, Layout, mainPage } = pagesConfig;
 const mainPageKey = mainPage ?? Object.keys(Pages)[0];
@@ -127,7 +128,7 @@ const AuthenticatedApp = () => {
       } />
       <Route path="/ArquivoSisloc" element={
         <LayoutWrapper currentPageName="ArquivoSisloc">
-          <ArquivoSisloc />
+          <AdminOnly><ArquivoSisloc /></AdminOnly>
         </LayoutWrapper>
       } />
       <Route path="/FluxosEmail" element={
@@ -137,7 +138,7 @@ const AuthenticatedApp = () => {
       } />
       <Route path="/Integracoes" element={
         <LayoutWrapper currentPageName="Integracoes">
-          <Integracoes />
+          <AdminOnly><Integracoes /></AdminOnly>
         </LayoutWrapper>
       } />
       <Route path="/ConversasLeads" element={
@@ -147,7 +148,7 @@ const AuthenticatedApp = () => {
       } />
       <Route path="/GerenciarFontes" element={
         <LayoutWrapper currentPageName="GerenciarFontes">
-          <GerenciarFontes />
+          <AdminOnly><GerenciarFontes /></AdminOnly>
         </LayoutWrapper>
       } />
       <Route path="/rdstation/callback" element={

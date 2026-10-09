@@ -66,6 +66,7 @@ export const DEPARTMENTS = [
   },
   {
     id: "config",
+    adminOnly: true,
     label: "Configuração de dados",
     items: [
       { label: "Gerenciar fontes", to: "/GerenciarFontes" },
@@ -76,6 +77,7 @@ export const DEPARTMENTS = [
   },
   {
     id: "sql",
+    adminOnly: true,
     label: "Querys SQL",
     items: [{ label: "Executar query", to: "/ErpCrmDashboard?tab=query" }],
   },

@@ -4,9 +4,13 @@ import { DEPARTMENTS } from "@/lib/departmentsMenu";
 import { Menu, X } from "lucide-react";
 import SourceSelector from "./SourceSelector";
 import ApiConnectionsNav from "./ApiConnectionsNav";
+import { useAuth } from "@/lib/AuthContext";
+import { isAdmin, ROLE_LABELS } from "@/lib/access";
 
 export default function DepartmentMenu() {
   const [open, setOpen] = useState(false);
+  const { user } = useAuth();
+  const admin = isAdmin(user);
 
   return (
     <>
@@ -25,19 +29,19 @@ export default function DepartmentMenu() {
             <div className="sticky top-0 bg-gray-950 flex items-center justify-between px-5 py-4 border-b border-gray-800">
               <div>
                 <p className="text-white font-semibold text-sm">Dados por departamento</p>
-                <p className="text-gray-600 text-xs">Sales Analytics</p>
+                <p className="text-gray-600 text-xs">Sales Analytics · Perfil {ROLE_LABELS[user?.role] || "—"}</p>
               </div>
               <button onClick={() => setOpen(false)} aria-label="Fechar menu" className="text-gray-500 hover:text-white">
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <SourceSelector />
+            {admin && <SourceSelector />}
             <div className="mx-5 my-4 border-t border-gray-800" />
 
             <nav className="px-3 pb-4 space-y-5">
-              <ApiConnectionsNav onNavigate={() => setOpen(false)} />
-              {DEPARTMENTS.map((d) => (
+              {admin && <ApiConnectionsNav onNavigate={() => setOpen(false)} />}
+              {DEPARTMENTS.filter((d) => admin || !d.adminOnly).map((d) => (
                 <div key={d.id}>
                   <p className="px-2 text-[10px] uppercase tracking-widest text-purple-500/80 mb-1.5">{d.label}</p>
                   <div className="space-y-0.5">

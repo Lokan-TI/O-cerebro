@@ -1,17 +1,23 @@
 {
+  "name": "User",
+  "type": "object",
   "properties": {
     "role": {
       "type": "string",
-      "description": "The role of the user in the app",
+      "description": "Hierarquia de acesso: admin > gestor > coordenador",
       "enum": [
         "admin",
+        "gestor",
+        "coordenador",
         "user"
       ]
+    },
+    "empresa_scope": {
+      "type": "number",
+      "description": "Empresa (cd_empresa) \u00e0 qual o coordenador est\u00e1 restrito"
     }
   },
   "required": [
     "role"
-  ],
-  "name": "User",
-  "type": "object"
+  ]
 }

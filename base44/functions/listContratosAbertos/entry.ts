@@ -1,3 +1,4 @@
+import { canView } from '../../shared/access.ts';
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.40';
 import { buildConfig, execRead } from '../../shared/erpConnection.ts';
 
@@ -28,7 +29,7 @@ Deno.serve(async (req) => {
   try {
     const base44 = createClientFromRequest(req);
     const user = await base44.auth.me();
-    if (!user || user.role !== 'admin') return Response.json({ error: 'Apenas administradores.' }, { status: 403 });
+    if (!canView(user)) return Response.json({ error: 'Apenas administradores.' }, { status: 403 });
 
     const body = await req.json().catch(() => ({}));
     const source = await base44.asServiceRole.entities.ErpDataSource.get(body.source_id);

@@ -1,3 +1,4 @@
+import { canView } from '../../shared/access.ts';
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.40';
 
 // Leitura do RD Station Conversas (Tallos) — relatório de atendimentos agregado por contato,
@@ -64,7 +65,7 @@ export default async function (req: Request): Promise<Response> {
     const base44 = createClientFromRequest(req);
     const user = await base44.auth.me();
     if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 });
-    if (user.role !== 'admin') {
+    if (!canView(user)) {
       return Response.json({ error: 'Consulta a integrações restrita a administradores.' }, { status: 403 });
     }
 

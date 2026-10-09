@@ -1,3 +1,4 @@
+import { canView } from '../../shared/access.ts';
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.40';
 import { buildConfig, execRead, closePool } from '../../shared/erpConnection.ts';
 
@@ -47,7 +48,7 @@ Deno.serve(async (req) => {
   try {
     const base44 = createClientFromRequest(req);
     const user = await base44.auth.me();
-    if (!user || user.role !== 'admin') {
+    if (!canView(user)) {
       return Response.json({ error: 'Apenas administradores podem gerar esta segmentação.' }, { status: 403 });
     }
     if (!buildConfig(source)) return Response.json({ error: 'Configuração de conexão incompleta.' }, { status: 500 });

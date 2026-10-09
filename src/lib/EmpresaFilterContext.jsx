@@ -1,6 +1,8 @@
 import { createContext, useContext, useState, useEffect, useMemo } from "react";
 import { useErpSnapshot } from "./ErpSnapshotContext";
 import { getEmpresaLabel } from "@/lib/empresaLabels";
+import { useAuth } from "@/lib/AuthContext";
+import { isCoordenador } from "@/lib/access";
 
 const EmpresaFilterContext = createContext(null);
 const STORAGE_KEY = "erp_selected_empresa";
@@ -47,9 +49,17 @@ export function EmpresaFilterProvider({ children }) {
     }
   }, [empresaList, selectedEmpresa]);
 
+  // Coordenador: empresa fixa no seu escopo.
+  const { user } = useAuth();
+  const locked = isCoordenador(user);
+  const scope = user?.empresa_scope ?? -1;
+  const value = locked
+    ? { selectedEmpresa: scope, setSelectedEmpresa: () => {}, empresaList: empresaList.filter((e) => e.cd_empresa === scope), locked }
+    : { selectedEmpresa, setSelectedEmpresa, empresaList, locked };
+
   return (
     <EmpresaFilterContext.Provider
-      value={{ selectedEmpresa, setSelectedEmpresa, empresaList }}
+      value={value}
     >
       {children}
     </EmpresaFilterContext.Provider>
