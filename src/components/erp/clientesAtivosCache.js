@@ -8,7 +8,7 @@ const cache = new Map();
 export function fetchClientesAtivos(sourceId, start, end, snapshotVersion = "") {
   // A versão publicada faz parte da chave: após um refresh, nenhuma aba pode
   // reutilizar silenciosamente o resultado ao vivo calculado sobre a versão anterior.
-  const key = `${sourceId || "all"}|${start}|${end}|${snapshotVersion || "no-version"}`;
+  const key = `v2|${sourceId || "all"}|${start}|${end}|${snapshotVersion || "no-version"}`;
   if (!cache.has(key)) {
     const payload = { start_date: start, end_date: end, end_date_exclusive: toExclusiveEnd(end) };
     if (sourceId) payload.source_id = sourceId;
