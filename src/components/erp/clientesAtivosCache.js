@@ -5,13 +5,13 @@ import { toExclusiveEnd } from "@/lib/periodContract";
 // consulta ao ERP, sem disparar duas vezes a mesma query pesada.
 const cache = new Map();
 
-export function fetchClientesAtivos(sourceId, start, end, snapshotVersion = "") {
+export function fetchClientesAtivos(sourceId, start, end, snapshotVersion = "", light = false) {
   // A versão publicada faz parte da chave: após um refresh, nenhuma aba pode
   // reutilizar silenciosamente o resultado ao vivo calculado sobre a versão anterior.
-  const key = `v3|${sourceId || "all"}|${start}|${end}|${snapshotVersion || "no-version"}`;
+  const key = `v3${light ? "L" : ""}|${sourceId || "all"}|${start}|${end}|${snapshotVersion || "no-version"}`;
   if (!cache.has(key)) {
     const p = loadSaved(key)
-      .then((saved) => saved || fetchAndSave(key, sourceId, start, end))
+      .then((saved) => saved || fetchAndSave(key, sourceId, start, end, light))
       .catch((e) => {
         cache.delete(key);
         throw e;
@@ -31,8 +31,8 @@ async function loadSaved(key) {
   return res.ok ? res.json() : null;
 }
 
-async function fetchAndSave(key, sourceId, start, end) {
-  const payload = { start_date: start, end_date: end, end_date_exclusive: toExclusiveEnd(end) };
+async function fetchAndSave(key, sourceId, start, end, light) {
+  const payload = { start_date: start, end_date: end, end_date_exclusive: toExclusiveEnd(end), light };
   if (sourceId) payload.source_id = sourceId;
   const res = await base44.functions.invoke("listClientesAtivos", payload);
   if (res.data?.success === false) throw new Error(res.data.error);

@@ -29,7 +29,7 @@ export default function TabClientesRfm() {
     let alive = true;
     setState({ loading: true, rows: null, error: null });
     const sourceId = selectedSource?.id && selectedSource.id !== ALL_SOURCES_ID ? selectedSource.id : null;
-    fetchClientesAtivos(sourceId, win.start, win.end, snapshot?.version)
+    fetchClientesAtivos(sourceId, win.start, win.end, snapshot?.version, true)
       .then((d) => alive && setState({ loading: false, rows: d?.rows || [], error: null }))
       .catch((e) => alive && setState({ loading: false, rows: null, error: e.message }));
     return () => { alive = false; };

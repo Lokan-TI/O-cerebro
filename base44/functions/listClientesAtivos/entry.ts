@@ -91,8 +91,10 @@ export default async function (req: Request): Promise<Response> {
     const raw = pick(await execRead(source, sql, 90000));
 
     const warnings: string[] = [];
+    // Modo leve (RFM): pula totais fiscais e contratos, que não entram no cálculo.
+    const light = body?.light === true;
     let fiscalByEmpresa: Record<string, { faturamento_fiscal: number; nfs_fiscais: number; faturamento_sem_cliente: number; nfs_sem_cliente: number }> = {};
-    try {
+    if (!light) try {
       for (const r of pick(await execRead(source, fiscalSql, 90000))) {
         fiscalByEmpresa[String(Number(r.cd_empresa))] = {
           faturamento_fiscal: Number(r.faturamento_fiscal) || 0,
@@ -106,7 +108,7 @@ export default async function (req: Request): Promise<Response> {
     }
 
     const contratos: Record<string, { ativas: number; total: number }> = {};
-    try {
+    if (!light) try {
       for (const r of pick(await execRead(source, contratosSql, 90000))) {
         contratos[String(r.cd_pessoa || '').trim()] = {
           ativas: Number(r.qtd_ativas) || 0,
