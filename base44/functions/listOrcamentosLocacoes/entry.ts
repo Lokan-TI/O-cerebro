@@ -35,7 +35,17 @@ export default async function (req: Request): Promise<Response> {
 
     const orcamentos = rs(await execRead(source, orcSql, 90000)).map(map);
     const locacoes = rs(await execRead(source, locSql, 90000)).map(map);
-    return Response.json({ success: true, orcamentos, locacoes });
+    // Títulos em aberto (CAR não quitado, status 5/10 sem baixa), sem recorte de período.
+    const carSql = `SELECT c.cd_empresa_gestora AS cd_empresa, c.cd_pessoa_cli AS cd_pessoa, COUNT(*) AS qtd,
+        SUM(ROUND(COALESCE(c.vl_pre_car,0)+COALESCE(c.vl_acr_car,0)-COALESCE(c.vl_des_car,0),2)) AS valor
+      FROM car c WITH (NOLOCK)
+      WHERE c.fl_status IN (5,10) AND c.dt_bai_car IS NULL AND c.cd_pessoa_cli IS NOT NULL
+        ${empFilter('c', 'cd_empresa_gestora')}
+      GROUP BY c.cd_empresa_gestora, c.cd_pessoa_cli`;
+    const abertos = rs(await execRead(source, carSql, 90000)).map((r: any) => ({
+      cd_empresa: Number(r.cd_empresa) || 0, cd_pessoa: String(r.cd_pessoa).trim(), qtd: Number(r.qtd) || 0, valor: Number(r.valor) || 0,
+    }));
+    return Response.json({ success: true, orcamentos, locacoes, abertos });
   } catch (error) {
     return Response.json({ success: false, error: (error as Error)?.message || String(error) }, { status: 500 });
   }

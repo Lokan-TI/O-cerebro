@@ -38,6 +38,12 @@ export default function useOrcLoc(sourceId, orc, loc, empresa) {
     });
     add(state.data.orcamentos || [], "orc");
     add(state.data.locacoes || [], "loc");
+    (state.data.abertos || []).forEach((r) => {
+      if (empresa != null && Number(r.cd_empresa) !== Number(empresa)) return;
+      const c = (out[r.cd_pessoa] ||= { orc: 0, loc: 0, ultimaLoc: null, ultimoOrc: null });
+      c.titulos = (c.titulos || 0) + r.qtd;
+      c.aberto = (c.aberto || 0) + r.valor;
+    });
     return out;
   }, [state.data, empresa]);
 
