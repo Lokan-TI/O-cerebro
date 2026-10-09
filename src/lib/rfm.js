@@ -54,7 +54,8 @@ export function computeRfm(rows, end) {
     const R = quintile(negDias, -c.dias), F = quintile(nfs, c.nfs), M = quintile(rec, c.receita);
     dist.R[R - 1]++; dist.F[F - 1]++; dist.M[M - 1]++;
     const seg = GRID[5 - Math.round((F + M) / 2)][R - 1];
+    Object.assign(c, { R, F, M, seg });
     segs[seg].qtd++; segs[seg].receita += c.receita;
   });
-  return { total: clients.length, receita: rec.reduce((s, v) => s + v, 0), dist, segs };
+  return { clients, total: clients.length, receita: rec.reduce((s, v) => s + v, 0), dist, segs };
 }

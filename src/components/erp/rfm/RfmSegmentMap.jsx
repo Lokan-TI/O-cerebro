@@ -10,14 +10,14 @@ function areas() {
   return a;
 }
 
-export default function RfmSegmentMap({ segs, total }) {
+export default function RfmSegmentMap({ segs, total, selected, onSelect }) {
   return (
     <div className="flex gap-2 h-full">
       <div className="flex items-center"><span className="text-[10px] text-gray-500 -rotate-90 whitespace-nowrap w-4">Frequência e Monetário</span></div>
       <div className="flex-1">
         <div className="grid grid-cols-5 grid-rows-5 gap-1 h-80">
           {Object.entries(areas()).map(([k, a]) => (
-            <div key={k} className={`${SEGMENTS[k].color} rounded-md p-2 flex flex-col items-center justify-center text-center text-gray-950`}
+            <div key={k} onClick={() => onSelect(k)} className={`${SEGMENTS[k].color} rounded-md p-2 flex flex-col items-center justify-center text-center text-gray-950 cursor-pointer transition-all hover:brightness-110 ${selected === k ? "ring-2 ring-white" : selected ? "opacity-50" : ""}`}
               style={{ gridRow: `${a.r0 + 1} / ${a.r1 + 2}`, gridColumn: `${a.c0 + 1} / ${a.c1 + 2}` }}>
               <span className="text-[10px] font-semibold leading-tight">{SEGMENTS[k].label}</span>
               <span className="text-base font-bold">{total ? ((segs[k].qtd / total) * 100).toFixed(2).replace(".", ",") : "0,00"}%</span>

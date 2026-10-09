@@ -9,6 +9,7 @@ import { fmtCur } from "@/lib/erpFormat";
 import RfmDistChart from "./RfmDistChart";
 import RfmSegmentMap from "./RfmSegmentMap";
 import RfmClassTable from "./RfmClassTable";
+import RfmClientList from "./RfmClientList";
 
 const YEARS = Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - i);
 const card = "bg-gray-900 border border-gray-800 rounded-xl p-4";
@@ -20,6 +21,9 @@ export default function TabClientesRfm() {
   const { selectedEmpresa } = useEmpresaFilter();
   const { snapshot } = useErpSnapshot();
   const win = rfmWindow(year);
+  const [sel, setSel] = useState(null);
+  const pick = (type, key) => setSel((s) => (s?.type === type && s.key === key ? null : { type, key }));
+  const segSel = sel?.type === "seg" ? sel.key : null;
 
   useEffect(() => {
     let alive = true;
@@ -61,15 +65,18 @@ export default function TabClientesRfm() {
               <div><p className="text-xs text-gray-400">Clientes ativos</p><p className="text-lg font-semibold text-white">{rfm.total.toLocaleString("pt-BR")}</p></div>
             </div>
             <div className={`${card} grid grid-cols-1 md:grid-cols-3 gap-4`}>
-              <RfmDistChart title="Clientes por Recência" prefix="R" values={rfm.dist.R} color="#0ea5e9" />
-              <RfmDistChart title="Clientes por Frequência" prefix="F" values={rfm.dist.F} color="#6366f1" />
-              <RfmDistChart title="Clientes por Valor Monetário" prefix="M" values={rfm.dist.M} color="#a855f7" />
+              {[["R", "Clientes por Recência", "#0ea5e9"], ["F", "Clientes por Frequência", "#6366f1"], ["M", "Clientes por Valor Monetário", "#a855f7"]].map(([d, t, c]) => (
+                <RfmDistChart key={d} title={t} prefix={d} values={rfm.dist[d]} color={c}
+                  selected={sel?.type === d ? sel.key : null} onSelect={(n) => pick(d, n)} />
+              ))}
             </div>
           </div>
           <div className="grid grid-cols-1 lg:grid-cols-[3fr_2fr] gap-4">
-            <div className={card}><RfmSegmentMap segs={rfm.segs} total={rfm.total} /></div>
-            <div className={card}><p className="text-sm font-semibold text-white mb-2">Classificação RFM</p><RfmClassTable segs={rfm.segs} /></div>
+            <div className={card}><RfmSegmentMap segs={rfm.segs} total={rfm.total} selected={segSel} onSelect={(k) => pick("seg", k)} /></div>
+            <div className={card}><p className="text-sm font-semibold text-white mb-2">Classificação RFM</p><RfmClassTable segs={rfm.segs} selected={segSel} onSelect={(k) => pick("seg", k)} /></div>
           </div>
+          {sel ? <RfmClientList clients={rfm.clients} sel={sel} onClear={() => setSel(null)} />
+            : <p className="text-xs text-gray-500 text-center">Clique em um segmento ou barra para ver a lista de clientes.</p>}
         </>
       )}
     </div>
