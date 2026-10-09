@@ -15,6 +15,7 @@ export const DEPARTMENTS = [
     items: [
       { label: "Consultor IA", to: "/" },
       { label: "Produtos", to: "/Produtos" },
+      { label: "Configurações", to: "/Configuracoes" },
     ],
   },
   {

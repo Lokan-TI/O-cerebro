@@ -21,6 +21,7 @@ import RdStationCallback from './pages/RdStationCallback.jsx';
 import FluxosEmail from './pages/FluxosEmail.jsx';
 import Produtos from './pages/Produtos.jsx';
 import ArquivoSisloc from './pages/ArquivoSisloc.jsx';
+import Configuracoes from './pages/Configuracoes.jsx';
 import { ErpSourceProvider } from '@/lib/ErpSourceContext';
 import { ErpSnapshotProvider } from '@/lib/ErpSnapshotContext';
 import { EmpresaFilterProvider } from '@/lib/EmpresaFilterContext';
@@ -129,6 +130,11 @@ const AuthenticatedApp = () => {
       <Route path="/ArquivoSisloc" element={
         <LayoutWrapper currentPageName="ArquivoSisloc">
           <AdminOnly><ArquivoSisloc /></AdminOnly>
+        </LayoutWrapper>
+      } />
+      <Route path="/Configuracoes" element={
+        <LayoutWrapper currentPageName="Configuracoes">
+          <Configuracoes />
         </LayoutWrapper>
       } />
       <Route path="/FluxosEmail" element={
