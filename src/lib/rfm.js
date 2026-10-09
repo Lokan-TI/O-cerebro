@@ -1,4 +1,4 @@
-// Análise RFM: notas 1–5 por quintil (R = dias desde a última NF, F = nº de NFs, M = receita).
+// Análise RFM: notas 1–5 por limites fixos (R = dias desde a última NF, F = nº de NFs, M = receita).
 export const SEGMENTS = {
   nao: { label: "Não posso perdê-los", color: "bg-rose-500/80" },
   risco: { label: "Em risco", color: "bg-orange-400/80" },
@@ -22,10 +22,14 @@ export const GRID = [
   ["perdidos", "hibernando", "hibernar", "promissores", "recentes"],
 ];
 
-function quintile(values, v) {
-  const below = values.filter((x) => x < v).length;
-  return Math.min(5, Math.floor((below / values.length) * 5) + 1);
-}
+// Limites fixos da classificação RFM (limite inferior inclusivo na faixa melhor).
+export const LIMITS = {
+  R: [180, 90, 60, 30], // dias: >=180 R1, >=90 R2, >=60 R3, >=30 R4, <30 R5
+  F: [2, 4, 6, 12], // nº de locações: <2 F1 ... >=12 F5
+  M: [2000, 20000, 50000, 90000], // receita: <2.000 M1 ... >=90.000 M5
+};
+const scoreUp = (lims, v) => 1 + lims.filter((l) => v >= l).length;
+const scoreDias = (d) => 5 - LIMITS.R.filter((l) => d >= l).length;
 
 export function rfmWindow(year) {
   const today = new Date().toISOString().slice(0, 10);
@@ -47,11 +51,11 @@ export function computeRfm(rows, end) {
   const clients = Object.values(byClient);
   const endMs = new Date(end + "T00:00:00").getTime();
   clients.forEach((c) => (c.dias = Math.round((endMs - new Date(c.ultima + "T00:00:00").getTime()) / 864e5)));
-  const negDias = clients.map((c) => -c.dias), nfs = clients.map((c) => c.nfs), rec = clients.map((c) => c.receita);
+  const rec = clients.map((c) => c.receita);
   const dist = { R: [0, 0, 0, 0, 0], F: [0, 0, 0, 0, 0], M: [0, 0, 0, 0, 0] };
   const segs = Object.fromEntries(Object.keys(SEGMENTS).map((k) => [k, { qtd: 0, receita: 0 }]));
   clients.forEach((c) => {
-    const R = quintile(negDias, -c.dias), F = quintile(nfs, c.nfs), M = quintile(rec, c.receita);
+    const R = scoreDias(c.dias), F = scoreUp(LIMITS.F, c.nfs), M = scoreUp(LIMITS.M, c.receita);
     dist.R[R - 1]++; dist.F[F - 1]++; dist.M[M - 1]++;
     const seg = GRID[5 - Math.round((F + M) / 2)][R - 1];
     Object.assign(c, { R, F, M, seg });
