@@ -33,8 +33,7 @@ export default function TabClientesRfm() {
   const applyLimits = (l) => { saveLimits(l); setLimits(l); setSel(null); };
   const pick = (type, key) => setSel((s) => (s?.type === type && s.key === key ? null : { type, key }));
   const segSel = sel?.type === "seg" ? sel.key : null;
-  const [orc, setOrc] = useState(() => rfmWindow(YEARS[0]));
-  const [loc, setLoc] = useState(() => rfmWindow(YEARS[0]));
+  const orc = win, loc = win;
   const srcId = selectedSource?.id && selectedSource.id !== ALL_SOURCES_ID ? selectedSource.id : null;
   const orcLoc = useOrcLoc(srcId, orc, loc, selectedEmpresa);
 
@@ -88,7 +87,7 @@ export default function TabClientesRfm() {
             <div className={card}><RfmSegmentMap segs={rfm.segs} total={rfm.total} selected={segSel} onSelect={(k) => pick("seg", k)} /></div>
             <div className={card}><p className="text-sm font-semibold text-white mb-2">Classificação RFM</p><RfmClassTable segs={rfm.segs} selected={segSel} onSelect={(k) => pick("seg", k)} /></div>
           </div>
-          <OrcLocPeriods orc={orc} setOrc={setOrc} loc={loc} setLoc={setLoc} loading={orcLoc.loading} error={orcLoc.error} />
+          <OrcLocPeriods win={win} modeLabel={mode === "global" ? "período global" : "período personalizado"} loading={orcLoc.loading} error={orcLoc.error} />
           {sel ? <RfmClientList clients={rfm.clients} sel={sel} onClear={() => setSel(null)} orcLoc={orcLoc.byClient} periods={{ orc, loc, sourceId: srcId }} />
             : <p className="text-xs text-gray-500 text-center">Clique em um segmento ou barra para ver a lista de clientes.</p>}
         </>
