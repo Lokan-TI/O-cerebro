@@ -2,12 +2,14 @@ import { useState } from "react";
 import TabClientesPessoa from "@/components/erp/TabClientesPessoa";
 import TabClientesPatrimonios from "@/components/erp/TabClientesPatrimonios";
 import TabProdutosEquipamentos from "@/components/erp/TabProdutosEquipamentos";
-import { Users, Package, Wrench } from "lucide-react";
+import TabClientesRfm from "@/components/erp/rfm/TabClientesRfm";
+import { Users, Package, Wrench, Grid3x3 } from "lucide-react";
 
 const SUB_TABS = [
   { id: "lista", label: "Lista de clientes", icon: Users },
   { id: "patrimonios", label: "Patrimônios", icon: Package },
   { id: "equipamentos", label: "Produtos & Equipamentos", icon: Wrench },
+  { id: "rfm", label: "RFM", icon: Grid3x3 },
 ];
 
 export default function TabClientesSubTabs() {
@@ -35,6 +37,7 @@ export default function TabClientesSubTabs() {
       {sub === "lista" && <TabClientesPessoa />}
       {sub === "patrimonios" && <TabClientesPatrimonios />}
       {sub === "equipamentos" && <TabProdutosEquipamentos />}
+      {sub === "rfm" && <TabClientesRfm />}
     </div>
   );
 }
