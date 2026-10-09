@@ -15,8 +15,9 @@ import {
 } from "lucide-react";
 import {
   ResponsiveContainer, ComposedChart, Bar, Line, XAxis, YAxis,
-  CartesianGrid, Tooltip, Legend,
+  CartesianGrid, Tooltip, Legend, LabelList,
 } from "recharts";
+import PdfDataTable, { fmtShort } from "@/components/erp/PdfDataTable";
 
 function KpiCard({ icon: Icon, label, value, sub, color }) {
   const colors = {
@@ -284,10 +285,20 @@ export default function TabExecutiva() {
                   <XAxis dataKey="label" stroke="#666" fontSize={11} />
                   <YAxis stroke="#666" fontSize={11} tickFormatter={(v) => fmtCur(v).replace("R$", "")} />
                   <Tooltip contentStyle={{ backgroundColor: "#111", border: "1px solid #333" }} formatter={(v) => fmtCur(v)} />
-                  <Bar dataKey="valor" name="Receita" fill="#a855f7" radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="valor" name="Receita" fill="#a855f7" radius={[4, 4, 0, 0]}>
+                    <LabelList dataKey="valor" position="top" fill="#d1d5db" fontSize={10} formatter={fmtShort} />
+                  </Bar>
                   <Line dataKey="nfs" name="Notas" stroke="#22d3ee" strokeWidth={2} dot={false} />
                 </ComposedChart>
               </ResponsiveContainer>
+              <PdfDataTable
+                rows={monthly}
+                columns={[
+                  { label: "Mês", render: (r) => r.label },
+                  { label: "Receita", render: (r) => fmtCur(r.valor) },
+                  { label: "Notas", render: (r) => fmtNum(r.nfs) },
+                ]}
+              />
             </div>
           )}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

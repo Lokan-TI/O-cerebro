@@ -14,6 +14,7 @@ export default function ExecutivaPdfButton({ targetRef, fileLabel }) {
       scale: 2,
       useCORS: true,
       onclone: (doc) => {
+        doc.querySelectorAll("[data-pdf-show]").forEach((el) => (el.style.display = "block"));
         doc.querySelectorAll("[data-pdf-hide]").forEach((el) => (el.style.display = "none"));
         doc.querySelectorAll('[class*="max-h-"]').forEach((el) => {
           el.style.maxHeight = "none";

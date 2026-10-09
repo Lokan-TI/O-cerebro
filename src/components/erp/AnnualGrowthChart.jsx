@@ -5,8 +5,12 @@ import { fmtCur, fmtNum } from "@/lib/erpFormat";
 import { BarChart3 } from "lucide-react";
 import {
   ResponsiveContainer, BarChart, Bar, XAxis, YAxis,
-  CartesianGrid, Tooltip, Legend, Cell, ReferenceLine,
+  CartesianGrid, Tooltip, Legend, Cell, ReferenceLine, LabelList,
 } from "recharts";
+import PdfDataTable, { fmtShort } from "@/components/erp/PdfDataTable";
+
+const LBL = { fill: "#d1d5db", fontSize: 10 };
+const fmtPct = (v) => (v == null ? "—" : `${v.toFixed(1)}%`);
 
 const MODES = [
   { id: "crescimento", label: "Crescimento %" },
@@ -92,6 +96,7 @@ export default function AnnualGrowthChart() {
                 {data.map((d, i) => (
                   <Cell key={i} fill={d.crescimento == null ? "#4b5563" : d.crescimento >= 0 ? "#22c55e" : "#ef4444"} />
                 ))}
+                <LabelList dataKey="crescimento" position="top" {...LBL} formatter={fmtPct} />
               </Bar>
             </>
           )}
@@ -100,7 +105,9 @@ export default function AnnualGrowthChart() {
             <>
               <YAxis stroke="#666" fontSize={11} width={80} tickFormatter={axisMoney} />
               <Tooltip contentStyle={tooltipStyle} formatter={(v) => fmtCur(v)} />
-              <Bar dataKey="fat_total" name="Faturamento no ano" fill="#a855f7" radius={[4, 4, 0, 0]} />
+              <Bar dataKey="fat_total" name="Faturamento no ano" fill="#a855f7" radius={[4, 4, 0, 0]}>
+                <LabelList dataKey="fat_total" position="top" {...LBL} formatter={fmtShort} />
+              </Bar>
             </>
           )}
 
@@ -108,7 +115,9 @@ export default function AnnualGrowthChart() {
             <>
               <YAxis stroke="#666" fontSize={11} tickFormatter={fmtNum} />
               <Tooltip contentStyle={tooltipStyle} formatter={(v) => fmtNum(v)} />
-              <Bar dataKey="clientes_novos" name="Novos clientes (1ª compra no ano)" fill="#22c55e" radius={[4, 4, 0, 0]} />
+              <Bar dataKey="clientes_novos" name="Novos clientes (1ª compra no ano)" fill="#22c55e" radius={[4, 4, 0, 0]}>
+                <LabelList dataKey="clientes_novos" position="top" {...LBL} formatter={fmtNum} />
+              </Bar>
             </>
           )}
 
@@ -124,12 +133,27 @@ export default function AnnualGrowthChart() {
                 }}
               />
               <Legend wrapperStyle={{ fontSize: 12 }} />
-              <Bar dataKey="fat_base" name="Receita de clientes da base" stackId="a" fill="#3b82f6" />
-              <Bar dataKey="fat_novos" name="Receita de clientes novos" stackId="a" fill="#22c55e" radius={[4, 4, 0, 0]} />
+              <Bar dataKey="fat_base" name="Receita de clientes da base" stackId="a" fill="#3b82f6">
+                <LabelList dataKey="fat_base" position="center" fill="#fff" fontSize={10} formatter={fmtShort} />
+              </Bar>
+              <Bar dataKey="fat_novos" name="Receita de clientes novos" stackId="a" fill="#22c55e" radius={[4, 4, 0, 0]}>
+                <LabelList dataKey="fat_novos" position="top" {...LBL} formatter={fmtShort} />
+              </Bar>
             </>
           )}
         </BarChart>
       </ResponsiveContainer>
+      <PdfDataTable
+        rows={data}
+        columns={[
+          { label: "Ano", render: (r) => r.ano },
+          { label: "Faturamento", render: (r) => fmtCur(r.fat_total) },
+          { label: "Crescimento", render: (r) => fmtPct(r.crescimento) },
+          { label: "Novos clientes", render: (r) => fmtNum(r.clientes_novos) },
+          { label: "Receita base", render: (r) => fmtCur(r.fat_base) },
+          { label: "Receita novos", render: (r) => fmtCur(r.fat_novos) },
+        ]}
+      />
 
       {mode === "composicao" && (
         <p className="text-gray-600 text-xs mt-2">
