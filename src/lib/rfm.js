@@ -29,7 +29,24 @@ export const LIMITS = {
   M: [2000, 20000, 50000, 90000], // receita: <2.000 M1 ... >=90.000 M5
 };
 const scoreUp = (lims, v) => 1 + lims.filter((l) => v >= l).length;
-const scoreDias = (d) => 5 - LIMITS.R.filter((l) => d >= l).length;
+const scoreDias = (lims, d) => 5 - lims.filter((l) => d >= l).length;
+
+const LS_KEY = "rfm_limits_v1";
+export function loadLimits() {
+  try { return { ...LIMITS, ...JSON.parse(localStorage.getItem(LS_KEY) || "{}") }; } catch { return LIMITS; }
+}
+export function saveLimits(l) { localStorage.setItem(LS_KEY, JSON.stringify(l)); }
+// R deve ser decrescente; F e M crescentes; todos positivos.
+export function validateLimits(l) {
+  for (const k of ["R", "F", "M"]) {
+    const v = l[k];
+    if (v.some((x) => !Number.isFinite(x) || x < 0)) return `${k}: valores devem ser números positivos.`;
+    for (let i = 1; i < 4; i++) {
+      if (k === "R" ? v[i] >= v[i - 1] : v[i] <= v[i - 1]) return `${k}: os limites devem estar em ordem ${k === "R" ? "decrescente" : "crescente"}.`;
+    }
+  }
+  return null;
+}
 
 export function rfmWindow(year) {
   const today = new Date().toISOString().slice(0, 10);
@@ -40,7 +57,7 @@ export function rfmWindow(year) {
   return { start: d.toISOString().slice(0, 10), end };
 }
 
-export function computeRfm(rows, end) {
+export function computeRfm(rows, end, limits = LIMITS) {
   const byClient = {};
   rows.forEach((r) => {
     const c = (byClient[r.cd_pessoa] ||= { id: String(r.cd_pessoa).trim(), nm: r.nm_pessoa, cnpj: r.cnpj, receita: 0, nfs: 0, ultima: r.ultima_nf });
@@ -55,7 +72,7 @@ export function computeRfm(rows, end) {
   const dist = { R: [0, 0, 0, 0, 0], F: [0, 0, 0, 0, 0], M: [0, 0, 0, 0, 0] };
   const segs = Object.fromEntries(Object.keys(SEGMENTS).map((k) => [k, { qtd: 0, receita: 0 }]));
   clients.forEach((c) => {
-    const R = scoreDias(c.dias), F = scoreUp(LIMITS.F, c.nfs), M = scoreUp(LIMITS.M, c.receita);
+    const R = scoreDias(limits.R, c.dias), F = scoreUp(limits.F, c.nfs), M = scoreUp(limits.M, c.receita);
     dist.R[R - 1]++; dist.F[F - 1]++; dist.M[M - 1]++;
     const seg = GRID[5 - Math.round((F + M) / 2)][R - 1];
     Object.assign(c, { R, F, M, seg });

@@ -4,7 +4,8 @@ import { useErpSource, ALL_SOURCES_ID } from "@/lib/ErpSourceContext";
 import { useEmpresaFilter } from "@/lib/EmpresaFilterContext";
 import { useErpSnapshot } from "@/lib/ErpSnapshotContext";
 import { fetchClientesAtivos } from "@/components/erp/clientesAtivosCache";
-import { computeRfm, rfmWindow } from "@/lib/rfm";
+import { computeRfm, rfmWindow, loadLimits, saveLimits } from "@/lib/rfm";
+import RfmLimitsMenu from "./RfmLimitsMenu";
 import { fmtCur } from "@/lib/erpFormat";
 import RfmDistChart from "./RfmDistChart";
 import RfmSegmentMap from "./RfmSegmentMap";
@@ -24,6 +25,8 @@ export default function TabClientesRfm() {
   const { snapshot } = useErpSnapshot();
   const win = rfmWindow(year);
   const [sel, setSel] = useState(null);
+  const [limits, setLimits] = useState(loadLimits);
+  const applyLimits = (l) => { saveLimits(l); setLimits(l); setSel(null); };
   const pick = (type, key) => setSel((s) => (s?.type === type && s.key === key ? null : { type, key }));
   const segSel = sel?.type === "seg" ? sel.key : null;
   const [orc, setOrc] = useState(() => rfmWindow(YEARS[0]));
@@ -44,8 +47,8 @@ export default function TabClientesRfm() {
   const rfm = useMemo(() => {
     if (!state.rows) return null;
     const rows = selectedEmpresa == null ? state.rows : state.rows.filter((r) => Number(r.cd_empresa) === Number(selectedEmpresa));
-    return computeRfm(rows, win.end);
-  }, [state.rows, selectedEmpresa, win.end]);
+    return computeRfm(rows, win.end, limits);
+  }, [state.rows, selectedEmpresa, win.end, limits]);
 
   return (
     <div className="space-y-4">
@@ -70,7 +73,8 @@ export default function TabClientesRfm() {
               <div><p className="text-xs text-gray-400">Receita</p><p className="text-lg font-semibold text-white">{fmtCur(rfm.receita)}</p></div>
               <div><p className="text-xs text-gray-400">Clientes ativos</p><p className="text-lg font-semibold text-white">{rfm.total.toLocaleString("pt-BR")}</p></div>
             </div>
-            <div className={`${card} grid grid-cols-1 md:grid-cols-3 gap-4`}>
+            <div className={`${card} relative grid grid-cols-1 md:grid-cols-3 gap-4`}>
+              <div className="absolute top-2 right-2 z-10"><RfmLimitsMenu limits={limits} onSave={applyLimits} /></div>
               {[["R", "Clientes por Recência", "#0ea5e9"], ["F", "Clientes por Frequência", "#6366f1"], ["M", "Clientes por Valor Monetário", "#a855f7"]].map(([d, t, c]) => (
                 <RfmDistChart key={d} title={t} prefix={d} values={rfm.dist[d]} color={c}
                   selected={sel?.type === d ? sel.key : null} onSelect={(n) => pick(d, n)} />
