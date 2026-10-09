@@ -1,4 +1,6 @@
+import { useRef } from "react";
 import { useErpSnapshot } from "@/lib/ErpSnapshotContext";
+import ExecutivaPdfButton from "@/components/erp/ExecutivaPdfButton";
 import AnnualGrowthChart from "@/components/erp/AnnualGrowthChart";
 import ChurnMetricPanel from "@/components/erp/ChurnMetricPanel";
 import ChurnEmpresaRanking from "@/components/erp/ChurnEmpresaRanking";
@@ -41,6 +43,7 @@ export default function TabExecutiva() {
   const { snapshot, loading } = useErpSnapshot();
   const { selectedEmpresa, empresaList, setSelectedEmpresa } = useEmpresaFilter();
   const { period } = useGlobalFilter();
+  const pdfRef = useRef(null);
 
   if (loading) return <div className="text-gray-500 p-8 text-center">Carregando visão executiva…</div>;
   if (!snapshot) return (
@@ -113,10 +116,13 @@ export default function TabExecutiva() {
   const churn12Map = new Map((k.churn12_by_empresa || []).map((r) => [r.cd_empresa, r]));
   const cresColor = crescimento == null ? "gray" : crescimento >= 0 ? "green" : "red";
 
+  const empLabel = isAll ? "Todas (consolidado)" : getEmpresaLabel(selectedEmpresa, empRow?.nm_empresa);
+
   return (
-    <div className="space-y-6">
+    <div ref={pdfRef} className="space-y-6 bg-gray-950">
       <div className="flex items-center justify-between flex-wrap gap-3">
-        <div className="text-sm text-gray-400">
+        <ExecutivaPdfButton targetRef={pdfRef} fileLabel={empLabel} />
+        <div className="text-sm text-gray-400 order-first">
           Empresa:{" "}
           <span className="text-white font-medium">
             {isAll ? "Todas (consolidado)" : getEmpresaLabel(selectedEmpresa, empRow?.nm_empresa)}
