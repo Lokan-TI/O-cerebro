@@ -31,9 +31,10 @@ export default function useOrcLoc(sourceId, orc, loc, empresa) {
     if (!state.data) return out;
     const add = (list, field) => list.forEach((r) => {
       if (empresa != null && Number(r.cd_empresa) !== Number(empresa)) return;
-      const c = (out[r.cd_pessoa] ||= { orc: 0, loc: 0, ultimaLoc: null });
+      const c = (out[r.cd_pessoa] ||= { orc: 0, loc: 0, ultimaLoc: null, ultimoOrc: null });
       c[field] += r.qtd;
-      if (field === "loc" && (!c.ultimaLoc || r.ultimo > c.ultimaLoc)) c.ultimaLoc = r.ultimo;
+      const k = field === "loc" ? "ultimaLoc" : "ultimoOrc";
+      if (!c[k] || r.ultimo > c[k]) c[k] = r.ultimo;
     });
     add(state.data.orcamentos || [], "orc");
     add(state.data.locacoes || [], "loc");

@@ -26,7 +26,7 @@ export default function RfmClientList({ clients, sel, onClear, orcLoc = {} }) {
       </div>
       <div className="max-h-96 overflow-y-auto">
         <table className="text-xs">
-          <thead><tr><th className="text-left text-gray-300">Cliente</th><th className="text-left text-gray-300">Segmento</th><th className="text-center text-gray-300">R</th><th className="text-center text-gray-300">F</th><th className="text-center text-gray-300">M</th><th className="text-right text-gray-300">Última NF</th><th className="text-right text-gray-300">Dias</th><th className="text-right text-gray-300">NFs</th><th className="text-right text-gray-300">Receita</th><th className="text-right text-gray-300">Orçamentos</th><th className="text-right text-gray-300">Locações</th><th className="text-right text-gray-300">Última locação</th></tr></thead>
+          <thead><tr><th className="text-left text-gray-300">Cliente</th><th className="text-left text-gray-300">Segmento</th><th className="text-center text-gray-300">R</th><th className="text-center text-gray-300">F</th><th className="text-center text-gray-300">M</th><th className="text-right text-gray-300">Última NF</th><th className="text-right text-gray-300">Dias</th><th className="text-right text-gray-300">NFs</th><th className="text-right text-gray-300">Receita</th><th className="text-right text-gray-300">Orçamentos</th><th className="text-right text-gray-300">Último orçamento</th><th className="text-right text-gray-300">Locações</th><th className="text-right text-gray-300">Última locação</th></tr></thead>
           <tbody>
             {list.map((c, i) => (
               <tr key={i}>
@@ -38,6 +38,7 @@ export default function RfmClientList({ clients, sel, onClear, orcLoc = {} }) {
                 <td className="text-right text-gray-300">{c.nfs}</td>
                 <td className="text-right text-green-400">{fmtCur(c.receita)}</td>
                 <td className="text-right text-amber-300">{orcLoc[c.id]?.orc ?? 0}</td>
+                <td className="text-right text-gray-300">{fmtD(orcLoc[c.id]?.ultimoOrc)}</td>
                 <td className="text-right text-sky-300">{orcLoc[c.id]?.loc ?? 0}</td>
                 <td className="text-right text-gray-300">{fmtD(orcLoc[c.id]?.ultimaLoc)}</td>
               </tr>
