@@ -69,6 +69,7 @@ export const DEPARTMENTS = [
     label: "Configuração de dados",
     items: [
       { label: "Gerenciar fontes", to: "/GerenciarFontes" },
+      { label: "Arquivo integral Sisloc", to: "/ArquivoSisloc" },
       { label: "Integrações (CRM / ERP API)", to: "/Integracoes" },
       { label: "Estrutura do banco", to: "/ErpCrmDashboard?tab=estrutura" },
     ],

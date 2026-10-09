@@ -1,0 +1,113 @@
+{
+  "name": "SislocArchiveTable",
+  "type": "object",
+  "properties": {
+    "run_id": {
+      "type": "string"
+    },
+    "schema_name": {
+      "type": "string"
+    },
+    "table_name": {
+      "type": "string"
+    },
+    "columns": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      },
+      "description": "name, type, max_length, precision, scale, nullable, ordinal"
+    },
+    "primary_key": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "foreign_keys": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      }
+    },
+    "order_by": {
+      "type": "string",
+      "description": "Ordena\u00e7\u00e3o est\u00e1vel usada na pagina\u00e7\u00e3o"
+    },
+    "stable_order": {
+      "type": "boolean",
+      "default": true
+    },
+    "source_row_count": {
+      "type": "number",
+      "default": 0
+    },
+    "migrated_row_count": {
+      "type": "number",
+      "default": 0
+    },
+    "next_offset": {
+      "type": "number",
+      "default": 0
+    },
+    "chunk_size": {
+      "type": "number",
+      "default": 2000
+    },
+    "chunks": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      },
+      "description": "index, offset, rows, file_uri"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "pending",
+        "extracting",
+        "done",
+        "error",
+        "validated",
+        "divergent"
+      ],
+      "default": "pending"
+    },
+    "last_error": {
+      "type": "string"
+    },
+    "validated_source_count": {
+      "type": "number"
+    },
+    "validated_at": {
+      "type": "string",
+      "format": "date-time"
+    }
+  },
+  "required": [
+    "run_id",
+    "table_name"
+  ],
+  "rls": {
+    "read": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

@@ -1,0 +1,92 @@
+{
+  "name": "SislocArchiveRun",
+  "type": "object",
+  "properties": {
+    "source_id": {
+      "type": "string",
+      "description": "Fonte Sisloc (vazio = Matriz/env)"
+    },
+    "source_name": {
+      "type": "string"
+    },
+    "version": {
+      "type": "string",
+      "description": "Identificador da vers\u00e3o do arquivo"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "inventoried",
+        "migrating",
+        "migrated",
+        "validated",
+        "divergent",
+        "ready_for_shutdown",
+        "failed"
+      ],
+      "default": "inventoried"
+    },
+    "table_count": {
+      "type": "number",
+      "default": 0
+    },
+    "total_source_rows": {
+      "type": "number",
+      "default": 0
+    },
+    "total_migrated_rows": {
+      "type": "number",
+      "default": 0
+    },
+    "limitations": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Limita\u00e7\u00f5es encontradas no invent\u00e1rio"
+    },
+    "inventoried_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "validated_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "analysis_parity_confirmed": {
+      "type": "boolean",
+      "default": false
+    },
+    "analysis_parity_notes": {
+      "type": "string"
+    },
+    "performed_by": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "version"
+  ],
+  "rls": {
+    "read": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}
