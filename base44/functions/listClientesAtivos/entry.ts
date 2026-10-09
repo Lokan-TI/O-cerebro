@@ -34,7 +34,8 @@ export default async function (req: Request): Promise<Response> {
       COALESCE(NULLIF(LTRIM(RTRIM(p.nm_fan_pessoa)), ''), LTRIM(RTRIM(p.nm_pessoa)), CONCAT('Cliente ', n.cd_pessoa)) AS nm_pessoa,
       ISNULL(SUM(n.vl_faturamento), 0) AS receita,
       COUNT(*) AS nfs,
-      MAX(n.dt_emi_nf) AS ultima_nf
+      MAX(n.dt_emi_nf) AS ultima_nf,
+      MAX(LTRIM(RTRIM(p.nr_cnpj_pessoa))) AS cnpj
     FROM nf n WITH (NOLOCK)
     LEFT JOIN empresa e WITH (NOLOCK) ON e.cd_empresa = n.cd_empresa
     LEFT JOIN pessoa p WITH (NOLOCK) ON p.cd_pessoa = n.cd_pessoa
@@ -122,6 +123,7 @@ export default async function (req: Request): Promise<Response> {
       cd_pessoa: String(r.cd_pessoa || ''),
       nm_pessoa: String(r.nm_pessoa || ''),
       receita: Number(r.receita) || 0,
+      cnpj: String(r.cnpj || '').replace(/\D/g, ''),
       nfs: Number(r.nfs) || 0,
       ultima_nf: r.ultima_nf ? new Date(r.ultima_nf as string).toISOString().slice(0, 10) : null,
       contratos_ativos: contratos[String(r.cd_pessoa || '').trim()]?.ativas ?? 0,

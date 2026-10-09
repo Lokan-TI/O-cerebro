@@ -9,13 +9,14 @@ export default function RfmClientList({ clients, sel, onClear }) {
   const [q, setQ] = useState("");
   const title = sel.type === "seg" ? SEGMENTS[sel.key].label : `${DIM[sel.type]} ${sel.type}${sel.key}`;
   const list = clients
+    .filter((c) => c.cnpj && c.cnpj.length === 14)
     .filter((c) => (sel.type === "seg" ? c.seg === sel.key : c[sel.type] === sel.key))
     .filter((c) => !q || (c.nm || "").toLowerCase().includes(q.toLowerCase()))
     .sort((a, b) => b.receita - a.receita);
   return (
     <div className="bg-gray-900 border border-purple-800/60 rounded-xl p-4">
       <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
-        <p className="text-sm font-semibold text-white">{title} <span className="text-gray-400 font-normal">· {list.length.toLocaleString("pt-BR")} clientes</span></p>
+        <p className="text-sm font-semibold text-white">{title} <span className="text-gray-400 font-normal">· {list.length.toLocaleString("pt-BR")} clientes com CNPJ</span></p>
         <div className="flex items-center gap-2">
           <div className="relative"><Search className="w-3.5 h-3.5 absolute left-2 top-2 text-gray-500" />
             <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar cliente" className="bg-gray-800 border border-gray-700 rounded-md text-xs text-gray-200 pl-7 pr-2 py-1.5" /></div>

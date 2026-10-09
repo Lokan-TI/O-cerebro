@@ -39,7 +39,7 @@ export function rfmWindow(year) {
 export function computeRfm(rows, end) {
   const byClient = {};
   rows.forEach((r) => {
-    const c = (byClient[r.cd_pessoa] ||= { nm: r.nm_pessoa, receita: 0, nfs: 0, ultima: r.ultima_nf });
+    const c = (byClient[r.cd_pessoa] ||= { nm: r.nm_pessoa, cnpj: r.cnpj, receita: 0, nfs: 0, ultima: r.ultima_nf });
     c.receita += r.receita;
     c.nfs += r.nfs;
     if (r.ultima_nf > c.ultima) c.ultima = r.ultima_nf;
