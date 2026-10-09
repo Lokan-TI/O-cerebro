@@ -82,7 +82,7 @@ export default function TabClientesRfm() {
             <div className={card}><p className="text-sm font-semibold text-white mb-2">Classificação RFM</p><RfmClassTable segs={rfm.segs} selected={segSel} onSelect={(k) => pick("seg", k)} /></div>
           </div>
           <OrcLocPeriods orc={orc} setOrc={setOrc} loc={loc} setLoc={setLoc} loading={orcLoc.loading} error={orcLoc.error} />
-          {sel ? <RfmClientList clients={rfm.clients} sel={sel} onClear={() => setSel(null)} orcLoc={orcLoc.byClient} />
+          {sel ? <RfmClientList clients={rfm.clients} sel={sel} onClear={() => setSel(null)} orcLoc={orcLoc.byClient} periods={{ orc, loc, sourceId: srcId }} />
             : <p className="text-xs text-gray-500 text-center">Clique em um segmento ou barra para ver a lista de clientes.</p>}
         </>
       )}

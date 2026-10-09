@@ -2,12 +2,13 @@ import { useState } from "react";
 import { X, Search } from "lucide-react";
 import { SEGMENTS } from "@/lib/rfm";
 import { fmtCur } from "@/lib/erpFormat";
+import RfmExportMenu from "./RfmExportMenu";
 
 const DIM = { R: "Recência", F: "Frequência", M: "Valor Monetário" };
 
 const fmtD = (d) => (d ? d.split("-").reverse().join("/") : "—");
 
-export default function RfmClientList({ clients, sel, onClear, orcLoc = {} }) {
+export default function RfmClientList({ clients, sel, onClear, orcLoc = {}, periods }) {
   const [q, setQ] = useState("");
   const title = sel.type === "seg" ? SEGMENTS[sel.key].label : `${DIM[sel.type]} ${sel.type}${sel.key}`;
   const list = clients
@@ -21,6 +22,7 @@ export default function RfmClientList({ clients, sel, onClear, orcLoc = {} }) {
         <div className="flex items-center gap-2">
           <div className="relative"><Search className="w-3.5 h-3.5 absolute left-2 top-2 text-gray-500" />
             <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar cliente" className="bg-gray-800 border border-gray-700 rounded-md text-xs text-gray-200 pl-7 pr-2 py-1.5" /></div>
+          <RfmExportMenu list={list} orcLoc={orcLoc} periods={periods} title={title} />
           <button onClick={onClear} className="p-1.5 rounded-md hover:bg-gray-800 text-gray-400"><X className="w-4 h-4" /></button>
         </div>
       </div>
