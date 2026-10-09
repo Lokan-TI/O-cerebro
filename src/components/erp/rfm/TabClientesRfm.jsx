@@ -6,6 +6,8 @@ import { useErpSnapshot } from "@/lib/ErpSnapshotContext";
 import { fetchClientesAtivos } from "@/components/erp/clientesAtivosCache";
 import { computeRfm, rfmWindow, loadLimits, saveLimits } from "@/lib/rfm";
 import RfmLimitsMenu from "./RfmLimitsMenu";
+import RfmPeriodPicker from "./RfmPeriodPicker";
+import { useGlobalFilter } from "@/lib/GlobalFilterContext";
 import { fmtCur } from "@/lib/erpFormat";
 import RfmDistChart from "./RfmDistChart";
 import RfmSegmentMap from "./RfmSegmentMap";
@@ -18,12 +20,14 @@ const YEARS = Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - i);
 const card = "bg-gray-900 border border-gray-800 rounded-xl p-4";
 
 export default function TabClientesRfm() {
-  const [year, setYear] = useState(YEARS[0]);
+  const { period } = useGlobalFilter();
+  const [mode, setMode] = useState("global");
+  const [custom, setCustom] = useState({ start: period.start, end: period.end });
   const [state, setState] = useState({ loading: true, rows: null, error: null });
   const { selectedSource } = useErpSource();
   const { selectedEmpresa } = useEmpresaFilter();
   const { snapshot } = useErpSnapshot();
-  const win = rfmWindow(year);
+  const win = mode === "global" ? { start: period.start, end: period.end } : custom;
   const [sel, setSel] = useState(null);
   const [limits, setLimits] = useState(loadLimits);
   const applyLimits = (l) => { saveLimits(l); setLimits(l); setSel(null); };
@@ -55,11 +59,10 @@ export default function TabClientesRfm() {
       <div className={`${card} flex flex-wrap items-center justify-between gap-3`}>
         <div>
           <h2 className="text-lg font-semibold text-white">Análise RFM (Recência, Frequência e Monetário)</h2>
-          <p className="text-xs text-gray-400">Perfil dos clientes ativos nos últimos <b className="text-gray-200">12 meses</b> · {win.start.split("-").reverse().join("/")} a {win.end.split("-").reverse().join("/")}</p>
+          <p className="text-xs text-gray-400">Perfil dos clientes ativos · <b className="text-gray-200">{mode === "global" ? "período global" : "período personalizado"}</b> · {win.start.split("-").reverse().join("/")} a {win.end.split("-").reverse().join("/")}</p>
         </div>
-        <select value={year} onChange={(e) => setYear(Number(e.target.value))} className="bg-gray-800 border border-gray-700 rounded-md text-sm text-gray-200 px-3 py-1.5">
-          {YEARS.map((y, i) => <option key={y} value={y}>{i === 0 ? `Ano atual (${y})` : y}</option>)}
-        </select>
+        <RfmPeriodPicker key={mode === "global" ? `${period.start}${period.end}` : "c"} mode={mode} custom={mode === "global" ? win : custom}
+          onGlobal={() => setMode("global")} onApply={(r) => { setCustom(r); setMode("custom"); }} />
       </div>
 
       {state.loading && <div className={`${card} flex items-center justify-center gap-2 text-sm text-gray-400 py-16`}><Loader2 className="w-4 h-4 animate-spin" /> Calculando RFM…</div>}
