@@ -1,0 +1,26 @@
+{
+  "name": "ClientesAtivosCache",
+  "type": "object",
+  "properties": {
+    "cache_key": {
+      "type": "string",
+      "description": "Fonte + janela + vers\u00e3o do snapshot"
+    },
+    "file_uri": {
+      "type": "string",
+      "description": "Arquivo JSON privado com o resultado completo"
+    },
+    "row_count": {
+      "type": "number",
+      "default": 0
+    },
+    "saved_at": {
+      "type": "string",
+      "format": "date-time"
+    }
+  },
+  "required": [
+    "cache_key",
+    "file_uri"
+  ]
+}
