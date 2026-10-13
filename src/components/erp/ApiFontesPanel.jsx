@@ -38,7 +38,7 @@ function ApiFontesList({ onChange }) {
       )}
 
       <div className="space-y-1">
-        {catalog.map((c) => {
+        {catalog.filter((c) => !byProduct(c.product)?.removed).map((c) => {
           const st = status[c.product] || {};
           return (
             <div key={c.product} className="flex items-center gap-3 py-2 border-b border-gray-800 last:border-0">

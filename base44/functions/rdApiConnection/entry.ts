@@ -58,8 +58,11 @@ export default async function (req: Request): Promise<Response> {
       if (!b.confirm) return Response.json({ error: 'Confirmação obrigatória.' }, { status: 400 });
       const leads = await purge(db.RdLead, { product: { $in: LEAD_PRODUCTS[product] } });
       const runs = await purge(db.RdSyncRun, { product: product === 'crm' ? 'crm' : product });
+      // Conexão OAuth (tokens guardados) é usada por CRM e Marketing: remove junto.
+      let oauth = 0;
+      if (product !== 'conversas') oauth = await purge(db.RdStationOAuth, { provider: 'rdstation' });
       await upsert({ removed: true, removed_at: new Date().toISOString(), token: '', token_updated_at: null, updated_by: user.email });
-      return Response.json({ ok: true, deleted: { leads, runs } });
+      return Response.json({ ok: true, deleted: { leads, runs, oauth } });
     }
 
     return Response.json({ error: 'Ação inválida.' }, { status: 400 });

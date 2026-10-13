@@ -24,7 +24,7 @@ export default function RdConnectionDeleteDialog({ product, label, onClose, onDe
         <AlertDialogHeader>
           <AlertDialogTitle className="flex items-center gap-2"><AlertTriangle className="w-5 h-5 text-red-400" /> Excluir {label}?</AlertDialogTitle>
           <AlertDialogDescription className="text-gray-400">
-            A conexão será removida e <b className="text-red-300">todos os registros sincronizados dela</b> (leads, vínculos com o ERP e histórico de sincronizações) serão apagados permanentemente. Dados das outras conexões não são afetados.
+            A conexão será removida e <b className="text-red-300">todos os registros sincronizados dela</b> (leads, vínculos com o ERP, histórico de sincronizações, credenciais e autorização OAuth salvas) serão apagados permanentemente. Dados das outras conexões não são afetados.
           </AlertDialogDescription>
         </AlertDialogHeader>
         {error && <p className="text-xs text-red-400">{error}</p>}
