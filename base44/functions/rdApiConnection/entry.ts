@@ -79,7 +79,7 @@ export default async function (req: Request): Promise<Response> {
       if (typeof b.notes === 'string') data.notes = b.notes;
       if (b.restore) { data.removed = false; data.removed_at = null; }
       if (b.clear_token) { data.token = ''; data.token_updated_at = null; }
-      else if (typeof b.token === 'string' && b.token.trim()) { data.token = b.token.trim(); data.token_updated_at = new Date().toISOString(); }
+      else if (typeof b.token === 'string' && b.token.trim()) { data.token = b.token.trim(); data.token_updated_at = new Date().toISOString(); data.removed = false; data.removed_at = null; data.env_disabled = true; }
       if (product === 'marketing') {
         if (typeof b.client_id === 'string' && b.client_id.trim()) data.client_id = b.client_id.trim();
         if (typeof b.client_secret === 'string' && b.client_secret.trim()) data.client_secret = b.client_secret.trim();

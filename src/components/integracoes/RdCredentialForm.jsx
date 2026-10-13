@@ -33,6 +33,7 @@ export default function RdCredentialForm({ product, title, conn, onTested }) {
   return (
     <div className="rounded-xl border border-gray-800 bg-gray-950/60 p-4 space-y-3">
       <p className="text-sm font-semibold text-white">{title}</p>
+      <p className="text-[11px] text-gray-500">Credencial confidencial: fica guardada apenas no servidor e nunca é exibida novamente. Para trocar, cole um novo valor — o anterior deixa de ser usado.</p>
       {FIELDS[product].map(([f, label]) => (
         <label key={f} className="block text-xs text-gray-400">
           {label} {saved(f) && <span className="text-emerald-400">· salvo</span>}
