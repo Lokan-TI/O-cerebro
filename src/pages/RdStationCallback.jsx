@@ -13,43 +13,25 @@ export default function RdStationCallback() {
     const code = params.get("code");
     const error = params.get("error_description") || params.get("error");
 
-    // Aberto como pop-up: devolve o retorno à janela principal (logada), que conclui a troca.
+    // Devolve o retorno à tela de Integrações (logada), que conclui a troca. Nunca troca o código aqui.
+    const msg = { type: "rd-oauth", code, state: params.get("state"), error };
+    let delivered = false;
     if (window.opener && !window.opener.closed) {
-      window.opener.postMessage({ type: "rd-oauth", code, state: params.get("state"), error }, "*");
-      setState({ phase: "pending", message: "Retorno enviado. Esta janela será fechada." });
-      setTimeout(() => window.close(), 800);
+      window.opener.postMessage(msg, "*");
+      delivered = true;
+    }
+    if ("BroadcastChannel" in window) {
+      const ch = new BroadcastChannel("rd-oauth");
+      ch.postMessage(msg);
+      ch.close();
+      delivered = true;
+    }
+    if (!delivered) {
+      setState({ phase: "error", message: "Não foi possível devolver o resultado à tela de Integrações. Feche esta janela e tente conectar novamente." });
       return;
     }
-    if (error) {
-      setState({ phase: "error", message: error });
-      return;
-    }
-    if (!code) {
-      setState({
-        phase: "error",
-        message:
-          "Nenhum código de autorização foi recebido. Inicie a conexão pela tela de Integrações.",
-      });
-      return;
-    }
-    base44.functions
-      .invoke("rdStationOAuth", { action: "exchange", code, state: params.get("state") })
-      .then((r) => {
-        if (r.data?.error) {
-          setState({ phase: "error", message: r.data.error });
-          return;
-        }
-        setState({
-          phase: "pending",
-          message: "Conta RD Station conectada. O Cérebro já pode ler os dados da conta.",
-        });
-      })
-      .catch((e) =>
-        setState({
-          phase: "error",
-          message: e?.response?.data?.error || e.message || "Falha ao concluir a autorização.",
-        }),
-      );
+    setState({ phase: "pending", message: "Retorno enviado à tela de Integrações. Esta janela será fechada." });
+    setTimeout(() => window.close(), 1200);
   }, []);
 
   return (

@@ -52,7 +52,7 @@ export default async function (req: Request): Promise<Response> {
       };
       if (record) await db.update(record.id, patch);
       else await db.create({ provider: 'rdstation', status: 'disconnected', ...patch });
-      return Response.json({ authorize_url: authorizeUrl(state), redirect_uri: RD_OAUTH.redirect_uri });
+      return Response.json({ authorize_url: authorizeUrl(state), state, redirect_uri: RD_OAUTH.redirect_uri });
     }
 
     if (action === 'check') {

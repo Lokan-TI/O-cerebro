@@ -1,4 +1,6 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+
+const APP_ORIGIN = "https://lokan-firstouch.base44.app";
 import { base44 } from "@/api/base44Client";
 import { KeyRound, AlertTriangle, CheckCircle2, RefreshCw } from "lucide-react";
 
@@ -8,6 +10,8 @@ export default function RdStationOAuthCard() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
   const [manualUrl, setManualUrl] = useState(null);
+  const [notice, setNotice] = useState(null);
+  const stateRef = useRef(null);
 
   const load = () => {
     base44.functions
@@ -19,8 +23,13 @@ export default function RdStationOAuthCard() {
 
   // Recebe o retorno do pop-up e conclui a troca do código nesta janela (sessão logada).
   useEffect(() => {
+    let handled = null;
     const onMsg = async (ev) => {
       if (ev.data?.type !== "rd-oauth") return;
+      if (ev.origin && ev.origin !== APP_ORIGIN && ev.origin !== window.location.origin) return;
+      if (ev.data.code && handled === ev.data.code) return;
+      handled = ev.data.code;
+      const state = ev.data.state || stateRef.current;
       if (ev.data.error || !ev.data.code) {
         setError(ev.data.error || "Nenhum código de autorização foi recebido.");
         return;
@@ -28,8 +37,9 @@ export default function RdStationOAuthCard() {
       setBusy(true);
       setError(null);
       try {
-        const r = await base44.functions.invoke("rdStationOAuth", { action: "exchange", code: ev.data.code, state: ev.data.state });
+        const r = await base44.functions.invoke("rdStationOAuth", { action: "exchange", code: ev.data.code, state });
         if (r.data?.error) setError(r.data.error);
+        else setNotice("Conta RD Station conectada com sucesso.");
       } catch (e) {
         setError(e?.response?.data?.error || e.message);
       } finally {
@@ -38,7 +48,9 @@ export default function RdStationOAuthCard() {
       }
     };
     window.addEventListener("message", onMsg);
-    return () => window.removeEventListener("message", onMsg);
+    const ch = "BroadcastChannel" in window ? new BroadcastChannel("rd-oauth") : null;
+    if (ch) ch.onmessage = (ev) => onMsg({ data: ev.data, origin: window.location.origin });
+    return () => { window.removeEventListener("message", onMsg); ch?.close(); };
   }, []);
 
   const connect = async () => {
@@ -51,6 +63,8 @@ export default function RdStationOAuthCard() {
     try {
       const r = await base44.functions.invoke("rdStationOAuth", { action: "start" });
       const url = r.data.authorize_url;
+      stateRef.current = r.data.state;
+      setNotice(null);
       if (win && !win.closed) win.location.href = url;
       else setManualUrl(url);
     } catch (e) {
@@ -123,6 +137,8 @@ export default function RdStationOAuthCard() {
       )}
 
       <p className="text-xs text-gray-600 mt-3">A autorização abre em uma janela pop-up, que fecha sozinha ao concluir.</p>
+
+      {notice && <p className="text-sm text-emerald-400 mt-3">{notice}</p>}
 
       {info?.expires_at && (
         <p className="text-xs text-gray-600 mt-3">
