@@ -1,0 +1,73 @@
+{
+  "name": "RdSyncRun",
+  "type": "object",
+  "properties": {
+    "product": {
+      "type": "string",
+      "enum": [
+        "marketing",
+        "crm",
+        "conversas",
+        "erp_match"
+      ]
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "running",
+        "done",
+        "error"
+      ],
+      "default": "running"
+    },
+    "cursor": {
+      "type": "object",
+      "description": "Posi\u00e7\u00e3o para retomar a execu\u00e7\u00e3o"
+    },
+    "pages": {
+      "type": "number",
+      "default": 0
+    },
+    "records": {
+      "type": "number",
+      "default": 0
+    },
+    "last_error": {
+      "type": "string"
+    },
+    "started_at": {
+      "type": "string"
+    },
+    "finished_at": {
+      "type": "string"
+    },
+    "performed_by": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "product"
+  ],
+  "rls": {
+    "read": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

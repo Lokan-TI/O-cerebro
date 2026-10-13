@@ -1,0 +1,146 @@
+{
+  "name": "RdLead",
+  "type": "object",
+  "properties": {
+    "external_key": {
+      "type": "string",
+      "description": "produto:id externo (chave de upsert)"
+    },
+    "product": {
+      "type": "string",
+      "enum": [
+        "marketing",
+        "crm_deal",
+        "crm_contact",
+        "conversas"
+      ]
+    },
+    "external_id": {
+      "type": "string"
+    },
+    "name": {
+      "type": "string"
+    },
+    "email": {
+      "type": "string"
+    },
+    "phone": {
+      "type": "string"
+    },
+    "document": {
+      "type": "string"
+    },
+    "company_name": {
+      "type": "string"
+    },
+    "campaign": {
+      "type": "string",
+      "description": "Campanha / segmenta\u00e7\u00e3o"
+    },
+    "origin": {
+      "type": "string",
+      "description": "Origem / canal"
+    },
+    "stage": {
+      "type": "string",
+      "description": "Etapa do funil / tabula\u00e7\u00e3o"
+    },
+    "pipeline": {
+      "type": "string"
+    },
+    "deal_status": {
+      "type": "string",
+      "description": "open, won, lost"
+    },
+    "amount": {
+      "type": "number"
+    },
+    "owner": {
+      "type": "string"
+    },
+    "source_created_at": {
+      "type": "string"
+    },
+    "synced_at": {
+      "type": "string"
+    },
+    "run_id": {
+      "type": "string"
+    },
+    "identity_email": {
+      "type": "string"
+    },
+    "identity_phone": {
+      "type": "string"
+    },
+    "identity_doc": {
+      "type": "string"
+    },
+    "match_status": {
+      "type": "string",
+      "enum": [
+        "pending",
+        "matched",
+        "manual",
+        "ambiguous",
+        "unmatched",
+        "no_identity",
+        "rejected"
+      ],
+      "default": "pending"
+    },
+    "match_method": {
+      "type": "string"
+    },
+    "erp_cd_pessoa": {
+      "type": "string"
+    },
+    "erp_nm_pessoa": {
+      "type": "string"
+    },
+    "erp_cd_empresa": {
+      "type": "string"
+    },
+    "erp_receita_total": {
+      "type": "number"
+    },
+    "erp_receita_pos_lead": {
+      "type": "number"
+    },
+    "erp_primeira_nf": {
+      "type": "string"
+    },
+    "erp_candidates": {
+      "type": "string"
+    },
+    "matched_at": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "external_key",
+    "product"
+  ],
+  "rls": {
+    "read": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

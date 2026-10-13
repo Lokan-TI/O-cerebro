@@ -60,7 +60,7 @@ function requireSecret(name: string): string {
   return value.trim();
 }
 
-async function marketingAccessToken(): Promise<string> {
+export async function marketingAccessToken(): Promise<string> {
   const res = await fetch('https://api.rd.services/auth/token', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
