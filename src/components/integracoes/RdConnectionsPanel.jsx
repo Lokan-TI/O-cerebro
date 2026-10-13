@@ -6,6 +6,7 @@ import RdSyncHistory from "./RdSyncHistory";
 import RdConnectionActions from "./RdConnectionActions";
 import RdRemovedConnections from "./RdRemovedConnections";
 import RdReconfigWizard from "./RdReconfigWizard";
+import RdAuditMatrix from "./RdAuditMatrix";
 import { useRdConnections } from "@/lib/useRdConnections";
 
 const PRODUCTS = [
@@ -25,6 +26,7 @@ export default function RdConnectionsPanel() {
 
   return (
     <div className="space-y-6">
+      <RdAuditMatrix />
       <RdReconfigWizard byProduct={byProduct} envSecrets={envSecrets} lastRun={last} onChange={refresh} />
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         {PRODUCTS.filter(([p]) => !byProduct(p)?.removed).map(([p, l, d]) => (

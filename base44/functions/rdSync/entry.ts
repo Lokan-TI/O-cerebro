@@ -5,7 +5,7 @@ import { loadRdOverrides, rdOverride, rdToken } from '../../shared/rdConfig.ts';
 
 // Ações: test (valida credencial do produto) · step (executa/retoma um passo da sincronização).
 const TESTS: Record<string, [string, string, Record<string, unknown>]> = {
-  crm: ['crm', 'deals', { limit: 1 }],
+  crm: ['crm', 'token/check', {}],
   marketing: ['marketing', 'marketing/account_info', {}],
   conversas: ['conversas', '', {}],
 };

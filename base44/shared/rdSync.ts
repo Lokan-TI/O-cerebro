@@ -25,7 +25,8 @@ function identity(rec: any) {
 async function getJson(url: string, headers: Record<string, string>) {
   for (let attempt = 0; attempt < 3; attempt++) {
     const res = await fetch(url, { headers, signal: AbortSignal.timeout(25000) });
-    if (res.status === 429) { await new Promise((r) => setTimeout(r, 2000)); continue; }
+    // Limite documentado: 120 req/min (CRM v1 e Marketing Light/Basic/Pro). Espera progressiva antes de repetir.
+    if (res.status === 429) { await new Promise((r) => setTimeout(r, 4000 * (attempt + 1))); continue; }
     const txt = await res.text();
     if (!res.ok) throw new Error(`HTTP ${res.status}: ${txt.slice(0, 250)}`);
     return JSON.parse(txt);
@@ -86,7 +87,9 @@ export async function fetchPage(product: string, cursor: any, base44: any) {
   if (product === 'crm') {
     const token = crmHeaders();
     const phase = cursor.phase || 'deals';
-    const j = await getJson(`https://crm.rdstation.com/api/v1/${phase}?page=${cursor.page}&limit=200&token=${token}`, {});
+    // Doc CRM v1: limit máx. 200; listagem por página só alcança os 10 mil primeiros — negociações usam next_page para ir além.
+    const q = cursor.next_page ? `next_page=${encodeURIComponent(cursor.next_page)}` : `page=${cursor.page}`;
+    const j = await getJson(`https://crm.rdstation.com/api/v1/${phase}?${q}&limit=200&order=created_at&direction=asc&token=${encodeURIComponent(token)}`, {});
     const list = j?.[phase] || [];
     const records = list.map((x: any) => {
       const id = String(x.id || x._id);
@@ -107,7 +110,8 @@ export async function fetchPage(product: string, cursor: any, base44: any) {
         company_name: x.organization?.name || '', source_created_at: x.created_at || '',
       });
     });
-    if (j?.has_more) return { records, cursor: { phase, page: cursor.page + 1 } };
+    if (phase === 'deals' && j?.has_more && j?.next_page) return { records, cursor: { phase, page: cursor.page + 1, next_page: j.next_page } };
+    if (j?.has_more && list.length) return { records, cursor: { phase, page: cursor.page + 1 } };
     return { records, cursor: phase === 'deals' ? { phase: 'contacts', page: 1 } : null };
   }
 
