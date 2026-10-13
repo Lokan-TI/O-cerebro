@@ -3,7 +3,11 @@ import { base44 } from "@/api/base44Client";
 import IntegrationForm from "@/components/integracoes/IntegrationForm";
 import RdStationApiPanel from "@/components/integracoes/RdStationApiPanel";
 import RdStationOAuthCard from "@/components/integracoes/RdStationOAuthCard";
+import RdConnectionsPanel from "@/components/integracoes/RdConnectionsPanel";
+import RdFunnelPanel from "@/components/integracoes/RdFunnelPanel";
 import { Plug, Plus, Pencil, Trash2 } from "lucide-react";
+
+const TABS = [["conexoes", "Conexões e sincronização"], ["funil", "Funil RD → ERP"], ["avancado", "Avançado"]];
 
 const LABEL = {
   rdstation_crm: "RD Station CRM",
@@ -16,6 +20,7 @@ export default function Integracoes() {
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(null);
+  const [tab, setTab] = useState("conexoes");
 
   const load = () => {
     setLoading(true);
@@ -33,7 +38,7 @@ export default function Integracoes() {
 
   return (
     <div className="min-h-screen bg-gray-950 px-6 py-8">
-      <div className="max-w-5xl mx-auto">
+      <div className="max-w-7xl mx-auto">
         <div className="flex items-start justify-between mb-6">
           <div>
             <h1 className="text-2xl font-bold text-white flex items-center gap-2">
@@ -43,14 +48,24 @@ export default function Integracoes() {
               Conecte CRMs (RD Station) e sistemas de gestão via API para alimentar o cérebro junto com as bases ERP.
             </p>
           </div>
-          <button
+          {tab === "avancado" && <button
             onClick={() => setEditing({})}
             className="flex items-center gap-2 px-4 py-2 rounded-lg bg-purple-600 text-white text-sm"
           >
             <Plus className="w-4 h-4" /> Nova integração
-          </button>
+          </button>}
         </div>
 
+        <div className="flex gap-1 mb-6 border-b border-gray-800">
+          {TABS.map(([k, l]) => (
+            <button key={k} onClick={() => setTab(k)} className={`px-4 py-2.5 text-sm -mb-px border-b-2 transition ${tab === k ? "border-purple-500 text-white" : "border-transparent text-gray-500 hover:text-gray-300"}`}>{l}</button>
+          ))}
+        </div>
+
+        {tab === "conexoes" && <RdConnectionsPanel />}
+        {tab === "funil" && <RdFunnelPanel />}
+
+        {tab === "avancado" && <>
         {loading ? (
           <p className="text-gray-600 text-sm">Carregando…</p>
         ) : rows.length === 0 ? (
@@ -85,6 +100,7 @@ export default function Integracoes() {
 
         <RdStationOAuthCard />
         <RdStationApiPanel />
+        </>}
       </div>
 
       {editing && (
