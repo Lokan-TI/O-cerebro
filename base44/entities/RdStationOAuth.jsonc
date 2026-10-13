@@ -40,6 +40,17 @@
     "connected_at": {
       "type": "string",
       "format": "date-time"
+    },
+    "oauth_state": {
+      "type": "string",
+      "description": "Valor de uso \u00fanico gerado quando um administrador inicia a conex\u00e3o"
+    },
+    "oauth_state_expires_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "oauth_started_by": {
+      "type": "string"
     }
   },
   "required": [

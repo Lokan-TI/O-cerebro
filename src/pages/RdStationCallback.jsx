@@ -26,7 +26,7 @@ export default function RdStationCallback() {
       return;
     }
     base44.functions
-      .invoke("rdStationOAuth", { action: "exchange", code })
+      .invoke("rdStationOAuth", { action: "exchange", code, state: params.get("state") })
       .then((r) => {
         if (r.data?.error) {
           setState({ phase: "error", message: r.data.error });

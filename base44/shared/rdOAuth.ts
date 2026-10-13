@@ -16,11 +16,12 @@ function credentials() {
   return { client_id, client_secret };
 }
 
-export function authorizeUrl(): string {
+export function authorizeUrl(state: string): string {
   const { client_id } = credentials();
   const url = new URL(RD_OAUTH.dialog_url);
   url.searchParams.set('client_id', client_id);
   url.searchParams.set('redirect_uri', RD_OAUTH.redirect_uri);
+  url.searchParams.set('state', state);
   return url.toString();
 }
 
