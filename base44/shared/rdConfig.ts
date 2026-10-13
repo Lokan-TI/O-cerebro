@@ -11,9 +11,11 @@ export async function loadRdOverrides(base44: any) {
 export const rdOverride = (product: string) => OVERRIDES[product] || null;
 
 // Credencial: a substituta salva na conexão vence o segredo de ambiente.
-export function rdToken(product: string, envName: string): string | undefined {
-  const t = OVERRIDES[product]?.token;
-  return (t || Deno.env.get(envName) || '').trim() || undefined;
+export function rdToken(product: string, envName: string, field = 'token'): string | undefined {
+  const o = OVERRIDES[product];
+  const t = o?.[field];
+  const env = o?.env_disabled ? '' : Deno.env.get(envName);
+  return (t || env || '').trim() || undefined;
 }
 
 export function assertActive(product: string) {

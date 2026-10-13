@@ -58,8 +58,15 @@ const SECRET_PRODUCT: Record<string, string> = {
   RDSTATION_MARKETING_REFRESH_TOKEN: 'marketing',
 };
 
+const SECRET_FIELD: Record<string, string> = {
+  RDSTATION_MARKETING_CLIENT_ID: 'client_id',
+  RDSTATION_MARKETING_CLIENT_SECRET: 'client_secret',
+};
+
 function requireSecret(name: string): string {
-  const value = SECRET_PRODUCT[name] ? rdToken(SECRET_PRODUCT[name], name) : Deno.env.get(name);
+  const value = SECRET_FIELD[name]
+    ? rdToken('marketing', name, SECRET_FIELD[name])
+    : SECRET_PRODUCT[name] ? rdToken(SECRET_PRODUCT[name], name) : Deno.env.get(name);
   if (!value) {
     throw new Error(
       `Credencial ausente: o segredo ${name} não está configurado. Cadastre-o nas variáveis de ambiente do app.`,

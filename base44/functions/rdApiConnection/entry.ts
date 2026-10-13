@@ -4,6 +4,11 @@ import { createClientFromRequest } from 'npm:@base44/sdk@0.8.52';
 const PRODUCTS = ['crm', 'marketing', 'conversas'];
 const LEAD_PRODUCTS: Record<string, string[]> = { crm: ['crm_deal', 'crm_contact'], marketing: ['marketing'], conversas: ['conversas'] };
 
+const ENV_SECRETS: Record<string, string> = {
+  RDSTATION_CRM_TOKEN: 'crm', RDSTATION_CRM_CLIENT_ID: 'crm', RDSTATION_CRM_CLIENT_SECRET: 'crm',
+  RDSTATION_MARKETING_CLIENT_ID: 'marketing', RDSTATION_MARKETING_CLIENT_SECRET: 'marketing', RDSTATION_MARKETING_REFRESH_TOKEN: 'marketing',
+};
+
 async function purge(entity: any, query: any) {
   let total = 0;
   for (let i = 0; i < 400; i++) {
@@ -33,9 +38,34 @@ export default async function (req: Request): Promise<Response> {
       return Response.json({
         connections: PRODUCTS.map((p) => {
           const r = find(p) || {};
-          return { product: p, label: r.label || '', notes: r.notes || '', removed: !!r.removed, has_token: !!r.token, token_updated_at: r.token_updated_at || null };
+          return { product: p, label: r.label || '', notes: r.notes || '', removed: !!r.removed, has_token: !!r.token,
+            has_client_id: !!r.client_id, has_client_secret: !!r.client_secret, env_disabled: !!r.env_disabled,
+            token_updated_at: r.token_updated_at || null };
         }),
+        // Segredos de ambiente antigos que ainda existem (o app não consegue apagá-los; são ignorados após o reset).
+        env_secrets: Object.keys(ENV_SECRETS).filter((k) => !!Deno.env.get(k)),
       });
+    }
+
+    if (b.action === 'reset') {
+      if (!b.confirm) return Response.json({ error: 'Confirmação obrigatória.' }, { status: 400 });
+      const steps: any[] = [];
+      const step = async (name: string, fn: () => Promise<number>) => {
+        try { steps.push({ name, ok: true, count: await fn() }); }
+        catch (e) { steps.push({ name, ok: false, error: e.message }); }
+      };
+      await step('Leads e negociações do CRM e Marketing', () => purge(db.RdLead, { product: { $in: ['crm_deal', 'crm_contact', 'marketing'] } }));
+      await step('Histórico de sincronizações', () => purge(db.RdSyncRun, { product: { $in: ['crm', 'marketing'] } }));
+      await step('Autorização OAuth salva', () => purge(db.RdStationOAuth, { provider: 'rdstation' }));
+      await step('Credenciais salvas no Cérebro', async () => {
+        for (const p of ['crm', 'marketing']) {
+          const ex = find(p);
+          const data = { removed: false, removed_at: null, token: '', client_id: '', client_secret: '', env_disabled: true, token_updated_at: null, updated_by: user.email };
+          ex ? await db.RdApiConnection.update(ex.id, data) : await db.RdApiConnection.create({ product: p, ...data });
+        }
+        return 2;
+      });
+      return Response.json({ ok: steps.every((s) => s.ok), steps, env_secrets: Object.keys(ENV_SECRETS).filter((k) => !!Deno.env.get(k)) });
     }
 
     const product = String(b.product || '');
@@ -50,6 +80,10 @@ export default async function (req: Request): Promise<Response> {
       if (b.restore) { data.removed = false; data.removed_at = null; }
       if (b.clear_token) { data.token = ''; data.token_updated_at = null; }
       else if (typeof b.token === 'string' && b.token.trim()) { data.token = b.token.trim(); data.token_updated_at = new Date().toISOString(); }
+      if (product === 'marketing') {
+        if (typeof b.client_id === 'string' && b.client_id.trim()) data.client_id = b.client_id.trim();
+        if (typeof b.client_secret === 'string' && b.client_secret.trim()) data.client_secret = b.client_secret.trim();
+      }
       await upsert(data);
       return Response.json({ ok: true });
     }

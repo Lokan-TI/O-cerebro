@@ -21,6 +21,19 @@
       "type": "string",
       "description": "Credencial substituta (nunca devolvida \u00e0 interface)"
     },
+    "client_id": {
+      "type": "string",
+      "description": "Client ID do app RD (Marketing) \u2014 nunca devolvido \u00e0 interface"
+    },
+    "client_secret": {
+      "type": "string",
+      "description": "Client secret do app RD (Marketing) \u2014 nunca devolvido \u00e0 interface"
+    },
+    "env_disabled": {
+      "type": "boolean",
+      "default": false,
+      "description": "Ignorar segredos de ambiente antigos (reconfigura\u00e7\u00e3o do zero)"
+    },
     "token_updated_at": {
       "type": "string",
       "format": "date-time"
