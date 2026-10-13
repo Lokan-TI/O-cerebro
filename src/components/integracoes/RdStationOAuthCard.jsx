@@ -17,12 +17,37 @@ export default function RdStationOAuthCard() {
   };
   useEffect(load, []);
 
+  // Recebe o retorno do pop-up e conclui a troca do código nesta janela (sessão logada).
+  useEffect(() => {
+    const onMsg = async (ev) => {
+      if (ev.data?.type !== "rd-oauth") return;
+      if (ev.data.error || !ev.data.code) {
+        setError(ev.data.error || "Nenhum código de autorização foi recebido.");
+        return;
+      }
+      setBusy(true);
+      setError(null);
+      try {
+        const r = await base44.functions.invoke("rdStationOAuth", { action: "exchange", code: ev.data.code, state: ev.data.state });
+        if (r.data?.error) setError(r.data.error);
+      } catch (e) {
+        setError(e?.response?.data?.error || e.message);
+      } finally {
+        setBusy(false);
+        load();
+      }
+    };
+    window.addEventListener("message", onMsg);
+    return () => window.removeEventListener("message", onMsg);
+  }, []);
+
   const connect = async () => {
     setBusy(true);
     setError(null);
     setManualUrl(null);
     // Abre a aba já no clique (antes do await) para não ser bloqueada como popup.
-    const win = window.open("", "_blank");
+    const w = 600, h = 700;
+    const win = window.open("", "rd-oauth", `popup=yes,width=${w},height=${h},left=${(screen.width - w) / 2},top=${(screen.height - h) / 2}`);
     try {
       const r = await base44.functions.invoke("rdStationOAuth", { action: "start" });
       const url = r.data.authorize_url;
@@ -97,7 +122,7 @@ export default function RdStationOAuthCard() {
         </div>
       )}
 
-      <p className="text-xs text-gray-600 mt-3">A autorização abre em uma nova aba. Depois de concluir, volte aqui e atualize a página.</p>
+      <p className="text-xs text-gray-600 mt-3">A autorização abre em uma janela pop-up, que fecha sozinha ao concluir.</p>
 
       {info?.expires_at && (
         <p className="text-xs text-gray-600 mt-3">

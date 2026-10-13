@@ -13,6 +13,13 @@ export default function RdStationCallback() {
     const code = params.get("code");
     const error = params.get("error_description") || params.get("error");
 
+    // Aberto como pop-up: devolve o retorno à janela principal (logada), que conclui a troca.
+    if (window.opener && !window.opener.closed) {
+      window.opener.postMessage({ type: "rd-oauth", code, state: params.get("state"), error }, "*");
+      setState({ phase: "pending", message: "Retorno enviado. Esta janela será fechada." });
+      setTimeout(() => window.close(), 800);
+      return;
+    }
     if (error) {
       setState({ phase: "error", message: error });
       return;
