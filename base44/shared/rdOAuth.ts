@@ -29,6 +29,8 @@ export async function authorizeUrl(base44: any, state: string): Promise<string> 
   url.searchParams.set('client_id', client_id);
   url.searchParams.set('redirect_uri', RD_OAUTH.redirect_uri);
   url.searchParams.set('state', state);
+  // Pede nova autenticação em vez de reutilizar a sessão RD aberta no navegador.
+  url.searchParams.set('prompt', 'login');
   return url.toString();
 }
 

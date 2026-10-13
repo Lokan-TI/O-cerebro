@@ -22,7 +22,8 @@ export default function MarketingSteps({ conn, onChange }) {
         <RdCredentialForm product="marketing" title="Client ID e Client Secret gerados pela RD" conn={conn} hideTest onTested={() => onChange()} />
       </WizardStep>
       <WizardStep n={3} title="Autorize a conta RD Station" done={connected}>
-        <p>Uma janela da RD será aberta. Entre com um usuário administrador da conta e aceite o acesso.</p>
+        <p>Uma janela da RD será aberta pedindo login, para você escolher a conta RD desejada. Entre com um usuário administrador e aceite o acesso.</p>
+        <p className="text-xs text-gray-500">Se a RD entrar direto na conta errada: abra <a href="https://app.rdstation.com.br" target="_blank" rel="noreferrer" className="text-violet-300 underline">app.rdstation.com.br</a>, clique em Sair (menu do seu perfil) e depois clique em “Autorizar” de novo.</p>
         <button onClick={oauth.connect} disabled={!hasApp || oauth.busy} className="inline-flex items-center gap-2 rounded-lg bg-violet-600 px-4 py-2 text-xs font-medium text-white hover:bg-violet-500 disabled:opacity-40">
           {oauth.busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <KeyRound className="h-3.5 w-3.5" />} {connected ? "Autorizar novamente" : "Autorizar na RD Station"}
         </button>
