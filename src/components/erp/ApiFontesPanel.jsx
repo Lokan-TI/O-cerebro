@@ -1,10 +1,19 @@
 import { Link } from "react-router-dom";
+import { useState } from "react";
 import { useRdStatus } from "@/lib/rdStatus";
+import { useRdConnections } from "@/lib/useRdConnections";
+import RdConnectionActions from "@/components/integracoes/RdConnectionActions";
 import { Radio, Wifi, Loader2, ExternalLink } from "lucide-react";
 
 // Fontes conectadas via API (RD Station), gerenciadas junto das fontes de banco do ERP.
 export default function ApiFontesPanel() {
+  const [version, setVersion] = useState(0);
+  return <ApiFontesList key={version} onChange={() => setVersion((v) => v + 1)} />;
+}
+
+function ApiFontesList({ onChange }) {
   const { catalog, status, loading, check } = useRdStatus();
+  const { byProduct } = useRdConnections();
 
   return (
     <div className="bg-gray-900 border border-gray-800 rounded-xl p-4 mb-4">
@@ -56,6 +65,7 @@ export default function ApiFontesPanel() {
               >
                 {st.checking ? <Loader2 className="w-4 h-4 animate-spin" /> : <Wifi className="w-4 h-4" />}
               </button>
+              <RdConnectionActions conn={byProduct(c.product)} defaultLabel={c.label} onChange={onChange} />
               <Link
                 to={`/Integracoes?product=${c.product}`}
                 className="text-xs text-purple-400 hover:text-purple-300 whitespace-nowrap"

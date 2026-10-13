@@ -1,6 +1,7 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.52';
 import { fetchPage, initialCursor } from '../../shared/rdSync.ts';
 import { rdRead } from '../../shared/rdStation.ts';
+import { loadRdOverrides, rdOverride, rdToken } from '../../shared/rdConfig.ts';
 
 // Ações: test (valida credencial do produto) · step (executa/retoma um passo da sincronização).
 const TESTS: Record<string, [string, string, Record<string, unknown>]> = {
@@ -19,13 +20,15 @@ export default async function (req: Request): Promise<Response> {
     const product = String(b.product || '');
     if (!['crm', 'marketing', 'conversas'].includes(product)) return Response.json({ error: 'Produto inválido.' }, { status: 400 });
     const db = base44.asServiceRole.entities;
+    await loadRdOverrides(base44);
+    if (rdOverride(product)?.removed) return Response.json({ error: 'Conexão removida. Restaure-a para voltar a usar.' }, { status: 409 });
 
     if (b.action === 'test') {
       try {
         if (product === 'conversas') {
           const today = new Date().toISOString().slice(0, 10);
           const r = await fetch(`https://api.tallos.com.br/v4/reports?start_date=${today}&end_date=${today}&limit=1&page=1`,
-            { headers: { Authorization: `Bearer ${(Deno.env.get('RDSTATION_CONVERSAS_TOKEN') || '').trim()}` }, signal: AbortSignal.timeout(20000) });
+            { headers: { Authorization: `Bearer ${rdToken('conversas', 'RDSTATION_CONVERSAS_TOKEN') || ''}` }, signal: AbortSignal.timeout(20000) });
           return Response.json({ ok: r.ok, status: r.status, message: r.ok ? 'Conexão válida' : (await r.text()).slice(0, 200) });
         }
         const [p, path, params] = TESTS[product];

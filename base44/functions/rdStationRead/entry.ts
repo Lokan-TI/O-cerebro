@@ -1,6 +1,7 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.40';
 import { RD_PRODUCTS, rdRead } from '../../shared/rdStation.ts';
 import { ensureAccessToken } from '../../shared/rdOAuth.ts';
+import { loadRdOverrides, rdOverride } from '../../shared/rdConfig.ts';
 
 // Gateway somente leitura para as APIs do RD Station (CRM, Marketing, Conversas).
 // Sem catálogo → retorna o catálogo de recursos disponíveis (o que o Cérebro sabe ler).
@@ -16,11 +17,12 @@ export default async function (req: Request): Promise<Response> {
     const body = await req.json().catch(() => ({}));
     const product = body?.product || '';
 
+    await loadRdOverrides(base44);
     if (!product || body?.catalog_only) {
       return Response.json({
-        catalog: Object.entries(RD_PRODUCTS).map(([key, cfg]: any) => ({
+        catalog: Object.entries(RD_PRODUCTS).filter(([key]) => !rdOverride(key)?.removed).map(([key, cfg]: any) => ({
           product: key,
-          label: cfg.label,
+          label: rdOverride(key)?.label || cfg.label,
           base_url: cfg.base_url,
           auth: cfg.auth,
           endpoints: cfg.endpoints,

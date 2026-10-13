@@ -4,7 +4,7 @@ import { Loader2, RefreshCw, ShieldCheck } from "lucide-react";
 
 const fmt = (d) => (d ? new Date(d).toLocaleString("pt-BR") : "—");
 
-export default function RdProductCard({ product, label, description, lastRun, onChange }) {
+export default function RdProductCard({ product, label, description, lastRun, onChange, actions }) {
   const [test, setTest] = useState(null);
   const [busy, setBusy] = useState("");
   const [progress, setProgress] = useState(null);
@@ -35,9 +35,12 @@ export default function RdProductCard({ product, label, description, lastRun, on
           <p className="text-white font-semibold">{label}</p>
           <p className="text-xs text-gray-500 mt-1 leading-relaxed">{description}</p>
         </div>
+        <div className="shrink-0 flex flex-col items-end gap-1">
         <span className={`shrink-0 text-[11px] px-2 py-0.5 rounded-full ${ok === true ? "bg-emerald-500/10 text-emerald-400" : ok === false ? "bg-red-500/10 text-red-400" : "bg-gray-800 text-gray-500"}`}>
           {ok === true ? "Conectado" : ok === false ? "Falha" : "Não testado"}
         </span>
+        {actions && <div className="flex">{actions}</div>}
+        </div>
       </div>
       {test && !test.ok && <p className="text-xs text-red-400/90 break-words">HTTP {test.status}: {test.message}</p>}
       <div className="text-xs text-gray-400 space-y-1 border-t border-gray-800 pt-3">

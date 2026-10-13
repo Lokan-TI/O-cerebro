@@ -50,8 +50,16 @@ export const RD_PRODUCTS = {
   },
 };
 
+import { rdToken, assertActive } from './rdConfig.ts';
+
+const SECRET_PRODUCT: Record<string, string> = {
+  RDSTATION_CRM_TOKEN: 'crm',
+  RDSTATION_CONVERSAS_TOKEN: 'conversas',
+  RDSTATION_MARKETING_REFRESH_TOKEN: 'marketing',
+};
+
 function requireSecret(name: string): string {
-  const value = Deno.env.get(name);
+  const value = SECRET_PRODUCT[name] ? rdToken(SECRET_PRODUCT[name], name) : Deno.env.get(name);
   if (!value) {
     throw new Error(
       `Credencial ausente: o segredo ${name} não está configurado. Cadastre-o nas variáveis de ambiente do app.`,
@@ -86,6 +94,7 @@ export async function rdRead(
 ) {
   const cfg = (RD_PRODUCTS as any)[product];
   if (!cfg) throw new Error(`Produto RD Station desconhecido: ${product}`);
+  assertActive(product);
 
   const clean = String(path || '').replace(/^\/+/, '').split('?')[0];
   if (!clean || clean.includes('..')) throw new Error('Recurso inválido.');

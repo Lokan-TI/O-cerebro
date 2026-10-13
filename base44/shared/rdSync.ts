@@ -2,6 +2,7 @@
 // Cada passo processa algumas páginas e devolve o cursor para retomar.
 import { marketingAccessToken } from './rdStation.ts';
 import { ensureAccessToken } from './rdOAuth.ts';
+import { rdToken, assertActive } from './rdConfig.ts';
 
 export const digits = (v: unknown) => String(v ?? '').replace(/\D/g, '');
 export const normEmail = (v: unknown) => {
@@ -33,7 +34,7 @@ async function getJson(url: string, headers: Record<string, string>) {
 }
 
 function crmHeaders() {
-  const t = Deno.env.get('RDSTATION_CRM_TOKEN');
+  const t = rdToken('crm', 'RDSTATION_CRM_TOKEN');
   if (!t) throw new Error('Segredo RDSTATION_CRM_TOKEN ausente.');
   return t.trim();
 }
@@ -58,8 +59,9 @@ export function conversasWindows(months: number) {
 
 // Um passo de paginação. Retorna { records, cursor (null = terminou) }.
 export async function fetchPage(product: string, cursor: any, base44: any) {
+  assertActive(product);
   if (product === 'conversas') {
-    const token = Deno.env.get('RDSTATION_CONVERSAS_TOKEN');
+    const token = rdToken('conversas', 'RDSTATION_CONVERSAS_TOKEN');
     if (!token) throw new Error('Segredo RDSTATION_CONVERSAS_TOKEN ausente.');
     const w = cursor.wins[cursor.w];
     if (!w) return { records: [], cursor: null };
