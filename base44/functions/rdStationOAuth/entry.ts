@@ -23,7 +23,7 @@ export default async function (req: Request): Promise<Response> {
       // Consome o state antes da troca (uso único).
       await db.update(record.id, { oauth_state: '', oauth_state_expires_at: null });
       try {
-        const tokens = await exchangeCode(String(body?.code || ''));
+        const tokens = await exchangeCode(base44, String(body?.code || ''));
         await db.update(record.id, {
           access_token: tokens.access_token,
           refresh_token: tokens.refresh_token,
@@ -52,7 +52,11 @@ export default async function (req: Request): Promise<Response> {
       };
       if (record) await db.update(record.id, patch);
       else await db.create({ provider: 'rdstation', status: 'disconnected', ...patch });
-      return Response.json({ authorize_url: authorizeUrl(state), state, redirect_uri: RD_OAUTH.redirect_uri });
+      try {
+        return Response.json({ authorize_url: await authorizeUrl(base44, state), state, redirect_uri: RD_OAUTH.redirect_uri });
+      } catch (err) {
+        return Response.json({ error: err.message }, { status: 400 });
+      }
     }
 
     if (action === 'check') {

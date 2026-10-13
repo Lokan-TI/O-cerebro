@@ -1,8 +1,6 @@
 import { useEffect, useState } from "react";
 import { base44 } from "@/api/base44Client";
 import IntegrationForm from "@/components/integracoes/IntegrationForm";
-import RdStationApiPanel from "@/components/integracoes/RdStationApiPanel";
-import RdStationOAuthCard from "@/components/integracoes/RdStationOAuthCard";
 import RdConnectionsPanel from "@/components/integracoes/RdConnectionsPanel";
 import RdFunnelPanel from "@/components/integracoes/RdFunnelPanel";
 import { Plug, Plus, Pencil, Trash2 } from "lucide-react";
@@ -98,8 +96,6 @@ export default function Integracoes() {
           </div>
         )}
 
-        <RdStationOAuthCard />
-        <RdStationApiPanel />
         </>}
       </div>
 

@@ -4,11 +4,12 @@ import { Loader2, ShieldCheck, Save, CheckCircle2, XCircle } from "lucide-react"
 
 const FIELDS = {
   crm: [["token", "Token da instância (API do CRM)"]],
-  marketing: [["client_id", "Client ID"], ["client_secret", "Client Secret"], ["token", "Refresh token"]],
+  marketing: [["client_id", "Client ID"], ["client_secret", "Client Secret"]],
+  conversas: [["token", "Token da API do Conversas"]],
 };
 
 // Formulário de credenciais de um produto RD: salvar (só no servidor) e testar.
-export default function RdCredentialForm({ product, title, conn, onTested }) {
+export default function RdCredentialForm({ product, title, conn, onTested, hideTest }) {
   const [vals, setVals] = useState({});
   const [busy, setBusy] = useState("");
   const [msg, setMsg] = useState(null);
@@ -46,9 +47,9 @@ export default function RdCredentialForm({ product, title, conn, onTested }) {
         <button onClick={save} disabled={!!busy || !Object.values(vals).some((v) => v?.trim())} className="flex-1 inline-flex items-center justify-center gap-1.5 text-xs px-3 py-2 rounded-lg bg-purple-600 hover:bg-purple-500 text-white disabled:opacity-40">
           {busy === "save" ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />} Salvar
         </button>
-        <button onClick={test} disabled={!!busy || !ready} className="flex-1 inline-flex items-center justify-center gap-1.5 text-xs px-3 py-2 rounded-lg border border-gray-700 text-gray-300 hover:bg-gray-800 disabled:opacity-40">
+        {!hideTest && <button onClick={test} disabled={!!busy || !ready} className="flex-1 inline-flex items-center justify-center gap-1.5 text-xs px-3 py-2 rounded-lg border border-gray-700 text-gray-300 hover:bg-gray-800 disabled:opacity-40">
           {busy === "test" ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <ShieldCheck className="w-3.5 h-3.5" />} Testar conexão
-        </button>
+        </button>}
       </div>
       {msg && <p className={`text-xs flex gap-1.5 break-words ${msg.ok ? "text-emerald-400" : "text-red-400"}`}>{msg.ok ? <CheckCircle2 className="w-3.5 h-3.5 shrink-0" /> : <XCircle className="w-3.5 h-3.5 shrink-0" />}{msg.text}</p>}
     </div>
