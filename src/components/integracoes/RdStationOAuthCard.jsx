@@ -7,6 +7,7 @@ export default function RdStationOAuthCard() {
   const [info, setInfo] = useState(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
+  const [manualUrl, setManualUrl] = useState(null);
 
   const load = () => {
     base44.functions
@@ -19,11 +20,18 @@ export default function RdStationOAuthCard() {
   const connect = async () => {
     setBusy(true);
     setError(null);
+    setManualUrl(null);
+    // Abre a aba já no clique (antes do await) para não ser bloqueada como popup.
+    const win = window.open("", "_blank");
     try {
       const r = await base44.functions.invoke("rdStationOAuth", { action: "start" });
-      window.location.href = r.data.authorize_url;
+      const url = r.data.authorize_url;
+      if (win && !win.closed) win.location.href = url;
+      else setManualUrl(url);
     } catch (e) {
+      win?.close();
       setError(e?.response?.data?.error || e.message);
+    } finally {
       setBusy(false);
     }
   };
@@ -81,6 +89,15 @@ export default function RdStationOAuthCard() {
           </button>
         )}
       </div>
+
+      {manualUrl && (
+        <div className="border border-amber-700/50 bg-amber-950/30 rounded-lg p-3 mt-4 text-sm text-amber-200">
+          O navegador bloqueou a nova aba. Permita pop-ups para este site ou{" "}
+          <a href={manualUrl} target="_blank" rel="noopener noreferrer" className="underline font-medium">abra a autorização do RD Station aqui</a>.
+        </div>
+      )}
+
+      <p className="text-xs text-gray-600 mt-3">A autorização abre em uma nova aba. Depois de concluir, volte aqui e atualize a página.</p>
 
       {info?.expires_at && (
         <p className="text-xs text-gray-600 mt-3">
