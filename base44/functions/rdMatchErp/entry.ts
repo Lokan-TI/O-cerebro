@@ -88,6 +88,12 @@ export default async function (req: Request): Promise<Response> {
         const m = keys.map((k) => manualMap.get(k)).find(Boolean) as any;
         if (m) return m.decision === 'no_match' ? { ...base, match_status: 'rejected', match_method: 'manual' }
           : { ...base, match_status: 'manual', match_method: 'manual', erp_cd_pessoa: m.erp_cd_pessoa, erp_nm_pessoa: m.erp_nm_pessoa };
+        // Refinamento: cruza os candidatos de todas as identidades; se só um ERP atende a todas, o vínculo é seguro.
+        const sets = keys.map((k) => idx!.get(k)).filter((c) => c?.size) as Map<string, string>[];
+        if (sets.length > 1) {
+          const inter = [...sets[0].keys()].filter((cd) => sets.every((s) => s.has(cd)));
+          if (inter.length === 1) return { ...base, match_status: 'matched', match_method: 'combinado', erp_cd_pessoa: inter[0], erp_nm_pessoa: sets[0].get(inter[0]) || '' };
+        }
         for (const k of keys) {
           const c = idx!.get(k);
           if (!c?.size) continue;

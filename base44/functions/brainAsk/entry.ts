@@ -1,9 +1,10 @@
-import { createClientFromRequest } from 'npm:@base44/sdk@0.8.40';
+import { createClientFromRequest } from 'npm:@base44/sdk@0.8.53';
 import { execRead } from '../../shared/erpConnection.ts';
 import { assertReadOnlyQuery, SqlGuardError } from '../../shared/sqlGuard.ts';
 import { INVOICE_UNIVERSE, INVOICE_DATE_FIELD } from '../../shared/metricRegistry.ts';
 import { loadTableIndex, renderTableIndex, loadColumnsFor } from '../../shared/brainSchema.ts';
 import { loadLessons, saveLesson, hasLesson } from '../../shared/brainMemory.ts';
+import { COMMERCIAL_RE, loadCommercialContext } from '../../shared/brainCommercial.ts';
 
 // "Cérebro" — pergunta em linguagem natural → SQL somente leitura → resposta com dados reais.
 // Reusa o SqlGuard (P0-02) e a conexão isolada por fonte. Toda consulta é auditada.
@@ -181,6 +182,10 @@ Deno.serve(async (req) => {
     ];
     for (const [re, tabs] of hints) if (re.test(nq)) for (const t of tabs) if (validTables.has(t) && !chosenTables.includes(t)) chosenTables.push(t);
     let schemaBrief = await loadColumnsFor(base44, chosenTables);
+    const isCommercial = COMMERCIAL_RE.test(nq);
+    const commercial = isCommercial
+      ? await loadCommercialContext(base44, uiPeriodStart, uiPeriodEndExclusive).catch((e: any) => `(falha ao ler dados comerciais RD: ${e?.message || e})`)
+      : '';
     const today = new Date().toISOString().slice(0, 10);
 
     // Passo 1 — gerar SQL (ou decidir que o snapshot basta)
@@ -209,6 +214,7 @@ REGRAS OBRIGATÓRIAS:
 - REGRA DURA: só é permitido usar tabelas e colunas que aparecem no DICIONÁRIO DE DADOS acima (com colunas listadas). A lista "TABELAS DISPONÍVEIS" serve apenas para você saber o que existe — se precisar de uma tabela que não está no dicionário detalhado, escolha um caminho alternativo com as tabelas do dicionário ou retorne needs_query=false explicando na nota qual tabela falta.
 - Nunca invente nomes como nf_itens, nf_item, orcamento, patrimonio: se não está no dicionário, não existe.
 - Se a pergunta não precisa do banco (é conceitual ou já respondível pelo resumo executivo), retorne needs_query=false.
+${isCommercial ? '- DADOS COMERCIAIS RD (leads, campanhas, origens, negociações, responsáveis, perdas, vínculo e receita ERP pós-lead) JÁ foram carregados à parte. Se a pergunta for só sobre esses temas, retorne needs_query=false. Use o ERP apenas se precisar de dado adicional (orçamentos, contratos, faturamento geral).' : ''}
 - AMBIGUIDADE: só se a pergunta admitir interpretações MATERIALMENTE diferentes que mudariam o número (ex.: "receita" = faturamento NF ou recebimento CAR? "clientes" = cadastrados, ativos ou faturados?) e a conversa anterior não resolver, preencha clarification com UMA pergunta objetiva em português oferecendo as opções, e needs_query=false. Se houver uma interpretação canônica clara (semântica abaixo) ou período padrão aplicável, NÃO pergunte — assuma e responda. Nunca use clarification para falta de dados.
 
 SEMÂNTICA CANÔNICA (obrigatória — é a mesma dos dashboards):
@@ -274,7 +280,9 @@ PERGUNTA (já resolvida com o contexto da conversa — responda a esta): ${effec
     let truncated = false;
     let queryError: string | null = null;
 
-    const sqlToRun = resolved.reuseSql || (plan?.needs_query ? plan?.sql : '');
+    // Pergunta puramente comercial (RD): responde com os dados RD já carregados, sem SQL improvisado no ERP.
+    const needsErp = /orcamento|contrato|locac|fatur|nota fiscal|custo|despesa|receber|pagar|equipamento|patrimon|manutenc|cadastr/.test(nq);
+    const sqlToRun = resolved.reuseSql || (plan?.needs_query && (!isCommercial || needsErp) ? plan?.sql : '');
     if (sqlToRun) {
       let candidate = sqlToRun;
       for (let attempt = 0; attempt < 3; attempt++) {
@@ -349,6 +357,11 @@ ${convo ? `CONVERSA ANTERIOR (mantenha a continuidade; não repita o que já foi
 RESUMO EXECUTIVO (snapshot pré-calculado):
 ${context || '(sem snapshot carregado)'}
 
+${commercial ? `DADOS COMERCIAIS RD STATION (Marketing + CRM, agregados; filtrados pela data de criação do lead/negociação):
+${commercial}
+COMO LER: product marketing = leads; crm_deal = negociações (deal_status won/lost/open/paused, amount = valor negociado); crm_contact = contatos. match_status: matched/manual = vinculado ao cliente do ERP (vínculo confirmado); ambiguous = mais de um cliente possível; unmatched = sem cliente no ERP; no_identity = sem e-mail/telefone/documento; pending = vínculo ainda não processado (NÃO conte como não vinculado). ATENÇÃO: match_status é vínculo com o ERP, NÃO é venda ganha — negociação ganha é SOMENTE deal_status = won. responsaveis_taxa_ganho já traz a taxa de ganho por vendedor (ganhas ÷ ganhas+perdidas). sum_erp_receita_pos_lead = faturamento ERP do cliente vinculado após a criação do lead.
+REGRAS COMERCIAIS: cite a cobertura de vínculo quando usar receita (vinculados / total). Se houver muitos pendentes, diga que a receita está subestimada. Separe em blocos curtos: **Fatos** (números), **Leitura estratégica** (interpretação baseada nos números, só se a pergunta for estratégica/aberta) e **Limitações** (só se existirem). No "Base:" cite RD Station + data da última sincronização. Não mencione nomes de campos técnicos.
+` : ''}
 ${rows.length > 0 ? `RESULTADO DA CONSULTA AO BANCO (ao vivo, ${rows.length} linhas${truncated ? ', truncado' : ''}):
 SQL: ${executedSql}
 DADOS: ${JSON.stringify(rows).slice(0, 12000)}` : ''}
