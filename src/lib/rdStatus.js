@@ -17,11 +17,12 @@ export function useRdStatus() {
   const check = useCallback(async (product) => {
     setStatus((s) => ({ ...s, [product]: { ...(s[product] || {}), checking: true } }));
     try {
-      const r = await base44.functions.invoke("rdStationRead", {
-        product,
-        endpoint: RD_HEALTH_ENDPOINT[product] || "",
-      });
+      // CRM usa OAuth v2: valida pelo mesmo teste do assistente de integração.
+      const r = product === "crm"
+        ? await base44.functions.invoke("rdSync", { action: "test", product: "crm" })
+        : await base44.functions.invoke("rdStationRead", { product, endpoint: RD_HEALTH_ENDPOINT[product] || "" });
       const ok = !!r.data?.ok;
+      if (!ok && product === "crm") r.data.error = r.data?.message;
       setStatus((s) => ({
         ...s,
         [product]: { ok, checking: false, message: ok ? `HTTP ${r.data.status}` : r.data?.error || "Falha na leitura" },
