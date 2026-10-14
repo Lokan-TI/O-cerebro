@@ -11,8 +11,15 @@ export default function RdProductCard({ product, label, description, lastRun, on
 
   const runTest = async () => {
     setBusy("test");
-    const { data } = await base44.functions.invoke("rdSync", { product, action: "test" });
-    setTest(data); setBusy("");
+    try {
+      const { data } = await base44.functions.invoke("rdSync", { product, action: "test" });
+      setTest(data);
+    } catch (e) {
+      const d = e?.response?.data;
+      setTest({ ok: false, status: e?.response?.status || 0, message: d?.error || d?.message || e.message });
+    } finally {
+      setBusy("");
+    }
   };
 
   const sync = async () => {

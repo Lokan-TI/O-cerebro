@@ -29,7 +29,10 @@ export default async function (req: Request): Promise<Response> {
       try {
         const [p, path, params] = TESTS[product];
         let bearer: string | undefined;
-        if (product === 'marketing') bearer = await ensureAccessToken(base44).catch(() => undefined);
+        if (product === 'marketing') {
+          try { bearer = await ensureAccessToken(base44); }
+          catch (e) { return Response.json({ ok: false, status: 0, message: `${e.message} Clique em "Autorizar na RD Station" (etapa 3) e teste de novo.` }); }
+        }
         const r = await rdRead(p, path, params, bearer);
         return Response.json({ ok: r.ok, status: r.status, message: r.ok ? 'Conexão válida' : `${rdErrorHint(r.status)}: ${JSON.stringify(r.data).slice(0, 160)}` });
       } catch (e) {

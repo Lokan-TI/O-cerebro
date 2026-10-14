@@ -83,6 +83,7 @@ export default async function (req: Request): Promise<Response> {
       if (product === 'marketing') {
         if (typeof b.client_id === 'string' && b.client_id.trim()) data.client_id = b.client_id.trim();
         if (typeof b.client_secret === 'string' && b.client_secret.trim()) data.client_secret = b.client_secret.trim();
+        if (data.client_id || data.client_secret) { data.removed = false; data.removed_at = null; data.env_disabled = true; }
       }
       await upsert(data);
       return Response.json({ ok: true });
