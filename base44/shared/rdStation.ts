@@ -27,7 +27,7 @@ export const RD_PRODUCTS = {
     auth: 'OAuth 2.0 (refresh token → access token Bearer)',
     secret: 'RDSTATION_MARKETING_CLIENT_ID',
     endpoints: [
-      { path: 'marketing/account_info', label: 'Dados da conta', description: 'Confirma a conta conectada.' },
+
       { path: 'platform/analytics/funnel', label: 'Funil de vendas', description: 'Visitantes, leads, oportunidades e vendas.' },
       { path: 'platform/analytics/conversions', label: 'Ativos de conversão', description: 'Desempenho dos ativos de conversão.' },
       { path: 'platform/analytics/emails', label: 'E-mail marketing', description: 'Engajamento das campanhas de e-mail.' },

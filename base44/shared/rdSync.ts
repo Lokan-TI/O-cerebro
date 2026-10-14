@@ -22,13 +22,22 @@ function identity(rec: any) {
   };
 }
 
+// Mensagens acionáveis conforme os códigos documentados (Marketing, CRM v1, Conversas v2).
+export function rdErrorHint(status: number) {
+  if (status === 401) return 'Credencial inválida ou expirada — gere/autorize novamente';
+  if (status === 403) return 'Credencial válida, mas sem permissão para este recurso (plano ou visibilidade do usuário)';
+  if (status === 404) return 'Recurso não encontrado na API RD';
+  if (status === 429) return 'Limite de requisições da RD atingido — tente em alguns minutos';
+  return 'Falha na API RD';
+}
+
 async function getJson(url: string, headers: Record<string, string>) {
   for (let attempt = 0; attempt < 3; attempt++) {
     const res = await fetch(url, { headers, signal: AbortSignal.timeout(25000) });
     // Limite documentado: 120 req/min (CRM v1 e Marketing Light/Basic/Pro). Espera progressiva antes de repetir.
     if (res.status === 429) { await new Promise((r) => setTimeout(r, 4000 * (attempt + 1))); continue; }
     const txt = await res.text();
-    if (!res.ok) throw new Error(`HTTP ${res.status}: ${txt.slice(0, 250)}`);
+    if (!res.ok) throw new Error(`${rdErrorHint(res.status)} (HTTP ${res.status}): ${txt.slice(0, 200)}`);
     return JSON.parse(txt);
   }
   throw new Error('Limite de requisições (429) persistente.');

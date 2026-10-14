@@ -35,10 +35,12 @@ export async function authorizeUrl(base44: any, state: string): Promise<string> 
 }
 
 async function postToken(base44: any, payload: Record<string, string>) {
-  const res = await fetch(RD_OAUTH.token_url, {
+  // Doc oficial: troca do code usa /auth/token?token_by=code; renovação usa /auth/token com refresh_token.
+  const url = payload.code ? `${RD_OAUTH.token_url}?token_by=code` : RD_OAUTH.token_url;
+  const res = await fetch(url, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-    body: JSON.stringify({ ...(await credentials(base44)), ...payload }),
+    body: JSON.stringify({ ...(await credentials(base44)), ...payload, ...(payload.code ? { redirect_uri: RD_OAUTH.redirect_uri } : {}) }),
   });
   const body = await res.json().catch(() => ({}));
   if (!res.ok || !body?.access_token) {

@@ -1,13 +1,15 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.52';
-import { fetchPage, initialCursor } from '../../shared/rdSync.ts';
+import { fetchPage, initialCursor, rdErrorHint } from '../../shared/rdSync.ts';
+import { ensureAccessToken } from '../../shared/rdOAuth.ts';
 import { rdRead } from '../../shared/rdStation.ts';
 import { loadRdOverrides, rdOverride, rdToken } from '../../shared/rdConfig.ts';
 
 // Ações: test (valida credencial do produto) · step (executa/retoma um passo da sincronização).
+// Rotas de validação documentadas: CRM v1 token/check · Marketing segmentações · Conversas v2 employees.
 const TESTS: Record<string, [string, string, Record<string, unknown>]> = {
   crm: ['crm', 'token/check', {}],
-  marketing: ['marketing', 'marketing/account_info', {}],
-  conversas: ['conversas', '', {}],
+  marketing: ['marketing', 'platform/segmentations', { page: 1, page_size: 1 }],
+  conversas: ['conversas', 'employees', {}],
 };
 
 export default async function (req: Request): Promise<Response> {
@@ -25,15 +27,11 @@ export default async function (req: Request): Promise<Response> {
 
     if (b.action === 'test') {
       try {
-        if (product === 'conversas') {
-          const today = new Date().toISOString().slice(0, 10);
-          const r = await fetch(`https://api.tallos.com.br/v4/reports?start_date=${today}&end_date=${today}&limit=1&page=1`,
-            { headers: { Authorization: `Bearer ${rdToken('conversas', 'RDSTATION_CONVERSAS_TOKEN') || ''}` }, signal: AbortSignal.timeout(20000) });
-          return Response.json({ ok: r.ok, status: r.status, message: r.ok ? 'Conexão válida' : (await r.text()).slice(0, 200) });
-        }
         const [p, path, params] = TESTS[product];
-        const r = await rdRead(p, path, params);
-        return Response.json({ ok: r.ok, status: r.status, message: r.ok ? 'Conexão válida' : JSON.stringify(r.data).slice(0, 200) });
+        let bearer: string | undefined;
+        if (product === 'marketing') bearer = await ensureAccessToken(base44).catch(() => undefined);
+        const r = await rdRead(p, path, params, bearer);
+        return Response.json({ ok: r.ok, status: r.status, message: r.ok ? 'Conexão válida' : `${rdErrorHint(r.status)}: ${JSON.stringify(r.data).slice(0, 160)}` });
       } catch (e) {
         return Response.json({ ok: false, status: 0, message: e.message });
       }
