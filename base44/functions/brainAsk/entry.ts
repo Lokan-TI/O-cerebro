@@ -167,6 +167,19 @@ Deno.serve(async (req) => {
     const resolved = await resolveFollowUp(base44, question, convo, lastSql);
     const effectiveQuestion = resolved.question;
     const chosenTables = await selectTables(base44, effectiveQuestion, tableIndex, convo);
+    // Garante as tabelas canônicas de cada tema (a seleção por LLM às vezes as omite e o Cérebro conclui "não há dados").
+    const nq = effectiveQuestion.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+    const validTables = new Set(tableIndex.map((t: any) => t.table_name));
+    const hints: [RegExp, string[]][] = [
+      [/custo|despesa|gasto|pagar|pagamento|fornecedor|saida/, ['cap', 'plano', 'pessoa']],
+      [/manutenc|oficina|ordem de servico|\bos\b|conserto|reparo/, ['orcos', 'equipto', 'grupo']],
+      [/equipamento|patrimon|frota|ativo/, ['patrimon', 'equipto', 'grupo']],
+      [/receber|inadimpl|vencid|recebi/, ['car', 'pessoa']],
+      [/orcamento/, ['mkt_orcamento', 'pessoa']],
+      [/contrato|locac/, ['fich_loc', 'pessoa']],
+      [/fatur|nota|receita|venda/, ['nf', 'pessoa']],
+    ];
+    for (const [re, tabs] of hints) if (re.test(nq)) for (const t of tabs) if (validTables.has(t) && !chosenTables.includes(t)) chosenTables.push(t);
     let schemaBrief = await loadColumnsFor(base44, chosenTables);
     const today = new Date().toISOString().slice(0, 10);
 
@@ -205,7 +218,11 @@ SEMÂNTICA CANÔNICA (obrigatória — é a mesma dos dashboards):
 - TIPOS: em nf os flags fl_* são varchar ('S'/'N'/'E') — nunca compare com número (fl_ent_sai = 1 causa erro de conversão). Em pessoa, fl_cliente_pessoa é bit (= 1).
 - Cliente da nota = nf.cd_pessoa; nome em pessoa.nm_pessoa (JOIN por cd_pessoa). Empresa/filial = nf.cd_empresa.
 - Contas a receber → car: valor vl_pre_car, emissão dt_emi_car, vencimento dt_ven_car, baixa dt_bai_car, cancelado dt_cancelamento IS NOT NULL, empresa cd_empresa_gestora. Vencido = dt_bai_car IS NULL AND dt_ven_car < GETDATE().
+- CUSTOS / DESPESAS / GASTOS → contas a pagar (cap). Valor = COALESCE(vl_pre_cap,0) + COALESCE(vl_acr_cap,0) - COALESCE(vl_des_cap,0). Competência = dt_emi_cap; vencimento dt_ven_cap; pagamento dt_bai_cap. Excluir cancelados: fl_status_titulo <> 40. Natureza/conta = JOIN plano pl ON pl.cd_planfin = cap.cd_conta (descrição pl.ds_planfin, código pl.nr_planfin). Fornecedor = cap.cd_pessoa → pessoa.nm_pessoa. OBRIGATÓRIO: o nome da conta vem SEMPRE de LEFT JOIN plano pl ON pl.cd_planfin = cap.cd_conta (pl.ds_planfin) — nunca use financas_demonstrativo/financas_planoconta para isso. Período padrão de custos usa dt_emi_cap. Para CUSTO, exclua movimentações internas que não são gasto: AND ISNULL(pl.ds_planfin,'') NOT LIKE '%Transfer%ncia entre Contas%'. "Onde estão os maiores custos" = SELECT TOP 15 pl.ds_planfin, SUM(valor) ... GROUP BY pl.ds_planfin ORDER BY total DESC (TOP 15 permitido no ranking final), opcionalmente também por fornecedor.
+- CUSTO DE MANUTENÇÃO de equipamentos → orcos (ordens de serviço): custo = COALESCE(vl_custoos_material,0)+COALESCE(vl_custoos_servico,0)+COALESCE(vl_custoos_terceiro,0); data = dt_abertura; frota própria = UPPER(COALESCE(fl_propriedade,'P')) = 'P'; item = cd_equipto → equipto.nm_equipto, grupo via equipto.cd_grupo → grupo.nm_grupo. Mostre também a quebra material/serviço/terceiro.
 - Contas a pagar → cap. Ativos/equipamentos → patrimon (NÃO existe tabela "patrimonio").
+- O RESUMO EXECUTIVO NÃO é o limite do ERP: o banco tem financeiro (car, cap, plano), manutenção (orcos), frota (patrimon, equipto), comercial (mkt_orcamento, fich_loc), fiscal (nf). Qualquer pergunta sobre o negócio exige needs_query=true. needs_query=false só para perguntas puramente conceituais.
+- PROFUNDIDADE: para perguntas abertas ("onde", "por quê", "quais os maiores", "como está"), retorne um ranking/decomposição (GROUP BY na dimensão mais explicativa, com total, participação e quantidade) em vez de um único total.
 - ORÇAMENTOS comerciais → tabela mkt_orcamento: data do orçamento = dt_orcamento (criação; alternativa dt_emissao), cliente = cd_pessoa_cli (nome via JOIN pessoa por cd_pessoa), empresa = cd_empresa, aprovação = dt_aprovacao, cancelado = dt_cancelamento IS NOT NULL, número = numero.
 - CONTRATOS de locação → tabela fich_loc: abertura do contrato = dt_pedido, cliente = cd_pessoa (nome via JOIN pessoa), empresa = cd_empresa, período = dt_fai_ficha/dt_faf_ficha, encerrado = dt_enc_ficha IS NOT NULL, controle = cd_controle.
 - "Gerados/criados em X" para orçamentos usa dt_orcamento; para contratos usa dt_pedido. NUNCA use lad_ins_date ou fl_remessa para isso.
@@ -318,8 +335,11 @@ PERGUNTA ORIGINAL: ${question}`,
     // Passo 2 — resposta executiva com os dados reais
     const answer = await base44.asServiceRole.integrations.Core.InvokeLLM({
       prompt: `Você é o "Cérebro" — consultor executivo sênior de uma locadora de equipamentos (ERP Sisloc).
-Responda em português do Brasil, direto e objetivo, citando números reais. Use markdown leve. Máximo ~120 palavras.
-REGRA ESSENCIAL: responda EXCLUSIVAMENTE o que foi perguntado. NÃO adicione insights extras, riscos, análises paralelas, recomendações, próximos passos, sugestões de ação nem observações não solicitadas. Sem seções adicionais. Apenas a resposta da dúvida, com os números que a sustentam.
+Responda em português do Brasil, direto e objetivo, citando números reais. Use markdown leve. Tamanho proporcional à pergunta: total simples ≈ 2-3 linhas; pergunta aberta/ranking ≈ até 220 palavras com os principais itens (valor e % do total) em lista.
+REGRA ESSENCIAL: responda EXCLUSIVAMENTE o que foi perguntado. NÃO adicione recomendações, próximos passos nem sugestões de ação não solicitadas. Mas EXPLORE os dados retornados: destaque concentração (top itens e participação), comparações e o que explica o resultado, quando os dados mostrarem.
+NUNCA afirme que o ERP "não possui" ou "não permite" um tipo de informação (custos, despesas, manutenção etc.) com base no resumo executivo. O resumo é apenas um extrato; o ERP contém financeiro, manutenção, frota e comercial. Se nenhuma consulta trouxe o dado, diga que a consulta não foi possível/retornou vazio e qual dado específico faltou.
+Não repita números ou explicações já dados na conversa anterior, a menos que necessários para a comparação.
+Se o período, universo ou definição diferem entre partes da resposta, deixe isso explícito.
 RIGOR: comece pela resposta direta (o número/conclusão). NUNCA redirecione o gestor para outras telas, abas ou relatórios, e NUNCA sugira "formas de analisar" ou "você pode verificar" — você é quem responde. Feche com uma linha curta "Base:" citando fonte (tabela/snapshot), período usado e definição da métrica.
 SEM EVIDÊNCIA SUFICIENTE: se os dados abaixo não sustentam a conclusão (consulta falhou, tabela/campo inexistente, resultado vazio ambíguo, período não processado), NÃO estime nem invente. Diga objetivamente qual dado falta e por que impede uma conclusão segura.
 Lembre: nf.vl_faturamento = faturamento bruto de NF (não é "receita por grupo Sisloc").
@@ -334,7 +354,8 @@ SQL: ${executedSql}
 DADOS: ${JSON.stringify(rows).slice(0, 12000)}` : ''}
 ${queryError ? `OBS: a consulta ao banco falhou (${queryError}). Responda apenas o que o resumo sustenta com segurança e explique a lacuna (qual dado faltou).` : ''}
 ${plan?.note && !sqlToRun ? `NOTA DO PLANEJADOR: ${plan.note}` : ''}
-${!sqlToRun ? 'OBS: pergunta respondível sem consulta ao banco.' : ''}
+${!sqlToRun ? 'OBS: nenhuma consulta ao banco foi executada nesta resposta. Use o resumo apenas para o que ele cobre; para o resto, diga qual dado específico não foi consultado — nunca conclua que o ERP não o possui.' : ''}
+${sqlToRun && !queryError && rows.length === 0 ? 'OBS: a consulta foi executada e retornou ZERO linhas para os filtros aplicados. Informe isso e os filtros/período usados.' : ''}
 
 MENSAGEM ORIGINAL DO GESTOR: ${question}
 ${effectiveQuestion !== question ? `INTERPRETAÇÃO COM O CONTEXTO DA CONVERSA (responda a esta): ${effectiveQuestion}` : ''}`,
