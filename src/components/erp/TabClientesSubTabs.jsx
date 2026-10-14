@@ -3,13 +3,15 @@ import TabClientesPessoa from "@/components/erp/TabClientesPessoa";
 import TabClientesPatrimonios from "@/components/erp/TabClientesPatrimonios";
 import TabProdutosEquipamentos from "@/components/erp/TabProdutosEquipamentos";
 import TabClientesRfm from "@/components/erp/rfm/TabClientesRfm";
-import { Users, Package, Wrench, Grid3x3 } from "lucide-react";
+import { Users, Package, Wrench, Grid3x3, Megaphone } from "lucide-react";
+import TabRdMarketingCrm from "@/components/erp/rdmc/TabRdMarketingCrm";
 
 const SUB_TABS = [
   { id: "lista", label: "Lista de clientes", icon: Users },
   { id: "patrimonios", label: "Patrimônios", icon: Package },
   { id: "equipamentos", label: "Produtos & Equipamentos", icon: Wrench },
   { id: "rfm", label: "RFM", icon: Grid3x3 },
+  { id: "rdmc", label: "RD Marketing + CRM", icon: Megaphone },
 ];
 
 export default function TabClientesSubTabs() {
@@ -38,6 +40,7 @@ export default function TabClientesSubTabs() {
       {sub === "patrimonios" && <TabClientesPatrimonios />}
       {sub === "equipamentos" && <TabProdutosEquipamentos />}
       {sub === "rfm" && <TabClientesRfm />}
+      {sub === "rdmc" && <TabRdMarketingCrm />}
     </div>
   );
 }
