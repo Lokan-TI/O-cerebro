@@ -4,7 +4,7 @@ import { base44 } from "@/api/base44Client";
 const APP_ORIGIN = "https://lokan-firstouch.base44.app";
 
 // Autorização OAuth do RD Station Marketing: abre a janela da RD e conclui a troca ao receber o callback.
-export function useRdOAuth(onConnected) {
+export function useRdOAuth(onConnected, product = "marketing") {
   const [info, setInfo] = useState(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
@@ -12,8 +12,8 @@ export function useRdOAuth(onConnected) {
   const stateRef = useRef(null);
 
   const load = useCallback(() => {
-    base44.functions.invoke("rdStationOAuth", { action: "status" }).then((r) => setInfo(r.data));
-  }, []);
+    base44.functions.invoke("rdStationOAuth", { action: "status", product }).then((r) => setInfo(r.data));
+  }, [product]);
   useEffect(load, [load]);
 
   useEffect(() => {
@@ -25,7 +25,7 @@ export function useRdOAuth(onConnected) {
       handled = ev.data.code;
       if (ev.data.error || !ev.data.code) { setError(ev.data.error || "A RD não devolveu o código de autorização."); return; }
       setBusy(true); setError(null);
-      const r = await base44.functions.invoke("rdStationOAuth", { action: "exchange", code: ev.data.code, state: ev.data.state || stateRef.current })
+      const r = await base44.functions.invoke("rdStationOAuth", { action: "exchange", product, code: ev.data.code, state: ev.data.state || stateRef.current })
         .catch((e) => ({ data: { error: e?.response?.data?.error || e.message } }));
       if (r.data?.error) setError(r.data.error); else onConnected?.();
       setBusy(false); load();
@@ -34,12 +34,12 @@ export function useRdOAuth(onConnected) {
     const ch = "BroadcastChannel" in window ? new BroadcastChannel("rd-oauth") : null;
     if (ch) ch.onmessage = (ev) => onMsg({ data: ev.data, origin: window.location.origin });
     return () => { window.removeEventListener("message", onMsg); ch?.close(); };
-  }, [load, onConnected]);
+  }, [load, onConnected, product]);
 
   const connect = async () => {
     setBusy(true); setError(null); setManualUrl(null);
     const win = window.open("", "rd-oauth", "width=620,height=760");
-    const r = await base44.functions.invoke("rdStationOAuth", { action: "start" })
+    const r = await base44.functions.invoke("rdStationOAuth", { action: "start", product })
       .catch((e) => ({ data: { error: e?.response?.data?.error || e.message } }));
     setBusy(false);
     if (r.data?.error) { win?.close(); setError(r.data.error); return; }

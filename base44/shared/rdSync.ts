@@ -3,6 +3,7 @@
 import { marketingAccessToken } from './rdStation.ts';
 import { ensureAccessToken } from './rdOAuth.ts';
 import { rdToken, assertActive } from './rdConfig.ts';
+import { crmGet } from './rdCrmOAuth.ts';
 
 export const digits = (v: unknown) => String(v ?? '').replace(/\D/g, '');
 export const normEmail = (v: unknown) => {
@@ -43,10 +44,69 @@ async function getJson(url: string, headers: Record<string, string>) {
   throw new Error('Limite de requisições (429) persistente.');
 }
 
-function crmHeaders() {
-  const t = rdToken('crm', 'RDSTATION_CRM_TOKEN');
-  if (!t) throw new Error('Segredo RDSTATION_CRM_TOKEN ausente.');
-  return t.trim();
+// CRM v2: lookups (funis/etapas, usuários, fontes, campanhas) → empresas → contatos → negociações.
+const CRM_SIZE = 100;
+async function crmList(base44: any, path: string, page: number) {
+  const j = await crmGet(base44, path, { 'page[number]': String(page), 'page[size]': String(CRM_SIZE) });
+  const data = j?.data || [];
+  return { data, more: !!j?.links?.next || data.length === CRM_SIZE };
+}
+async function crmAll(base44: any, path: string) {
+  const out: any[] = [];
+  for (let p = 1; p <= 50; p++) { const r = await crmList(base44, path, p); out.push(...r.data); if (!r.more) break; }
+  return out;
+}
+const toMap = (list: any[]) => Object.fromEntries(list.map((x) => [x.id, x.name || x.email || '']));
+const DEAL_STATUS: Record<string, string> = { won: 'won', lost: 'lost', ongoing: 'open', paused: 'paused' };
+
+async function crmPage(cursor: any, base44: any) {
+  const phase = cursor.phase || 'lookups';
+  if (phase === 'lookups') {
+    const pipes = await crmAll(base44, 'pipelines');
+    const stages: any[] = [];
+    for (const p of pipes) stages.push(...(await crmAll(base44, `pipelines/${p.id}/stages`)));
+    const maps = {
+      pipe: toMap(pipes), stage: toMap(stages), user: toMap(await crmAll(base44, 'users')),
+      source: toMap(await crmAll(base44, 'sources')), camp: toMap(await crmAll(base44, 'campaigns')),
+    };
+    return { records: [], cursor: { phase: 'organizations', page: 1, maps, orgs: {} } };
+  }
+  const page = cursor.page || 1;
+  const { data, more } = await crmList(base44, phase, page);
+  const next = (nextPhase: string | null) => more ? { ...cursor, page: page + 1 } : nextPhase ? { ...cursor, phase: nextPhase, page: 1 } : null;
+  if (phase === 'organizations') {
+    const orgs = { ...cursor.orgs };
+    for (const o of data) orgs[o.id] = o.name || '';
+    return { records: [], cursor: next('contacts') && { ...next('contacts'), orgs } };
+  }
+  if (phase === 'contacts') {
+    const records = data.map((x: any) => identity({
+      external_key: `crm_contact:${x.id}`, product: 'crm_contact', external_id: String(x.id), name: x.name || '',
+      email: x.emails?.[0]?.email || '', phone: x.phones?.[0]?.phone || '',
+      company_name: cursor.orgs?.[x.organization_id] || '', source_created_at: x.created_at || '',
+    }));
+    return { records, cursor: next('deals') };
+  }
+  // deals: e-mail/telefone vêm do primeiro contato já sincronizado.
+  const keys = [...new Set(data.map((d: any) => d.contact_ids?.[0]).filter(Boolean).map((id: string) => `crm_contact:${id}`))];
+  const contacts: Record<string, any> = {};
+  if (keys.length) {
+    const r = await base44.asServiceRole.entities.RdLead.filter({ external_key: { $in: keys } }, { limit: 500, fields: ['external_key', 'name', 'email', 'phone'] });
+    for (const c of r.items || []) contacts[c.external_key] = c;
+  }
+  const m = cursor.maps || {};
+  const records = data.map((x: any) => {
+    const ct = contacts[`crm_contact:${x.contact_ids?.[0]}`] || {};
+    return identity({
+      external_key: `crm_deal:${x.id}`, product: 'crm_deal', external_id: String(x.id), name: x.name || ct.name || '',
+      email: ct.email || '', phone: ct.phone || '', company_name: cursor.orgs?.[x.organization_id] || '',
+      campaign: m.camp?.[x.campaign_id] || '', origin: m.source?.[x.source_id] || '',
+      stage: m.stage?.[x.stage_id] || '', pipeline: m.pipe?.[x.pipeline_id] || '',
+      deal_status: DEAL_STATUS[x.status] || 'open', amount: Number(x.total_price) || 0,
+      owner: m.user?.[x.owner_id] || '', source_created_at: x.created_at || '', closed_at: x.closed_at || '',
+    });
+  });
+  return { records, cursor: next(null) };
 }
 
 async function marketingBearer(base44: any) {
@@ -93,36 +153,7 @@ export async function fetchPage(product: string, cursor: any, base44: any) {
     return { records, cursor: next.w >= cursor.wins.length ? null : next };
   }
 
-  if (product === 'crm') {
-    const token = crmHeaders();
-    const phase = cursor.phase || 'deals';
-    // Doc CRM v1: limit máx. 200; listagem por página só alcança os 10 mil primeiros — negociações usam next_page para ir além.
-    const q = cursor.next_page ? `next_page=${encodeURIComponent(cursor.next_page)}` : `page=${cursor.page}`;
-    const j = await getJson(`https://crm.rdstation.com/api/v1/${phase}?${q}&limit=200&order=created_at&direction=asc&token=${encodeURIComponent(token)}`, {});
-    const list = j?.[phase] || [];
-    const records = list.map((x: any) => {
-      const id = String(x.id || x._id);
-      if (phase === 'deals') {
-        const ct = (x.contacts || [])[0] || {};
-        return identity({
-          external_key: `crm_deal:${id}`, product: 'crm_deal', external_id: id, name: x.name || ct.name || '',
-          email: ct.emails?.[0]?.email || '', phone: ct.phones?.[0]?.phone || '',
-          company_name: x.organization?.name || '', campaign: x.campaign?.name || '', origin: x.deal_source?.name || '',
-          stage: x.deal_stage?.name || '', pipeline: x.deal_pipeline?.name || x.deal_stage?.deal_pipeline?.name || '',
-          deal_status: x.win === true ? 'won' : x.win === false ? 'lost' : 'open',
-          amount: Number(x.amount_total) || 0, owner: x.user?.name || '', source_created_at: x.created_at || '',
-        });
-      }
-      return identity({
-        external_key: `crm_contact:${id}`, product: 'crm_contact', external_id: id, name: x.name || '',
-        email: x.emails?.[0]?.email || '', phone: x.phones?.[0]?.phone || '',
-        company_name: x.organization?.name || '', source_created_at: x.created_at || '',
-      });
-    });
-    if (phase === 'deals' && j?.has_more && j?.next_page) return { records, cursor: { phase, page: cursor.page + 1, next_page: j.next_page } };
-    if (j?.has_more && list.length) return { records, cursor: { phase, page: cursor.page + 1 } };
-    return { records, cursor: phase === 'deals' ? { phase: 'contacts', page: 1 } : null };
-  }
+  if (product === 'crm') return await crmPage(cursor, base44);
 
   if (product === 'marketing') {
     const bearer = await marketingBearer(base44);
@@ -150,6 +181,6 @@ export async function fetchPage(product: string, cursor: any, base44: any) {
 
 export function initialCursor(product: string, months: number) {
   if (product === 'conversas') return { wins: conversasWindows(months), w: 0, page: 1 };
-  if (product === 'crm') return { phase: 'deals', page: 1 };
+  if (product === 'crm') return { phase: 'lookups' };
   return {};
 }

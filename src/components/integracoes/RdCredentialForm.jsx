@@ -3,7 +3,7 @@ import { base44 } from "@/api/base44Client";
 import { Loader2, ShieldCheck, Save, CheckCircle2, XCircle } from "lucide-react";
 
 const FIELDS = {
-  crm: [["token", "Token da instância (API do CRM)"]],
+  crm: [["client_id", "Client ID"], ["client_secret", "Client Secret"]],
   marketing: [["client_id", "Client ID"], ["client_secret", "Client Secret"]],
   conversas: [["token", "Token da API do Conversas"]],
 };

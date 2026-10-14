@@ -50,7 +50,7 @@
     },
     "deal_status": {
       "type": "string",
-      "description": "open, won, lost"
+      "description": "open, paused, won, lost"
     },
     "amount": {
       "type": "number"
@@ -60,6 +60,10 @@
     },
     "source_created_at": {
       "type": "string"
+    },
+    "closed_at": {
+      "type": "string",
+      "description": "Data de fechamento da negocia\u00e7\u00e3o (CRM)"
     },
     "synced_at": {
       "type": "string"

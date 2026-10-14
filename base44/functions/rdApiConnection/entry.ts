@@ -56,7 +56,7 @@ export default async function (req: Request): Promise<Response> {
       };
       await step('Leads e negociações do CRM e Marketing', () => purge(db.RdLead, { product: { $in: ['crm_deal', 'crm_contact', 'marketing'] } }));
       await step('Histórico de sincronizações', () => purge(db.RdSyncRun, { product: { $in: ['crm', 'marketing'] } }));
-      await step('Autorização OAuth salva', () => purge(db.RdStationOAuth, { provider: 'rdstation' }));
+      await step('Autorização OAuth salva', () => purge(db.RdStationOAuth, { provider: { $in: ['rdstation', 'rdstation_crm'] } }));
       await step('Credenciais salvas no Cérebro', async () => {
         for (const p of ['crm', 'marketing']) {
           const ex = find(p);
@@ -80,7 +80,7 @@ export default async function (req: Request): Promise<Response> {
       if (b.restore) { data.removed = false; data.removed_at = null; }
       if (b.clear_token) { data.token = ''; data.token_updated_at = null; }
       else if (typeof b.token === 'string' && b.token.trim()) { data.token = b.token.trim(); data.token_updated_at = new Date().toISOString(); data.removed = false; data.removed_at = null; data.env_disabled = true; }
-      if (product === 'marketing') {
+      if (product === 'marketing' || product === 'crm') {
         if (typeof b.client_id === 'string' && b.client_id.trim()) data.client_id = b.client_id.trim();
         if (typeof b.client_secret === 'string' && b.client_secret.trim()) data.client_secret = b.client_secret.trim();
         if (data.client_id || data.client_secret) { data.removed = false; data.removed_at = null; data.env_disabled = true; }
@@ -95,7 +95,7 @@ export default async function (req: Request): Promise<Response> {
       const runs = await purge(db.RdSyncRun, { product: product === 'crm' ? 'crm' : product });
       // Conexão OAuth (tokens guardados) é usada por CRM e Marketing: remove junto.
       let oauth = 0;
-      if (product !== 'conversas') oauth = await purge(db.RdStationOAuth, { provider: 'rdstation' });
+      if (product !== 'conversas') oauth = await purge(db.RdStationOAuth, { provider: product === 'crm' ? 'rdstation_crm' : 'rdstation' });
       await upsert({ removed: true, removed_at: new Date().toISOString(), token: '', token_updated_at: null, updated_by: user.email });
       return Response.json({ ok: true, deleted: { leads, runs, oauth } });
     }

@@ -1,6 +1,7 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.52';
 import { fetchPage, initialCursor, rdErrorHint } from '../../shared/rdSync.ts';
 import { ensureAccessToken } from '../../shared/rdOAuth.ts';
+import { crmGet } from '../../shared/rdCrmOAuth.ts';
 import { rdRead } from '../../shared/rdStation.ts';
 import { loadRdOverrides, rdOverride, rdToken } from '../../shared/rdConfig.ts';
 
@@ -27,6 +28,10 @@ export default async function (req: Request): Promise<Response> {
 
     if (b.action === 'test') {
       try {
+        if (product === 'crm') {
+          await crmGet(base44, 'users', { 'page[size]': '1' });
+          return Response.json({ ok: true, status: 200, message: 'Conexão válida (API CRM v2)' });
+        }
         const [p, path, params] = TESTS[product];
         let bearer: string | undefined;
         if (product === 'marketing') {

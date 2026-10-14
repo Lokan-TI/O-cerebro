@@ -3,6 +3,7 @@ import { base44 } from "@/api/base44Client";
 import RdSetupWizard from "./wizard/RdSetupWizard";
 import RdErpMatchCard from "./RdErpMatchCard";
 import RdSyncHistory from "./RdSyncHistory";
+import RdCrmAnalytics from "./crm/RdCrmAnalytics";
 
 export default function RdConnectionsPanel() {
   const [runs, setRuns] = useState([]);
@@ -14,6 +15,7 @@ export default function RdConnectionsPanel() {
       <RdSetupWizard />
       <div className="max-w-md"><RdErpMatchCard onChange={load} /></div>
       <RdSyncHistory runs={runs} />
+      <RdCrmAnalytics />
     </div>
   );
 }

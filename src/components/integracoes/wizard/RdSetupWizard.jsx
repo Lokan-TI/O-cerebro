@@ -3,6 +3,7 @@ import { base44 } from "@/api/base44Client";
 import { RotateCcw } from "lucide-react";
 import MarketingSteps from "./MarketingSteps";
 import TokenSteps from "./TokenSteps";
+import CrmSteps from "./CrmSteps";
 import WizardStep from "./WizardStep";
 import RdProductCard from "../RdProductCard";
 import RdConnectionDeleteDialog from "../RdConnectionDeleteDialog";
@@ -10,7 +11,7 @@ import { useRdConnections } from "@/lib/useRdConnections";
 
 const PRODUCTS = [
   ["marketing", "RD Station Marketing", "OAuth com callback", "Contatos/leads da segmentação 'Todos os contatos' e estágio do funil."],
-  ["crm", "RD Station CRM", "Token da instância", "Negociações (etapa, funil, origem, valor, ganha/perdida) e contatos."],
+  ["crm", "RD Station CRM", "OAuth com callback (API v2)", "Negociações (etapa, funil, responsável, fonte, campanha, valor, status), contatos e empresas."],
   ["conversas", "RD Station Conversas", "Token de acesso", "Atendimentos de WhatsApp dos últimos 24 meses: contato, canal, tabulação e atendente."],
 ];
 
@@ -25,8 +26,8 @@ export default function RdSetupWizard() {
   const refresh = () => { reload(); loadRuns(); };
   const conn = byProduct(product);
   const [, label, method, desc] = PRODUCTS.find((p) => p[0] === product);
-  const ready = (p) => { const c = byProduct(p); return c && !c.removed && c.has_token; };
-  const lastStep = product === "marketing" ? 4 : 3;
+  const ready = (p) => { const c = byProduct(p); return c && !c.removed && (p === "crm" ? c.has_client_id && c.has_client_secret : c.has_token); };
+  const lastStep = product === "conversas" ? 3 : 4;
 
   return (
     <div className="grid gap-6 lg:grid-cols-[280px_1fr]">
@@ -53,7 +54,7 @@ export default function RdSetupWizard() {
             </button>
           )}
         </div>
-        {product === "marketing" ? <MarketingSteps conn={conn} onChange={refresh} /> : <TokenSteps product={product} conn={conn} onChange={refresh} />}
+        {product === "marketing" ? <MarketingSteps conn={conn} onChange={refresh} /> : product === "crm" ? <CrmSteps conn={conn} onChange={refresh} /> : <TokenSteps product={product} conn={conn} onChange={refresh} />}
         <WizardStep n={lastStep} title="Valide e sincronize os dados" done={runs.some((r) => r.product === product && r.status === "done")}>
           <RdProductCard product={product} label={label} description="Testar valida a credencial na RD; sincronizar traz os dados para o Cérebro." lastRun={runs.find((r) => r.product === product)} onChange={loadRuns} />
         </WizardStep>
