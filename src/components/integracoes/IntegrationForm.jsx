@@ -2,12 +2,7 @@ import { useState } from "react";
 import { base44 } from "@/api/base44Client";
 import { X } from "lucide-react";
 
-const PROVIDERS = [
-  { value: "rdstation_crm", label: "RD Station CRM", url: "https://crm.rdstation.com/api/v1" },
-  { value: "rdstation_marketing", label: "RD Station Marketing", url: "https://api.rd.services" },
-  { value: "erp_api", label: "ERP via API", url: "" },
-  { value: "outro", label: "Outro sistema", url: "" },
-];
+import { PROVIDERS, AUTH_LABELS, getProvider } from "./integrationProviders";
 
 export default function IntegrationForm({ initial, onClose, onSaved }) {
   const [form, setForm] = useState(
@@ -25,6 +20,7 @@ export default function IntegrationForm({ initial, onClose, onSaved }) {
     onSaved();
   };
 
+  const cfg = getProvider(form.provider);
   const field = "w-full bg-gray-950 border border-gray-800 rounded-lg px-3 py-2 text-sm text-white";
 
   return (
@@ -38,27 +34,25 @@ export default function IntegrationForm({ initial, onClose, onSaved }) {
           <div>
             <label className="text-xs text-gray-500">Sistema</label>
             <select className={field} value={form.provider} onChange={(e) => {
-              const p = PROVIDERS.find((x) => x.value === e.target.value);
-              setForm((f) => ({ ...f, provider: p.value, base_url: p.url || f.base_url }));
+              const p = getProvider(e.target.value);
+              setForm((f) => ({ ...f, provider: p.value, base_url: p.url, auth_type: p.auths[0], api_key: "", account_id: "" }));
             }}>
               {PROVIDERS.map((p) => <option key={p.value} value={p.value}>{p.label}</option>)}
             </select>
           </div>
           <div>
             <label className="text-xs text-gray-500">Nome da conexão</label>
-            <input className={field} value={form.name} onChange={(e) => set("name", e.target.value)} placeholder="Ex.: RD Station — Matriz" />
+            <input className={field} value={form.name} onChange={(e) => set("name", e.target.value)} placeholder={cfg.namePlaceholder} />
           </div>
           <div>
             <label className="text-xs text-gray-500">URL base da API</label>
-            <input className={field} value={form.base_url || ""} onChange={(e) => set("base_url", e.target.value)} />
+            <input className={`${field} ${cfg.urlEditable ? "" : "opacity-60"}`} readOnly={!cfg.urlEditable} value={form.base_url || ""} onChange={(e) => set("base_url", e.target.value)} placeholder="https://api.seusistema.com" />
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="text-xs text-gray-500">Autenticação</label>
               <select className={field} value={form.auth_type} onChange={(e) => set("auth_type", e.target.value)}>
-                <option value="api_key">API Key</option>
-                <option value="bearer_token">Bearer Token</option>
-                <option value="oauth">OAuth</option>
+                {cfg.auths.map((a) => <option key={a} value={a}>{AUTH_LABELS[a]}</option>)}
               </select>
             </div>
             <div>
@@ -72,13 +66,15 @@ export default function IntegrationForm({ initial, onClose, onSaved }) {
             </div>
           </div>
           <div>
-            <label className="text-xs text-gray-500">Chave / token</label>
+            <label className="text-xs text-gray-500">{cfg.keyLabel}</label>
             <input type="password" className={field} value={form.api_key || ""} onChange={(e) => set("api_key", e.target.value)} placeholder="••••••••" />
           </div>
-          <div>
-            <label className="text-xs text-gray-500">Conta / identificador (opcional)</label>
-            <input className={field} value={form.account_id || ""} onChange={(e) => set("account_id", e.target.value)} />
-          </div>
+          {cfg.accountLabel && (
+            <div>
+              <label className="text-xs text-gray-500">{cfg.accountLabel}</label>
+              <input className={field} value={form.account_id || ""} onChange={(e) => set("account_id", e.target.value)} />
+            </div>
+          )}
           <div>
             <label className="text-xs text-gray-500">Observações</label>
             <textarea className={field} rows={2} value={form.notes || ""} onChange={(e) => set("notes", e.target.value)} />
