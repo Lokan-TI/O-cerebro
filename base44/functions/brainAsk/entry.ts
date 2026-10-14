@@ -196,6 +196,7 @@ REGRAS OBRIGATÓRIAS:
 - REGRA DURA: só é permitido usar tabelas e colunas que aparecem no DICIONÁRIO DE DADOS acima (com colunas listadas). A lista "TABELAS DISPONÍVEIS" serve apenas para você saber o que existe — se precisar de uma tabela que não está no dicionário detalhado, escolha um caminho alternativo com as tabelas do dicionário ou retorne needs_query=false explicando na nota qual tabela falta.
 - Nunca invente nomes como nf_itens, nf_item, orcamento, patrimonio: se não está no dicionário, não existe.
 - Se a pergunta não precisa do banco (é conceitual ou já respondível pelo resumo executivo), retorne needs_query=false.
+- AMBIGUIDADE: só se a pergunta admitir interpretações MATERIALMENTE diferentes que mudariam o número (ex.: "receita" = faturamento NF ou recebimento CAR? "clientes" = cadastrados, ativos ou faturados?) e a conversa anterior não resolver, preencha clarification com UMA pergunta objetiva em português oferecendo as opções, e needs_query=false. Se houver uma interpretação canônica clara (semântica abaixo) ou período padrão aplicável, NÃO pergunte — assuma e responda. Nunca use clarification para falta de dados.
 
 SEMÂNTICA CANÔNICA (obrigatória — é a mesma dos dashboards):
 - Notas fiscais / faturamento → tabela nf. Valor = vl_faturamento (FATURAMENTO BRUTO de NF, não é "receita por grupo"). Data = ${INVOICE_DATE_FIELD}.
@@ -238,9 +239,18 @@ PERGUNTA (já resolvida com o contexto da conversa — responda a esta): ${effec
           needs_query: { type: 'boolean' },
           sql: { type: 'string' },
           note: { type: 'string' },
+          clarification: { type: 'string' },
         },
       },
     });
+
+    if (!resolved.reuseSql && plan?.clarification && String(plan.clarification).trim()) {
+      return Response.json({
+        answer: String(plan.clarification).trim(), needs_clarification: true,
+        sql: null, tables: chosenTables, rows: [], rowCount: 0, reportRowCount: 0, truncated: false, queryError: null,
+        duration_ms: Date.now() - started,
+      });
+    }
 
     let rows: any[] = [];
     let reportRows: any[] = [];
@@ -310,6 +320,8 @@ PERGUNTA ORIGINAL: ${question}`,
       prompt: `Você é o "Cérebro" — consultor executivo sênior de uma locadora de equipamentos (ERP Sisloc).
 Responda em português do Brasil, direto e objetivo, citando números reais. Use markdown leve. Máximo ~120 palavras.
 REGRA ESSENCIAL: responda EXCLUSIVAMENTE o que foi perguntado. NÃO adicione insights extras, riscos, análises paralelas, recomendações, próximos passos, sugestões de ação nem observações não solicitadas. Sem seções adicionais. Apenas a resposta da dúvida, com os números que a sustentam.
+RIGOR: comece pela resposta direta (o número/conclusão). NUNCA redirecione o gestor para outras telas, abas ou relatórios, e NUNCA sugira "formas de analisar" ou "você pode verificar" — você é quem responde. Feche com uma linha curta "Base:" citando fonte (tabela/snapshot), período usado e definição da métrica.
+SEM EVIDÊNCIA SUFICIENTE: se os dados abaixo não sustentam a conclusão (consulta falhou, tabela/campo inexistente, resultado vazio ambíguo, período não processado), NÃO estime nem invente. Diga objetivamente qual dado falta e por que impede uma conclusão segura.
 Lembre: nf.vl_faturamento = faturamento bruto de NF (não é "receita por grupo Sisloc").
 Se o gestor pedir planilha/Excel/CSV/relatório: a própria tela já oferece os botões de download (Excel, CSV, PDF, JSON) logo abaixo da sua resposta. NUNCA diga que não pode gerar arquivo — apenas resuma os números por segmento e diga que a planilha está disponível nos botões abaixo.
 
@@ -320,7 +332,8 @@ ${context || '(sem snapshot carregado)'}
 ${rows.length > 0 ? `RESULTADO DA CONSULTA AO BANCO (ao vivo, ${rows.length} linhas${truncated ? ', truncado' : ''}):
 SQL: ${executedSql}
 DADOS: ${JSON.stringify(rows).slice(0, 12000)}` : ''}
-${queryError ? `OBS: a consulta ao banco falhou (${queryError}). Responda com o que o resumo permite e diga o que não foi possível apurar.` : ''}
+${queryError ? `OBS: a consulta ao banco falhou (${queryError}). Responda apenas o que o resumo sustenta com segurança e explique a lacuna (qual dado faltou).` : ''}
+${plan?.note && !sqlToRun ? `NOTA DO PLANEJADOR: ${plan.note}` : ''}
 ${!sqlToRun ? 'OBS: pergunta respondível sem consulta ao banco.' : ''}
 
 MENSAGEM ORIGINAL DO GESTOR: ${question}
