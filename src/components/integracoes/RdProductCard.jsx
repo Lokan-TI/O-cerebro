@@ -8,6 +8,7 @@ export default function RdProductCard({ product, label, description, lastRun, on
   const [test, setTest] = useState(null);
   const [busy, setBusy] = useState("");
   const [progress, setProgress] = useState(null);
+  const [syncing, setSyncing] = useState(false);
 
   const runTest = async () => {
     setBusy("test");
@@ -23,14 +24,21 @@ export default function RdProductCard({ product, label, description, lastRun, on
   };
 
   const sync = async () => {
-    setBusy("sync");
+    setSyncing(true);
     let runId = lastRun?.status === "running" ? lastRun.id : undefined;
-    for (;;) {
-      const { data } = await base44.functions.invoke("rdSync", { product, run_id: runId, months: 24 });
-      runId = data.run?.id; setProgress(data.run);
-      if (data.done) break;
+    try {
+      for (let i = 0; i < 500; i++) {
+        const { data } = await base44.functions.invoke("rdSync", { product, run_id: runId, months: 24 });
+        if (!data?.run) { setTest({ ok: false, status: 0, message: data?.error || data?.message || "Sincronização não iniciada." }); break; }
+        runId = data.run.id; setProgress(data.run);
+        if (data.done || data.run.status !== "running") break;
+      }
+    } catch (e) {
+      const d = e?.response?.data;
+      setTest({ ok: false, status: e?.response?.status || 0, message: d?.error || d?.message || e.message });
+    } finally {
+      setSyncing(false); onChange();
     }
-    setBusy(""); onChange();
   };
 
   const run = progress || lastRun;
@@ -59,9 +67,9 @@ export default function RdProductCard({ product, label, description, lastRun, on
         <button onClick={runTest} disabled={!!busy} className="flex-1 inline-flex items-center justify-center gap-1.5 text-xs px-3 py-2 rounded-lg border border-gray-700 text-gray-300 hover:bg-gray-800 disabled:opacity-50">
           {busy === "test" ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <ShieldCheck className="w-3.5 h-3.5" />} Testar
         </button>
-        <button onClick={sync} disabled={!!busy} className="flex-1 inline-flex items-center justify-center gap-1.5 text-xs px-3 py-2 rounded-lg bg-purple-600 hover:bg-purple-500 text-white disabled:opacity-50">
-          {busy === "sync" ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />}
-          {busy === "sync" ? `Sincronizando… ${progress?.records || 0}` : run?.status === "running" ? "Retomar" : "Sincronizar"}
+        <button onClick={sync} disabled={syncing || !!busy} className="flex-1 inline-flex items-center justify-center gap-1.5 text-xs px-3 py-2 rounded-lg bg-purple-600 hover:bg-purple-500 text-white disabled:opacity-50">
+          {syncing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />}
+          {syncing ? `Sincronizando… ${progress?.records || 0}` : run?.status === "running" ? "Retomar" : "Sincronizar"}
         </button>
       </div>
     </div>
