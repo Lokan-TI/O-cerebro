@@ -11,11 +11,17 @@ import { Filter, Loader2 } from "lucide-react";
 // "Carregar dados deste período" (aviso de período), para que aplicar um filtro não
 // dependa de uma extração completa que pode falhar por instabilidade do banco.
 export default function GlobalFilterBar() {
-  const { hasPendingPeriod, applyFilters } = useGlobalFilter();
-  const { refreshing } = useErpSnapshot();
+  const { hasPendingPeriod, applyFilters, draftRange } = useGlobalFilter();
+  const { refreshing, refresh, snapshot } = useErpSnapshot();
+  const invalid = !draftRange?.start || !draftRange?.end || draftRange.start > draftRange.end;
 
+  // Aplicar comita o período e, se os dados pré-calculados não cobrem a nova janela,
+  // já dispara o reprocessamento — assim todas as telas passam a refletir o período escolhido.
   const handleApply = () => {
     applyFilters();
+    const loaded = snapshot?.analytics_period;
+    const covered = loaded && loaded.start <= draftRange.start && loaded.end >= draftRange.endExclusive;
+    if (!covered) refresh({ period: draftRange });
   };
 
   return (
@@ -25,7 +31,7 @@ export default function GlobalFilterBar() {
       <PeriodFilter />
       <button
         onClick={handleApply}
-        disabled={!hasPendingPeriod || refreshing}
+        disabled={!hasPendingPeriod || refreshing || invalid}
         className="flex items-center gap-2 px-4 py-2 bg-purple-600 hover:bg-purple-500 disabled:opacity-40 disabled:cursor-not-allowed text-white rounded-lg text-sm font-medium transition-colors h-[38px]"
         title={hasPendingPeriod ? "Aplicar período aos painéis" : "Período já aplicado"}
       >
