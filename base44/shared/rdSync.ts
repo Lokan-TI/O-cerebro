@@ -4,6 +4,7 @@ import { marketingAccessToken } from './rdStation.ts';
 import { ensureAccessToken } from './rdOAuth.ts';
 import { rdToken, assertActive } from './rdConfig.ts';
 import { crmGet } from './rdCrmOAuth.ts';
+import { normalizeCustomFields } from './rdCustomFields.ts';
 
 export const digits = (v: unknown) => String(v ?? '').replace(/\D/g, '');
 export const normEmail = (v: unknown) => {
@@ -104,6 +105,7 @@ async function crmPage(cursor: any, base44: any) {
       stage: m.stage?.[x.stage_id] || '', pipeline: m.pipe?.[x.pipeline_id] || '',
       deal_status: DEAL_STATUS[x.status] || 'open', amount: Number(x.total_price) || 0,
       owner: m.user?.[x.owner_id] || '', source_created_at: x.created_at || '', closed_at: x.closed_at || '',
+      ...(x.custom_fields && typeof x.custom_fields === 'object' ? normalizeCustomFields(x.custom_fields) : {}),
     });
   });
   return { records, cursor: next(null) };

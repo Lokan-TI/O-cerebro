@@ -3,7 +3,6 @@ import { Loader2 } from "lucide-react";
 import { useGlobalFilter } from "@/lib/GlobalFilterContext";
 import { loadCommercialKpis } from "@/lib/rdCommercialKpis";
 import RdRankBars from "./RdRankBars";
-import RdPendingKpis from "./RdPendingKpis";
 import RdPlatformsKpi from "./RdPlatformsKpi";
 
 const brl = (v) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 });
@@ -61,7 +60,6 @@ export default function RdCommercialPanel() {
         <RdPlatformsKpi period={period} />
         <RdRankBars title="Oportunidades por filial" rows={d.empresas} note="Parcial: só negociações vinculadas a um cliente do ERP." />
       </div>
-      <RdPendingKpis />
     </section>
   );
 }

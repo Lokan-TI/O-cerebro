@@ -42,14 +42,14 @@ export async function loadCommercialKpis(period) {
 
 export const PENDING_KPIS = [
   ["Equipamentos mais solicitados", "Produto/equipamento não vem nas negociações sincronizadas"],
-  ["Tempo mais solicitado de locação", "Campo personalizado de prazo não mapeado"],
+
   ["Período mais alugado", "Requer cruzar contratos ERP (fich_loc) com a oportunidade"],
   ["Qtd. alugadas / Locações por vendedor", "Requer cruzar contratos ERP com o vendedor do RD"],
   ["Máquinas mais alugadas", "Requer itens de contrato do ERP vinculados ao RD"],
   ["Perfil do cliente", "Campo personalizado não mapeado"],
-  ["Nível de consciência dos clientes", "Campo personalizado não mapeado"],
+
   ["Nível de interesse (frio/morno/quente)", "Campo personalizado / avaliação não sincronizada"],
-  ["Nível de urgência dos orçamentos", "Campo personalizado não mapeado"],
+
   ["Motivos da perda", "Motivo de perda não é sincronizado hoje"],
   ["Qtd. cards vencidos", "Data prevista de fechamento/tarefas não sincronizadas"],
   ["Qtd. cotação para fazer", "Etapa/tarefa de cotação não definida"],

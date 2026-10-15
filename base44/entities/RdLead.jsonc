@@ -127,6 +127,79 @@
     "products_count": {
       "type": "number",
       "description": "Quantidade de itens de produto na negocia\u00e7\u00e3o"
+    },
+    "custom_fields_version": {
+      "type": "number"
+    },
+    "custom_fields_synced_at": {
+      "type": "string"
+    },
+    "custom_demand": {
+      "type": "string",
+      "description": "Array JSON de demandas \u00fanicas normalizadas; uma negocia\u00e7\u00e3o pode ter v\u00e1rias"
+    },
+    "custom_demand_state": {
+      "type": "string",
+      "enum": [
+        "filled",
+        "empty",
+        "absent"
+      ]
+    },
+    "custom_sector": {
+      "type": "string"
+    },
+    "custom_sector_state": {
+      "type": "string",
+      "enum": [
+        "filled",
+        "empty",
+        "absent"
+      ]
+    },
+    "custom_branch": {
+      "type": "string"
+    },
+    "custom_branch_state": {
+      "type": "string",
+      "enum": [
+        "filled",
+        "empty",
+        "absent"
+      ]
+    },
+    "custom_urgency": {
+      "type": "string"
+    },
+    "custom_urgency_state": {
+      "type": "string",
+      "enum": [
+        "filled",
+        "empty",
+        "absent"
+      ]
+    },
+    "custom_awareness": {
+      "type": "string"
+    },
+    "custom_awareness_state": {
+      "type": "string",
+      "enum": [
+        "filled",
+        "empty",
+        "absent"
+      ]
+    },
+    "custom_rental_term": {
+      "type": "string"
+    },
+    "custom_rental_term_state": {
+      "type": "string",
+      "enum": [
+        "filled",
+        "empty",
+        "absent"
+      ]
     }
   },
   "required": [

@@ -1,5 +1,8 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.54';
 import { crmGet } from '../../shared/rdCrmOAuth.ts';
+import { customScope, customSummary, extractCustomFields } from '../../shared/rdCustomFields.ts';
+import { canView } from '../../shared/access.ts';
+import { loadRdOverrides, rdOverride } from '../../shared/rdConfig.ts';
 
 // Extrai os produtos (modelos de plataforma) de um lote de negociações do RD CRM no período.
 // Cada chamada processa até 40 negociações ainda não extraídas; devolve quantas faltam.
@@ -20,8 +23,19 @@ export default async function (req: Request): Promise<Response> {
   try {
     const base44 = createClientFromRequest(req);
     const user = await base44.auth.me();
-    if (user?.role !== 'admin') return Response.json({ error: 'Restrito a administradores.' }, { status: 403 });
-    const { start, endExclusive } = await req.json();
+    if (!user) return Response.json({ error: 'Autenticação necessária.' }, { status: 401 });
+    const { start, endExclusive, action } = await req.json();
+    if (action === 'custom_summary') {
+      if (!canView(user)) return Response.json({ error: 'Sem acesso ao painel.' }, { status: 403 });
+      return Response.json(await customSummary(base44, customScope(start, endExclusive)));
+    }
+    if (user.role !== 'admin') return Response.json({ error: 'Restrito a administradores.' }, { status: 403 });
+    if (action === 'custom_extract') {
+      await loadRdOverrides(base44);
+      if (rdOverride('crm')?.removed) return Response.json({ error: 'Conexão CRM removida. Restaure-a antes de extrair.' }, { status: 409 });
+      return Response.json(await extractCustomFields(base44, customScope(start, endExclusive)));
+    }
+    if (action) return Response.json({ error: 'Ação inválida.' }, { status: 400 });
     const db = base44.asServiceRole.entities;
     const scope = { product: 'crm_deal', source_created_at: { $gte: start, $lt: endExclusive } };
     const pendingQ = { ...scope, products_synced_at: { $exists: false } };
