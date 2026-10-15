@@ -4,6 +4,8 @@ import { ensureAccessToken } from '../../shared/rdOAuth.ts';
 import { crmGet } from '../../shared/rdCrmOAuth.ts';
 import { rdRead } from '../../shared/rdStation.ts';
 import { loadRdOverrides, rdOverride, rdToken } from '../../shared/rdConfig.ts';
+import { crmPaginationVersion, persistCrmRecords, verifyCrmRun } from '../../shared/rdCrmSyncSafety.ts';
+import { runCrmSyncChecks } from '../../shared/rdCrmSyncChecks.ts';
 
 // Ações: test (valida credencial do produto) · step (executa/retoma um passo da sincronização).
 // Rotas de validação documentadas: CRM v1 token/check · Marketing segmentações · Conversas v2 employees.
@@ -23,6 +25,8 @@ export default async function (req: Request): Promise<Response> {
     const product = String(b.product || '');
     if (!['crm', 'marketing', 'conversas'].includes(product)) return Response.json({ error: 'Produto inválido.' }, { status: 400 });
     const db = base44.asServiceRole.entities;
+    if (b.action === 'validate' && product === 'crm') return Response.json(await runCrmSyncChecks());
+    if (b.action && !['test', 'step'].includes(b.action)) return Response.json({ error: 'Ação inválida.' }, { status: 400 });
     await loadRdOverrides(base44);
     if (rdOverride(product)?.removed) return Response.json({ error: 'Conexão removida. Restaure-a para voltar a usar.' }, { status: 409 });
 
@@ -47,6 +51,11 @@ export default async function (req: Request): Promise<Response> {
 
     // step
     let run = b.run_id ? await db.RdSyncRun.get(b.run_id) : null;
+    if (run && run.product !== product) return Response.json({ error: 'Execução pertence a outro produto.' }, { status: 409 });
+    if (run?.status === 'done') return Response.json({ run, done: true });
+    if (run && product === 'crm' && (run.cursor?.pagination_version !== crmPaginationVersion || run.cursor?.completed)) {
+      return Response.json({ error: 'Execução de paginação anterior ou finalizada com divergência; inicie uma nova sincronização sem run_id.' }, { status: 409 });
+    }
     if (!run) {
       run = await db.RdSyncRun.create({
         product, status: 'running', cursor: initialCursor(product, Math.min(Math.max(Number(b.months) || 12, 1), 36)),
@@ -57,10 +66,13 @@ export default async function (req: Request): Promise<Response> {
     let pages = run.pages || 0, records = run.records || 0;
     const started = Date.now();
     const now = new Date().toISOString();
+    let integrity = null;
     try {
       while (cursor && Date.now() - started < 45000) {
         const page = await fetchPage(product, cursor, base44);
-        if (page.records.length) {
+        if (product === 'crm') {
+          await persistCrmRecords(db, page.records, run.id, now);
+        } else if (page.records.length) {
           const stamped = page.records.map((r: any) => ({ ...r, synced_at: now, run_id: run.id }));
           for (let i = 0; i < stamped.length; i += 200) {
             await db.RdLead.upsert(stamped.slice(i, i + 200), { key: 'external_key' });
@@ -68,13 +80,20 @@ export default async function (req: Request): Promise<Response> {
         }
         pages++; records += page.records.length; cursor = page.cursor;
       }
+      if (!cursor && product === 'crm') {
+        integrity = await verifyCrmRun(db, run.id, records);
+        if (!integrity.complete) {
+          cursor = { pagination_version: crmPaginationVersion, completed: true, integrity };
+          throw new Error('Divergência entre linhas lidas e registros distintos gravados; execução não certificada. Inicie nova sincronização.');
+        }
+      }
     } catch (e) {
       run = await db.RdSyncRun.update(run.id, { status: 'error', cursor, pages, records, last_error: e.message, finished_at: new Date().toISOString() });
       return Response.json({ run, done: true, error: e.message });
     }
     const done = !cursor;
     run = await db.RdSyncRun.update(run.id, {
-      status: done ? 'done' : 'running', cursor: cursor || {}, pages, records, last_error: '',
+      status: done ? 'done' : 'running', cursor: cursor || { completed: true, ...(integrity ? { integrity } : {}) }, pages, records, last_error: '',
       ...(done ? { finished_at: new Date().toISOString() } : {}),
     });
     return Response.json({ run, done });

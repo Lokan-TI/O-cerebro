@@ -5,6 +5,7 @@ import { ensureAccessToken } from './rdOAuth.ts';
 import { rdToken, assertActive } from './rdConfig.ts';
 import { crmGet } from './rdCrmOAuth.ts';
 import { normalizeCustomFields } from './rdCustomFields.ts';
+import { crmPageParams, parseCrmPage, crmPaginationVersion } from './rdCrmSyncSafety.ts';
 
 export const digits = (v: unknown) => String(v ?? '').replace(/\D/g, '');
 export const normEmail = (v: unknown) => {
@@ -48,14 +49,17 @@ async function getJson(url: string, headers: Record<string, string>) {
 // CRM v2: lookups (funis/etapas, usuários, fontes, campanhas) → empresas → contatos → negociações.
 const CRM_SIZE = 100;
 async function crmList(base44: any, path: string, page: number) {
-  const j = await crmGet(base44, path, { 'page[number]': String(page), 'page[size]': String(CRM_SIZE) });
-  const data = j?.data || [];
-  return { data, more: !!j?.links?.next || data.length === CRM_SIZE };
+  const j = await crmGet(base44, path, crmPageParams(path, page, CRM_SIZE));
+  return parseCrmPage(j, CRM_SIZE);
 }
 async function crmAll(base44: any, path: string) {
   const out: any[] = [];
-  for (let p = 1; p <= 50; p++) { const r = await crmList(base44, path, p); out.push(...r.data); if (!r.more) break; }
-  return out;
+  for (let p = 1; p <= 50; p++) {
+    const r = await crmList(base44, path, p);
+    out.push(...r.data);
+    if (!r.more) return out;
+  }
+  throw new Error('RD CRM: catálogo excedeu 50 páginas; leitura incompleta, sincronização interrompida.');
 }
 const toMap = (list: any[]) => Object.fromEntries(list.map((x) => [x.id, x.name || x.email || '']));
 const DEAL_STATUS: Record<string, string> = { won: 'won', lost: 'lost', ongoing: 'open', paused: 'paused' };
@@ -70,7 +74,7 @@ async function crmPage(cursor: any, base44: any) {
       pipe: toMap(pipes), stage: toMap(stages), user: toMap(await crmAll(base44, 'users')),
       source: toMap(await crmAll(base44, 'sources')), camp: toMap(await crmAll(base44, 'campaigns')),
     };
-    return { records: [], cursor: { phase: 'organizations', page: 1, maps, orgs: {} } };
+    return { records: [], cursor: { ...cursor, phase: 'organizations', page: 1, maps, orgs: {} } };
   }
   const page = cursor.page || 1;
   const { data, more } = await crmList(base44, phase, page);
@@ -183,6 +187,6 @@ export async function fetchPage(product: string, cursor: any, base44: any) {
 
 export function initialCursor(product: string, months: number) {
   if (product === 'conversas') return { wins: conversasWindows(months), w: 0, page: 1 };
-  if (product === 'crm') return { phase: 'lookups' };
+  if (product === 'crm') return { phase: 'lookups', pagination_version: crmPaginationVersion };
   return {};
 }
