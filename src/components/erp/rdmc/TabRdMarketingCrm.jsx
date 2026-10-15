@@ -5,6 +5,7 @@ import RdSourceStatus from "./RdSourceStatus";
 import RdMcKpis from "./RdMcKpis";
 import RdCampaignTable from "./RdCampaignTable";
 import RdJourneyList from "./RdJourneyList";
+import RdCommercialPanel from "./RdCommercialPanel";
 
 const today = new Date().toISOString().slice(0, 10);
 
@@ -25,6 +26,8 @@ export default function TabRdMarketingCrm() {
 
   return (
     <div className="space-y-4">
+      <RdCommercialPanel />
+      <div className="border-t border-gray-800 pt-4" />
       <div className="flex flex-wrap items-end gap-3">
         <label className="text-xs text-gray-400">Lead criado de<input type="date" value={start} onChange={(e) => setStart(e.target.value)} className="block mt-1 bg-gray-900 border border-gray-700 rounded-md px-2 h-8 text-gray-200" /></label>
         <label className="text-xs text-gray-400">até<input type="date" value={end} onChange={(e) => setEnd(e.target.value)} className="block mt-1 bg-gray-900 border border-gray-700 rounded-md px-2 h-8 text-gray-200" /></label>
