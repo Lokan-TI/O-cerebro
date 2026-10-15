@@ -26,7 +26,9 @@ async function sourcePass(base44, resource, deadline) {
   let pages = 0;
   for (let page = 1; page <= 100; page++) {
     if (Date.now() > deadline) throw new Error('Tempo de reconciliação excedido; leitura não certificada.');
-    const response = await crmGet(base44, resource, crmPageParams(resource, page));
+    // Both resources require explicit ordering; unordered contact pages overlap in this account.
+    // https://developers.rdstation.com/reference/crm-v2-introduction#ordena%C3%A7%C3%A3o
+    const response = await crmGet(base44, resource, { ...crmPageParams(resource, page), 'sort[created_at]': 'asc' });
     const parsed = parseCrmPage(response);
     pages++;
     for (const row of parsed.data) {
@@ -61,7 +63,7 @@ export async function reconcileRecovery(base44, resource) {
   const expected = resource === 'contacts' ? 2058 : 3447;
   if (local.size !== expected) throw new Error('Cópia isolada incompleta; reconciliação bloqueada até validar a restauração integral.');
   const startedAt = new Date().toISOString();
-  const deadline = Date.now() + 210000;
+  const deadline = Date.now() + 270000;
   const first = await sourcePass(base44, resource, deadline);
   const second = await sourcePass(base44, resource, deadline);
   const ordered = map => [...map.entries()].sort(([a], [b]) => a.localeCompare(b));
