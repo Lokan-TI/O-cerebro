@@ -41,7 +41,6 @@ export async function loadCommercialKpis(period) {
 }
 
 export const PENDING_KPIS = [
-  ["Plataformas mais solicitadas", "Produto/equipamento não vem nas negociações sincronizadas"],
   ["Equipamentos mais solicitados", "Produto/equipamento não vem nas negociações sincronizadas"],
   ["Tempo mais solicitado de locação", "Campo personalizado de prazo não mapeado"],
   ["Período mais alugado", "Requer cruzar contratos ERP (fich_loc) com a oportunidade"],

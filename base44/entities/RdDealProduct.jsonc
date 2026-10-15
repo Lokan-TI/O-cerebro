@@ -1,0 +1,63 @@
+{
+  "name": "RdDealProduct",
+  "type": "object",
+  "properties": {
+    "external_key": {
+      "type": "string",
+      "description": "deal_id:item_id (chave de upsert)"
+    },
+    "deal_id": {
+      "type": "string"
+    },
+    "product_id": {
+      "type": "string"
+    },
+    "product_name": {
+      "type": "string",
+      "description": "Nome do produto no cat\u00e1logo RD CRM (modelo de plataforma)"
+    },
+    "quantity": {
+      "type": "number",
+      "default": 0
+    },
+    "total_price": {
+      "type": "number",
+      "default": 0
+    },
+    "deal_status": {
+      "type": "string"
+    },
+    "owner": {
+      "type": "string"
+    },
+    "deal_created_at": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "external_key",
+    "deal_id"
+  ],
+  "rls": {
+    "read": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

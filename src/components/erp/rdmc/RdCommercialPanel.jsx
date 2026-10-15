@@ -4,6 +4,7 @@ import { useGlobalFilter } from "@/lib/GlobalFilterContext";
 import { loadCommercialKpis } from "@/lib/rdCommercialKpis";
 import RdRankBars from "./RdRankBars";
 import RdPendingKpis from "./RdPendingKpis";
+import RdPlatformsKpi from "./RdPlatformsKpi";
 
 const brl = (v) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 });
 const num = (v) => v.toLocaleString("pt-BR");
@@ -57,6 +58,7 @@ export default function RdCommercialPanel() {
         <RdRankBars title="Rank de vendas por vendedor (valor)" rows={rank("wonValue")} format={brl} />
         <RdRankBars title="Perdidos por vendedor" rows={rank("lost")} />
         <RdRankBars title="Visão geral das fases" rows={d.stages} max={12} />
+        <RdPlatformsKpi period={period} />
         <RdRankBars title="Oportunidades por filial" rows={d.empresas} note="Parcial: só negociações vinculadas a um cliente do ERP." />
       </div>
       <RdPendingKpis />
