@@ -5,13 +5,15 @@ import { useEmpresaFilter } from '@/lib/EmpresaFilterContext';
 import useCustomerSearch from '@/components/erp/customers/useCustomerSearch';
 import CustomerSearchResults from '@/components/erp/customers/CustomerSearchResults';
 import CustomerProfileDialog from '@/components/erp/customers/CustomerProfileDialog';
+import CustomerGroupDialog from '@/components/erp/customers/CustomerGroupDialog';
 
 export default function CustomerSearch() {
   const { selectedSource, loading } = useErpSource();
   const { selectedEmpresa } = useEmpresaFilter();
   const { term, setTerm, state, search } = useCustomerSearch(selectedSource?.id, selectedEmpresa);
   const [customer, setCustomer] = useState(null);
-  useEffect(() => { setCustomer(null); }, [selectedSource?.id, selectedEmpresa]);
+  const [group, setGroup] = useState(null);
+  useEffect(() => { setCustomer(null); setGroup(null); }, [selectedSource?.id, selectedEmpresa]);
   return <section className="rounded-xl border border-customer-border bg-customer-surface p-4 text-customer-ink" aria-label="Busca geral de clientes">
     <div className="mb-3"><h2 className="text-sm font-semibold">Buscar cliente e analisar histórico</h2>
       <p className="mt-1 text-xs leading-relaxed text-customer-muted">Toda a base de clientes, inclusive inativos, sem filtro de período ou segmento RFM. Fonte: {selectedSource?.name || 'Matriz'} · {selectedEmpresa == null ? 'todas as empresas' : `empresa ${selectedEmpresa}`}.</p></div>
@@ -24,7 +26,8 @@ export default function CustomerSearch() {
       <button type="submit" disabled={loading || state.loading || term.trim().length < 3} className="h-10 rounded-lg bg-customer-accent px-5 text-sm font-medium text-customer-ink transition-opacity hover:opacity-90 disabled:opacity-50">Pesquisar clientes</button>
     </form>
     <p className="mt-2 text-xs text-customer-muted">Digite pelo menos 3 caracteres. A pesquisa é feita na base, não apenas na lista visível.</p>
-    <CustomerSearchResults state={state} onPick={setCustomer} onMore={() => search(true)} />
+    <CustomerSearchResults state={state} onPick={setCustomer} onGroup={setGroup} onMore={() => search(true)} />
+    {group && <CustomerGroupDialog group={group} empresa={selectedEmpresa} onClose={() => setGroup(null)} onPick={(m) => { setGroup(null); setCustomer(m); }} />}
     {customer && <CustomerProfileDialog key={`${customer.source_id}:${customer.id}`} customer={customer} empresa={selectedEmpresa} onClose={() => setCustomer(null)} />}
   </section>;
 }
