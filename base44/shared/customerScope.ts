@@ -1,4 +1,4 @@
-import { execRead } from './erpConnection.ts';
+import customerErpRead from './customerErpRead.ts';
 import { scopedEmpresa } from './access.ts';
 
 export const quote = (value) => `'${String(value).replace(/'/g, "''")}'`;
@@ -15,7 +15,12 @@ export function rowsOf(result) {
   if (Array.isArray(result?.recordsets)) return result.recordsets.findLast((r) => Array.isArray(r) && r.length) || [];
   return [];
 }
-export const readRows = async (source, sql) => rowsOf(await execRead(source, sql, 25000));
+let customerReadInFlight = Promise.resolve();
+export function readRows(source, sql) {
+  const result = customerReadInFlight.then(async () => rowsOf(await customerErpRead(source, sql)));
+  customerReadInFlight = result.then(() => {}, () => {});
+  return result;
+}
 export function empresaScope(user, requested) {
   const value = scopedEmpresa(user, requested);
   if (value == null || value === '') return null;
