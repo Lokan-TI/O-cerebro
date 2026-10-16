@@ -10,6 +10,16 @@ module.exports = {
   			sm: 'calc(var(--radius) - 4px)'
   		},
   		colors: {
+        customer: {
+          surface: 'hsl(var(--customer-surface))',
+          raised: 'hsl(var(--customer-raised))',
+          ink: 'hsl(var(--customer-ink))',
+          muted: 'hsl(var(--customer-muted))',
+          border: 'hsl(var(--customer-border))',
+          accent: 'hsl(var(--customer-accent))',
+          warning: 'hsl(var(--customer-warning))',
+          positive: 'hsl(var(--customer-positive))'
+        },
   			background: 'hsl(var(--background))',
   			foreground: 'hsl(var(--foreground))',
   			card: {

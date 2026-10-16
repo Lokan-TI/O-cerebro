@@ -141,4 +141,15 @@
   body {
     @apply bg-background text-foreground;
   }
+
+  :root, .dark {
+    --customer-surface: 221 39% 11%;
+    --customer-raised: 215 28% 17%;
+    --customer-ink: 210 40% 98%;
+    --customer-muted: 218 14% 68%;
+    --customer-border: 215 20% 30%;
+    --customer-accent: 271 81% 56%;
+    --customer-warning: 43 96% 64%;
+    --customer-positive: 160 64% 64%;
+  }
 }
