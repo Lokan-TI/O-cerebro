@@ -7,14 +7,21 @@ const toRow = (p, source) => ({ id: String(p.cd_pessoa), name: text(p.nm_pessoa)
   source_id: source.id || null, source_name: source.name || 'Matriz' });
 export { toRow as customerRow };
 
-// Grupo = cadastros de cliente com nome (razão social) exatamente igual e CNPJ preenchido.
+// Grupo = cadastros com nome semelhante (mesma base, ignorando sufixo de unidade, acentos, pontuação e LTDA/SA) e CNPJ.
+// Mesma regra de src/components/erp/customers/customerGroups.js.
+const baseName = (name) => String(name || '').split(/\s+[-–|/(]\s*/)[0].trim();
+const nameKey = (name) => baseName(name).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase()
+  .replace(/[^A-Z0-9 ]/g, ' ').replace(/\b(LTDA|S ?A|ME|EPP|EIRELI|CIA)\b/g, ' ').replace(/\s+/g, ' ').trim();
+
 export async function groupMembers(source, name, empresa) {
-  const exact = text(name).slice(0, 200);
-  if (!exact) throw new Error('Nome do grupo inválido.');
-  const rows = await readRows(source, `SELECT TOP 201 ${personColumns} FROM pessoa p WITH (NOLOCK)
-    WHERE p.fl_cliente_pessoa=1 AND p.nm_pessoa=${quote(exact)} ${membershipSql(empresa)} ORDER BY p.cd_pessoa`);
-  return { members: rows.slice(0, 200).map((p) => toRow(p, source)).filter((r) => r.name === exact && digits(r.document).length === 14),
-    truncated: rows.length > 200 };
+  const key = nameKey(text(name).slice(0, 200));
+  const prefix = key.split(' ').slice(0, 2).join(' ');
+  if (!key || prefix.length < 3) throw new Error('Nome do grupo inválido.');
+  const like = prefix.replace(/[%_[]/g, '[$&]').replace(/ /g, '%') + '%';
+  const rows = await readRows(source, `SELECT TOP 401 ${personColumns} FROM pessoa p WITH (NOLOCK)
+    WHERE p.fl_cliente_pessoa=1 AND p.nm_pessoa LIKE ${quote(like)} ${membershipSql(empresa)} ORDER BY p.cd_pessoa`);
+  const members = rows.slice(0, 400).map((p) => toRow(p, source)).filter((r) => nameKey(r.name) === key && digits(r.document).length === 14);
+  return { members: members.slice(0, 200), truncated: rows.length > 400 || members.length > 200 };
 }
 
 export async function groupCompare(base44, user, source, name, empresa, end) {
