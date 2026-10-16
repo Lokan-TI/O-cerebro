@@ -3,7 +3,7 @@ import { customerDate } from '@/components/erp/customers/customerFormat';
 const titles = { invoices: 'Faturamento fiscal (nf)', rentals: 'Locações/orçamentos (fich_loc)', proposals: 'Propostas comerciais (mkt_orcamento)' };
 export default function CustomerSourceCoverage({ profile }) {
   const { coverage, summary, rd } = profile;
-  const ranges = [['invoices', summary.invoices], ['rentals', summary.rentals], ['proposals', summary.proposals]];
+  const ranges = [['invoices', summary.invoices], ['rentals', summary.rentals && { first_at: summary.rentals.first_event_at, last_at: summary.rentals.last_event_at }], ['proposals', summary.proposals]];
   return <section className="rounded-xl border border-customer-border p-4 text-xs">
     <h3 className="mb-3 font-semibold text-customer-ink">Fontes, cobertura e limites</h3>
     <div className="space-y-2">

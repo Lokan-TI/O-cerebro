@@ -11,7 +11,8 @@ export async function customerErpSummary(source, person, scope) {
       COUNT(CASE WHEN f.tp_ope_pedido='L' AND f.dt_enc_ficha IS NULL AND ISNULL(CAST(f.fl_baixada AS varchar(5)),'N') NOT IN ('S','1') THEN 1 END) AS active,
       MIN(CASE WHEN f.tp_ope_pedido='L' THEN f.dt_pedido END) AS first_at,
       MAX(CASE WHEN f.tp_ope_pedido='L' THEN f.dt_pedido END) AS last_at,
-      MAX(CASE WHEN f.tp_ope_pedido='O' THEN f.dt_pedido END) AS last_quote_at
+      MAX(CASE WHEN f.tp_ope_pedido='O' THEN f.dt_pedido END) AS last_quote_at,
+      MIN(f.dt_pedido) AS first_event_at, MAX(f.dt_pedido) AS last_event_at
       FROM fich_loc f WITH (NOLOCK) WHERE f.cd_pessoa=${id} AND f.tp_ope_pedido IN ('O','L')
       AND (f.dt_pedido<${end} OR f.dt_pedido IS NULL) ${companySql(emp, 'f')}`,
     proposals: `SELECT COUNT(*) AS proposals, MIN(m.dt_orcamento) AS first_at, MAX(m.dt_orcamento) AS last_at,

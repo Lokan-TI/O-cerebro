@@ -9,7 +9,7 @@ export async function customerRdScope(source, person, scope) {
   }
   for (const email of [...new Set(text(person.en_mail_pessoa).toLowerCase().split(/[;,\s]+/).filter((e) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e)))]) {
     keys.push({ field: 'identity_email', value: email,
-      sql: `CHARINDEX(${quote(';' + email + ';')},';'+REPLACE(REPLACE(LOWER(ISNULL(CAST(en_mail_pessoa AS varchar(2000)),'')),',',';'),' ',';')+';')>0` });
+      sql: `CHARINDEX(${quote(';' + email + ';')},';'+REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(LOWER(ISNULL(CAST(en_mail_pessoa AS varchar(2000)),'')),',',';'),' ',';'),CHAR(13),';'),CHAR(10),';'),CHAR(9),';')+';')>0` });
   }
   for (const phone of [...new Set([person.tel_pessoa, person.tl_cel_pessoa, person.tl_res_pessoa].map(digits).filter((d) => d.length >= 10).map((d) => d.slice(-9)))]) {
     keys.push({ field: 'identity_phone', value: phone,
