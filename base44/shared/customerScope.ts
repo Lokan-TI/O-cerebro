@@ -11,7 +11,7 @@ export const numericId = (value) => {
 };
 export const digitSql = (column) => ['.', '-', '/', '(', ')', ' ', '+'].reduce((sql, c) => `REPLACE(${sql},${quote(c)},'')`, `ISNULL(CAST(${column} AS varchar(255)),'')`);
 export function rowsOf(result) {
-  if (Array.isArray(result?.recordset)) return result.recordset;
+  if (Array.isArray(result?.recordset) && result.recordset.length) return result.recordset;
   if (Array.isArray(result?.recordsets)) return result.recordsets.findLast((r) => Array.isArray(r) && r.length) || [];
   return [];
 }

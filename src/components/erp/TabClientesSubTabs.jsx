@@ -5,6 +5,7 @@ import TabProdutosEquipamentos from "@/components/erp/TabProdutosEquipamentos";
 import TabClientesRfm from "@/components/erp/rfm/TabClientesRfm";
 import { Users, Package, Wrench, Grid3x3, Megaphone } from "lucide-react";
 import TabRdMarketingCrm from "@/components/erp/rdmc/TabRdMarketingCrm";
+import CustomerSearch from "@/components/erp/customers/CustomerSearch";
 
 const SUB_TABS = [
   { id: "lista", label: "Lista de clientes", icon: Users },
@@ -19,7 +20,8 @@ export default function TabClientesSubTabs() {
 
   return (
     <div className="space-y-4">
-      <div className="flex gap-1 bg-gray-900 border border-gray-800 rounded-lg p-1 w-fit">
+      <CustomerSearch />
+      <div className="flex max-w-full flex-wrap gap-1 bg-gray-900 border border-gray-800 rounded-lg p-1 w-fit">
         {SUB_TABS.map((t) => {
           const Icon = t.icon;
           return (
