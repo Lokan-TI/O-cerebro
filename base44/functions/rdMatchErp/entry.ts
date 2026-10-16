@@ -46,6 +46,30 @@ export default async function (req: Request): Promise<Response> {
       return Response.json({ rows });
     }
 
+    // Aderência ao processo: negociações com nº de proposta Sisloc que não existe nas fichas do ERP,
+    // e negociações vendidas sem nº de proposta. Nada é vinculado a clientes aqui.
+    if (b.action === 'proposal_gaps') {
+      const deals: any[] = [];
+      let cursor;
+      do {
+        const p = await db.RdLead.filter({ product: 'crm_deal' }, { limit: 1000, cursor, fields: ['external_id', 'name', 'company_name', 'owner', 'deal_status', 'custom_sisloc_proposal', 'source_created_at', 'closed_at'] });
+        deals.push(...p.items); cursor = p.has_more ? p.next_cursor : null;
+      } while (cursor);
+      const nums = [...new Set(deals.map((d) => String(d.custom_sisloc_proposal || '')).filter((n) => /^\d{1,12}$/.test(n)))];
+      const found = new Set<string>();
+      for (let i = 0; i < nums.length; i += 500) {
+        rs(await execRead(source, `SELECT DISTINCT numero FROM fich_loc WITH (NOLOCK) WHERE numero IN (${nums.slice(i, i + 500).join(',')})`, 60000)).forEach((r: any) => found.add(String(r.numero)));
+      }
+      const pick = (d: any) => ({ deal_id: d.external_id, name: d.name, company: d.company_name || 'Sem empresa no RD', owner: d.owner || 'Sem responsável', status: d.deal_status, proposal: d.custom_sisloc_proposal || '', created_at: d.source_created_at, closed_at: d.closed_at });
+      const notFound = deals.filter((d) => d.custom_sisloc_proposal && !found.has(String(d.custom_sisloc_proposal))).map(pick);
+      const wonNoProposal = deals.filter((d) => d.deal_status === 'won' && !d.custom_sisloc_proposal).map(pick);
+      const group = (list: any[], key: string) => Object.entries(list.reduce((m: any, x: any) => { m[x[key]] = (m[x[key]] || 0) + 1; return m; }, {}))
+        .map(([name, count]) => ({ name, count })).sort((a: any, b: any) => b.count - a.count);
+      return Response.json({ total_deals: deals.length, with_proposal: deals.filter((d) => d.custom_sisloc_proposal).length, proposals_found: found.size,
+        not_found: { count: notFound.length, by_company: group(notFound, 'company'), by_owner: group(notFound, 'owner'), deals: notFound.slice(0, 300) },
+        won_without_proposal: { count: wonNoProposal.length, by_owner: group(wonNoProposal, 'owner'), deals: wonNoProposal.slice(0, 300) } });
+    }
+
     if (b.action === 'manual') {
       const key = String(b.identity_key || '');
       if (!/^(doc|email|tel):.+/.test(key)) return Response.json({ error: 'Identidade inválida.' }, { status: 400 });
