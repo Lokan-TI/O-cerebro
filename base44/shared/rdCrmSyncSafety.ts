@@ -2,7 +2,7 @@
 export const crmPaginationVersion = 2;
 
 export function crmPageParams(path, page, size = 100) {
-  return { 'page[number]': String(page), 'page[size]': String(size), ...(path === 'deals' ? { 'sort[created_at]': 'asc' } : {}) };
+  return { 'page[number]': String(page), 'page[size]': String(size), ...(['deals', 'contacts', 'organizations'].includes(path) ? { 'sort[created_at]': 'asc' } : {}) };
 }
 
 export function parseCrmPage(payload, size = 100) {
@@ -44,6 +44,9 @@ export async function persistCrmRecords(db, incoming, runId, syncedAt) {
       for (const field of matchTextFields) next[field] = '';
       next.erp_receita_total = 0;
       next.erp_receita_pos_lead = 0;
+    } else if (row.custom_sisloc_proposal && ['unmatched', 'no_identity', 'ambiguous'].includes(previous.match_status) && previous.match_method !== 'manual') {
+      // Nova evidência (nº de proposta Sisloc): reavalia o vínculo automático sem tocar decisões manuais.
+      next.match_status = 'pending';
     } else {
       // Upsert merges only supplied fields: omit the reset, retaining enrichment and decisions.
       delete next.match_status;

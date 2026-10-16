@@ -73,19 +73,30 @@ export default async function (req: Request): Promise<Response> {
     let done = false;
     let idx: Map<string, Map<string, string>> | null = null;
     while (Date.now() - started < 40000) {
-      const page = await db.RdLead.filter({ match_status: 'pending' }, { limit: 300, fields: ['identity_email', 'identity_phone', 'identity_doc', 'source_created_at', 'email', 'phone', 'document'] });
+      const page = await db.RdLead.filter({ match_status: 'pending' }, { limit: 300, fields: ['identity_email', 'identity_phone', 'identity_doc', 'source_created_at', 'email', 'phone', 'document', 'custom_sisloc_proposal'] });
       const leads = page.items || [];
       if (!leads.length) { done = true; break; }
       leads.forEach((l: any) => {
         l.identity_email ||= normEmail(l.email); l.identity_phone ||= normPhone(l.phone); l.identity_doc ||= normDoc(l.document);
       });
       if (!idx) idx = await loadIndex(source);
+      // Nº de proposta Sisloc informado no RD: vínculo explícito quando o número é único nas fichas do ERP.
+      const nums = [...new Set(leads.map((l: any) => String(l.custom_sisloc_proposal || '')).filter((n) => /^\d{1,12}$/.test(n)))];
+      const fichas = new Map<string, any[]>();
+      if (nums.length) {
+        const fr = rs(await execRead(source, `SELECT f.numero, f.cd_pessoa, f.cd_empresa, LTRIM(RTRIM(p.nm_pessoa)) AS nm FROM fich_loc f WITH (NOLOCK)
+          JOIN pessoa p WITH (NOLOCK) ON p.cd_pessoa=f.cd_pessoa WHERE f.numero IN (${nums.join(',')})`, 60000));
+        fr.forEach((r: any) => { const k = String(r.numero); if (!fichas.has(k)) fichas.set(k, []); fichas.get(k)!.push(r); });
+      }
       const updates = leads.map((l: any) => {
         const keys = [l.identity_doc && 'doc:' + l.identity_doc, l.identity_email && 'email:' + l.identity_email, l.identity_phone && 'tel:' + l.identity_phone].filter(Boolean) as string[];
         const base = { id: l.id, identity_email: l.identity_email, identity_phone: l.identity_phone, identity_doc: l.identity_doc, matched_at: new Date().toISOString(),
           erp_cd_pessoa: '', erp_nm_pessoa: '', erp_cd_empresa: '', erp_receita_total: 0, erp_receita_pos_lead: 0, erp_primeira_nf: '', erp_candidates: '' };
-        if (!keys.length) return { ...base, match_status: 'no_identity', match_method: '' };
         const m = keys.map((k) => manualMap.get(k)).find(Boolean) as any;
+        const fx = fichas.get(String(l.custom_sisloc_proposal || '')) || [];
+        const fxPeople = [...new Set(fx.map((r: any) => String(r.cd_pessoa)))];
+        if (!m && fxPeople.length === 1) return { ...base, match_status: 'matched', match_method: 'proposta_sisloc', erp_cd_pessoa: fxPeople[0], erp_nm_pessoa: fx[0].nm || '', _empresa: String(fx[0].cd_empresa) };
+        if (!keys.length) return { ...base, match_status: 'no_identity', match_method: '' };
         if (m) return m.decision === 'no_match' ? { ...base, match_status: 'rejected', match_method: 'manual' }
           : { ...base, match_status: 'manual', match_method: 'manual', erp_cd_pessoa: m.erp_cd_pessoa, erp_nm_pessoa: m.erp_nm_pessoa };
         // Refinamento: cruza os candidatos de todas as identidades; se só um ERP atende a todas, o vínculo é seguro.
@@ -127,6 +138,8 @@ export default async function (req: Request): Promise<Response> {
           u.erp_cd_empresa = String(Object.entries(perEmp).sort((a, b) => b[1] - a[1])[0][0]);
         });
       }
+      // A empresa da ficha citada prevalece no vínculo por proposta.
+      updates.forEach((u: any) => { if (u._empresa) u.erp_cd_empresa = u._empresa; delete u._empresa; });
       for (let i = 0; i < updates.length; i += 300) await db.RdLead.bulkUpdate(updates.slice(i, i + 300));
       processed += updates.length;
     }

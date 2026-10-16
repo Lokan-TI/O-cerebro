@@ -1,6 +1,6 @@
 import { customerDate, customerMoney } from '@/components/erp/customers/customerFormat';
 
-const kinds = { locacao: 'Locação', orcamento_ficha: 'Orçamento de locação', proposta: 'Proposta comercial', faturamento: 'Faturamento fiscal', crm_deal: 'Negociação RD CRM', conversas: 'Atendimento RD Conversas' };
+const kinds = { locacao: 'Locação', orcamento_ficha: 'Orçamento de locação', proposta: 'Proposta comercial', faturamento: 'Faturamento fiscal', crm_deal: 'Negociação RD CRM', crm_task: 'Ação comercial RD CRM', conversas: 'Atendimento RD Conversas' };
 export default function CustomerTimelineEvent({ event: e }) {
   return <article className="relative min-w-0 rounded-xl border border-customer-border bg-customer-raised/30 p-4">
     <div className="flex flex-wrap items-start justify-between gap-2">
@@ -18,6 +18,8 @@ export default function CustomerTimelineEvent({ event: e }) {
       {(e.pipeline || e.stage) && <p>Funil / etapa: {e.pipeline || '—'} / {e.stage || '—'}</p>}
       {(e.origin || e.campaign) && <p>Origem / campanha: {e.origin || '—'} / {e.campaign || '—'}</p>}
       {e.notes && <p className="whitespace-pre-wrap break-words">Observação: {e.notes}</p>}
+      {e.deal_name && <p className="break-words">Negociação: {e.deal_name}</p>}
+      {e.link && <p>Vínculo com o cliente: {e.link}</p>}
       {e.synced_at && <p>Registro sincronizado em {customerDate(e.synced_at)}</p>}
     </div>
   </article>;

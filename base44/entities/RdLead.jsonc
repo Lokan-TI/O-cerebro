@@ -80,6 +80,10 @@
     "identity_doc": {
       "type": "string"
     },
+    "custom_sisloc_proposal": {
+      "type": "string",
+      "description": "N\u00ba da proposta/ficha Sisloc informado na negocia\u00e7\u00e3o RD (campo n-proposta-sisloc)"
+    },
     "match_status": {
       "type": "string",
       "enum": [
