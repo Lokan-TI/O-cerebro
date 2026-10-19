@@ -4,6 +4,7 @@ import { useErpSource, ALL_SOURCES_ID } from "@/lib/ErpSourceContext";
 import { fmtCur, fmtNum, fmtDoc, onlyDigits } from "@/lib/erpFormat";
 import { exportFornecedoresCsv } from "@/components/erp/fornecedoresExport";
 import QueryInspector from "@/components/erp/QueryInspector";
+import SupplierEmailAudit from "@/components/erp/fornecedores/SupplierEmailAudit";
 import { Truck, Download, RefreshCw, Search } from "lucide-react";
 
 export default function TabFornecedores() {
@@ -117,6 +118,8 @@ export default function TabFornecedores() {
               <div className="text-xl font-bold text-red-400">{fmtCur(totals.vencido)}</div>
             </div>
           </div>
+
+          <SupplierEmailAudit suppliers={data.suppliers || []} />
 
           <div className="flex items-center gap-3 flex-wrap">
             <div className="relative">
