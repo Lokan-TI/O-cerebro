@@ -1,0 +1,60 @@
+{
+  "name": "EmailAuditRun",
+  "type": "object",
+  "properties": {
+    "source_key": {
+      "type": "string"
+    },
+    "started_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "finished_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "done",
+        "stopped"
+      ]
+    },
+    "total": {
+      "type": "number",
+      "default": 0
+    },
+    "counts": {
+      "type": "object",
+      "description": "Contagem por status"
+    },
+    "performed_by": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "started_at"
+  ],
+  "rls": {
+    "read": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

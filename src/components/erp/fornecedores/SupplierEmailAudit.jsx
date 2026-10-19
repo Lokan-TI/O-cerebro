@@ -1,4 +1,6 @@
-import { useMemo } from "react";
+import { useMemo, useState, useRef, useEffect } from "react";
+import { saveAuditRun } from "./auditHistory";
+import AuditRunCompare from "./AuditRunCompare";
 import { MailCheck, Square, FileSpreadsheet } from "lucide-react";
 import * as XLSX from "xlsx";
 import { onlyDigits, fmtNum, fmtDoc } from "@/lib/erpFormat";
@@ -17,8 +19,19 @@ export default function SupplierEmailAudit({ suppliers }) {
     if (!validCnpj(cnpj)) return { ...s, status: "cnpj_invalido", email_corrigido: "" };
     const res = results[cnpj];
     const status = classify(s, res);
-    return { ...s, status, email_corrigido: res?.status === "ok" ? res.email : "", erro: res?.error || "" };
+    return { ...s, status, email_corrigido: res?.status === "ok" ? res.email : "", found_email: res?.email || "", erro: res?.error || "" };
   }), [suppliers, results]);
+
+  const [saved, setSaved] = useState(0);
+  const startedAt = useRef(null);
+  const prevState = useRef(state);
+  useEffect(() => {
+    if (state === "running") startedAt.current = new Date().toISOString();
+    if (prevState.current === "running" && (state === "done" || state === "stopped")) {
+      saveAuditRun({ startedAt: startedAt.current, status: state, rows }).then(() => setSaved((n) => n + 1));
+    }
+    prevState.current = state;
+  }, [state]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const counts = useMemo(() => rows.reduce((c, r) => ({ ...c, [r.status]: (c[r.status] || 0) + 1 }), {}), [rows]);
   const errors = (counts.erro || 0) + (counts.cnpj_invalido || 0) + (counts.nao_encontrado || 0);
@@ -65,6 +78,7 @@ export default function SupplierEmailAudit({ suppliers }) {
         <EmailAuditList title="E-mails atuais (ERP)" rows={rows} field="email" onExport={() => exportList("emails_atuais.csv", "email", rows)} />
         <EmailAuditList title="E-mails corrigidos (OpenCNPJ)" rows={corrected} field="email_corrigido" onExport={() => exportList("emails_corrigidos.csv", "email_corrigido", corrected)} />
       </div>
+      <AuditRunCompare refreshKey={saved} />
     </div>
   );
 }

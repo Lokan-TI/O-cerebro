@@ -1,0 +1,61 @@
+{
+  "name": "EmailAuditResult",
+  "type": "object",
+  "properties": {
+    "run_id": {
+      "type": "string"
+    },
+    "source_key": {
+      "type": "string"
+    },
+    "cnpj": {
+      "type": "string"
+    },
+    "cd_pessoa": {
+      "type": "string"
+    },
+    "nm_pessoa": {
+      "type": "string"
+    },
+    "erp_email": {
+      "type": "string",
+      "description": "E-mail no ERP no momento da auditoria"
+    },
+    "found_email": {
+      "type": "string",
+      "description": "E-mail retornado pela fonte p\u00fablica"
+    },
+    "status": {
+      "type": "string"
+    },
+    "error": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "run_id",
+    "cnpj"
+  ],
+  "rls": {
+    "read": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}
