@@ -24,11 +24,13 @@ import TabCamadaSemantica from "@/components/erp/TabCamadaSemantica";
 import TabReconciliacaoMetricas from "@/components/erp/TabReconciliacaoMetricas";
 import TabDatasetRelease from "@/components/erp/TabDatasetRelease";
 import TabLifecycle from "@/components/erp/TabLifecycle";
+import TabCorrecaoCadastral from "@/components/erp/TabCorrecaoCadastral";
 
 const TABS = [
   { id: "executiva", label: "Visão Executiva" },
   { id: "financeiro", label: "Financeiro" },
   { id: "fornecedores", label: "Fornecedores" },
+  { id: "correcao_cnpj", label: "Correção Cadastral (CNPJ)", adminOnly: true },
   { id: "locacoes", label: "Locações" },
   { id: "operacional", label: "Operacional" },
   { id: "clientes_pessoa", label: "Clientes" },
@@ -67,6 +69,7 @@ function ErpCrmDashboardContent() {
       case "executiva": return <TabExecutiva />;
       case "financeiro": return <TabFinanceiro />;
       case "fornecedores": return <TabFornecedores />;
+      case "correcao_cnpj": return isAdmin ? <TabCorrecaoCadastral /> : null;
       case "locacoes": return <TabLocacoes />;
       case "operacional": return <TabOperacional />;
       case "clientes_pessoa": return <TabClientesSubTabs />;

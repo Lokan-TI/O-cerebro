@@ -1,0 +1,72 @@
+{
+  "name": "CnpjCorrectionResult",
+  "type": "object",
+  "properties": {
+    "run_id": {
+      "type": "string"
+    },
+    "cd_pessoa": {
+      "type": "string"
+    },
+    "cnpj": {
+      "type": "string"
+    },
+    "nm_pessoa": {
+      "type": "string"
+    },
+    "tipo": {
+      "type": "string",
+      "description": "Cliente, Fornecedor ou Cliente/Fornecedor"
+    },
+    "status": {
+      "type": "string",
+      "description": "ok, sem_divergencia, not_found, error, cnpj_invalido"
+    },
+    "fonte": {
+      "type": "string"
+    },
+    "anonimizado": {
+      "type": "boolean",
+      "default": false
+    },
+    "consulted_at": {
+      "type": "string"
+    },
+    "error": {
+      "type": "string"
+    },
+    "diffs": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      },
+      "description": "field, label, erp, suggested"
+    }
+  },
+  "required": [
+    "run_id",
+    "cd_pessoa"
+  ],
+  "rls": {
+    "read": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}
