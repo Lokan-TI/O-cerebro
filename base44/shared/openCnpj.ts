@@ -27,12 +27,13 @@ export function validCnpj(c: string) {
 }
 
 export async function lookupCnpj(cnpj: string): Promise<any> {
-  for (let attempt = 0; attempt < 3; attempt++) {
+  let lastErr = '';
+  for (let attempt = 0; attempt < 2; attempt++) {
     try {
-      const res = await fetch(`https://api.opencnpj.org/${cnpj}`, { signal: AbortSignal.timeout(10000) });
+      const res = await fetch(`https://api.opencnpj.org/${cnpj}`, { signal: AbortSignal.timeout(8000) });
       if (res.status === 404) return { cnpj, status: 'not_found', fonte: 'OpenCNPJ' };
-      if (res.status === 429) break;
-      if (res.status >= 500) { await sleep(1000 * (attempt + 1)); continue; }
+      if (res.status === 429) { lastErr = 'OpenCNPJ limitou as consultas (HTTP 429)'; break; }
+      if (res.status >= 500) { lastErr = `OpenCNPJ indisponível (HTTP ${res.status})`; await sleep(1500 * (attempt + 1)); continue; }
       if (!res.ok) return { cnpj, status: 'error', fonte: 'OpenCNPJ', error: `HTTP ${res.status}` };
       const d = await res.json();
       if (String(d.cnpj || '').replace(/\D/g, '') !== cnpj) return { cnpj, status: 'error', fonte: 'OpenCNPJ', error: 'CNPJ divergente na resposta' };
@@ -55,19 +56,21 @@ export async function lookupCnpj(cnpj: string): Promise<any> {
         codigo_ibge: await ibgeCode(d.uf, d.municipio).catch(() => ''),
         telefone1: tel[0] || '', telefone2: tel[1] || '',
       };
-    } catch {
-      if (attempt === 2) break;
-      await sleep(800 * (attempt + 1));
+    } catch (e) {
+      lastErr = (e as Error).name === 'TimeoutError' ? 'OpenCNPJ não respondeu (tempo esgotado)' : `OpenCNPJ: ${(e as Error).message}`;
+      if (attempt === 1) break;
+      await sleep(1500 * (attempt + 1));
     }
   }
-  return await brasilApi(cnpj);
+  return await brasilApi(cnpj, lastErr);
 }
 
-async function brasilApi(cnpj: string) {
+async function brasilApi(cnpj: string, prevErr = '') {
+  const pre = prevErr ? `${prevErr}; ` : '';
   try {
-    const res = await fetch(`https://brasilapi.com.br/api/cnpj/v1/${cnpj}`, { signal: AbortSignal.timeout(15000) });
+    const res = await fetch(`https://brasilapi.com.br/api/cnpj/v1/${cnpj}`, { signal: AbortSignal.timeout(10000) });
     if (res.status === 404) return { cnpj, status: 'not_found', fonte: 'BrasilAPI' };
-    if (!res.ok) return { cnpj, status: 'error', fonte: 'BrasilAPI', error: `Limite de consultas atingido (OpenCNPJ e BrasilAPI HTTP ${res.status})` };
+    if (!res.ok) return { cnpj, status: 'error', fonte: 'BrasilAPI', error: `${pre}BrasilAPI ${res.status === 429 ? 'limitou as consultas' : 'falhou'} (HTTP ${res.status})` };
     const d = await res.json();
     const yn = (v: any) => v === true ? 'S' : v === false ? 'N' : '';
     const tel = (v: string) => { const t = String(v || '').replace(/\D/g, ''); return t ? `(${t.slice(0, 2)}) ${t.slice(2)}` : ''; };
@@ -88,12 +91,16 @@ async function brasilApi(cnpj: string) {
       telefone1: tel(d.ddd_telefone_1), telefone2: tel(d.ddd_telefone_2),
     };
   } catch (e) {
-    return { cnpj, status: 'error', fonte: 'BrasilAPI', error: `Falha na consulta: ${(e as Error).message}` };
+    return { cnpj, status: 'error', fonte: 'BrasilAPI', error: `${pre}BrasilAPI ${(e as Error).name === 'TimeoutError' ? 'não respondeu (tempo esgotado)' : (e as Error).message}` };
   }
 }
 
+// Uma consulta por vez, com pausa entre elas, para não acionar o limite das fontes públicas.
 export async function lookupBatch(cnpjs: string[]) {
   const results: any[] = [];
-  for (let i = 0; i < cnpjs.length; i += 3) results.push(...await Promise.all(cnpjs.slice(i, i + 3).map(lookupCnpj)));
+  for (let i = 0; i < cnpjs.length; i++) {
+    if (i) await sleep(400);
+    results.push(await lookupCnpj(cnpjs[i]));
+  }
   return results;
 }

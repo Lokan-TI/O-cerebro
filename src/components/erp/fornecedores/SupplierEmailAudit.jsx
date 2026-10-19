@@ -74,6 +74,14 @@ export default function SupplierEmailAudit({ suppliers }) {
           <div key={k} className="bg-gray-900 border border-gray-800 rounded-lg p-2"><div className="text-[10px] text-gray-500 uppercase">{s.label}</div><div className={`text-lg font-bold ${s.cls}`}>{fmtNum(counts[k] || 0)}</div></div>
         ))}
       </div>
+      {counts.erro > 0 && (
+        <div className="bg-red-950/30 border border-red-800/40 rounded-lg p-3 text-xs space-y-1">
+          <div className="text-red-300 font-medium">Motivos das falhas de consulta ({fmtNum(counts.erro)}) · CNPJs inválidos ({fmtNum(counts.cnpj_invalido || 0)}) não são consultados</div>
+          {Object.entries(rows.filter((r) => r.status === "erro").reduce((m, r) => ({ ...m, [r.erro || "Motivo não informado"]: (m[r.erro || "Motivo não informado"] || 0) + 1 }), {}))
+            .sort((a, b) => b[1] - a[1]).slice(0, 6)
+            .map(([msg, n]) => <div key={msg} className="text-gray-300"><b className="text-red-400">{fmtNum(n)}</b> · {msg}</div>)}
+        </div>
+      )}
       <div className="grid lg:grid-cols-2 gap-3">
         <EmailAuditList title="E-mails atuais (ERP)" rows={rows} field="email" onExport={() => exportList("emails_atuais.csv", "email", rows)} />
         <EmailAuditList title="E-mails corrigidos (OpenCNPJ)" rows={corrected} field="email_corrigido" onExport={() => exportList("emails_corrigidos.csv", "email_corrigido", corrected)} />

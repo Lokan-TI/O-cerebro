@@ -4,7 +4,8 @@ import { onlyDigits } from "@/lib/erpFormat";
 import { validCnpj } from "./emailAudit";
 
 // Lotes pequenos para a consulta não estourar o tempo limite; falhas de lote viram "erro" por CNPJ.
-const BATCH = 10;
+const BATCH = 5;
+const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 export default function useEmailAudit() {
   const [results, setResults] = useState({});
   const [state, setState] = useState("idle");
@@ -35,20 +36,20 @@ export default function useEmailAudit() {
         setResults((r) => ({ ...r, ...Object.fromEntries(out.map((x) => [x.cnpj, x])) }));
         setProgress({ done: Math.min(i + BATCH, cnpjs.length), total: cnpjs.length });
         out.forEach((x) => { if (x.status === "error") failed.push(x.cnpj); });
+        // Pausa entre lotes; maior quando o lote veio com muitas falhas (sinal de limite).
+        const errs = out.filter((x) => x.status === "error").length;
+        if (i + BATCH < cnpjs.length) await wait(errs >= Math.ceil(batch.length / 2) ? 10000 : 1500);
       }
-      // Repassa os que falharam (limite temporário das fontes), devagar, até 2 rodadas.
-      for (let round = 0; round < 2 && failed.length && !stop.current; round++) {
-        await new Promise((r) => setTimeout(r, 15000));
+      // Uma única rodada de repetição, devagar, só para os que falharam.
+      if (failed.length && !stop.current) {
+        await wait(20000);
         const retry = failed.splice(0);
-        for (let i = 0; i < retry.length && !stop.current; i += 5) {
-          const batch = retry.slice(i, i + 5);
+        for (let i = 0; i < retry.length && !stop.current; i += BATCH) {
+          const batch = retry.slice(i, i + BATCH);
           const res = await base44.functions.invoke("auditSupplierEmails", { cnpjs: batch }).catch(() => null);
           const out = res?.data?.results || [];
-          const ok = out.filter((x) => x.status !== "error");
-          setResults((r) => ({ ...r, ...Object.fromEntries(ok.map((x) => [x.cnpj, x])) }));
-          const okSet = new Set(ok.map((x) => x.cnpj));
-          failed.push(...batch.filter((c) => !okSet.has(c)));
-          await new Promise((r) => setTimeout(r, 1500));
+          setResults((r) => ({ ...r, ...Object.fromEntries(out.map((x) => [x.cnpj, x])) }));
+          await wait(3000);
         }
       }
     } finally {
