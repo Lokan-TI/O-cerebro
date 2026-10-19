@@ -4,6 +4,7 @@ import * as XLSX from "xlsx";
 import { onlyDigits, fmtNum, fmtDoc } from "@/lib/erpFormat";
 import useEmailAudit from "./useEmailAudit";
 import EmailAuditList from "./EmailAuditList";
+import { exportSupplierImport } from "./supplierImportExport";
 import { STATUS, validCnpj, classify, downloadCsv } from "./emailAudit";
 
 const RUN_LABEL = { idle: "Não iniciada", running: "Em andamento", done: "Concluída", stopped: "Interrompida" };
@@ -46,6 +47,7 @@ export default function SupplierEmailAudit({ suppliers }) {
         </div>
         <div className="flex items-center gap-3">
           <span className="text-xs text-gray-400">Status: <b className="text-white">{RUN_LABEL[state]}</b>{progress.total > 0 && ` · ${fmtNum(progress.done)}/${fmtNum(progress.total)} CNPJs`}</span>
+          <button onClick={() => exportSupplierImport(rows.filter((r) => r.status !== "pendente"), results)} disabled={!Object.keys(results).length} className="flex items-center gap-1 px-3 py-1.5 bg-sky-700 hover:bg-sky-600 disabled:opacity-40 disabled:cursor-not-allowed rounded-lg text-xs text-white font-medium"><FileSpreadsheet className="w-3.5 h-3.5" /> Planilha completa p/ importação (Excel)</button>
           <button onClick={exportXlsx} disabled={!corrected.length} className="flex items-center gap-1 px-3 py-1.5 bg-emerald-700 hover:bg-emerald-600 disabled:opacity-40 disabled:cursor-not-allowed rounded-lg text-xs text-white font-medium"><FileSpreadsheet className="w-3.5 h-3.5" /> Exportar corrigidos (Excel)</button>
           {state === "running"
             ? <button onClick={cancel} className="flex items-center gap-1 px-3 py-1.5 bg-gray-800 rounded-lg text-xs text-white"><Square className="w-3 h-3" /> Parar</button>
