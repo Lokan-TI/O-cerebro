@@ -109,7 +109,7 @@ export default function TabFornecedores() {
             </div>
           </div>
 
-          <SupplierEmailAudit suppliers={data.suppliers || []} />
+          <SupplierEmailAudit suppliers={data.suppliers || []} onApplyPublic={cache.saveManyCorrections} />
 
           <div className="flex items-center gap-3 flex-wrap">
             <div className="relative">

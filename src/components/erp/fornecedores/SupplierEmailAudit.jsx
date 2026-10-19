@@ -8,17 +8,28 @@ import useEmailAudit from "./useEmailAudit";
 import EmailAuditList from "./EmailAuditList";
 import { exportSupplierImport } from "./supplierImportExport";
 import { STATUS, validCnpj, classify, downloadCsv } from "./emailAudit";
+import { publicOf, publicCorrections } from "./publicFields";
 
 const RUN_LABEL = { idle: "Não iniciada", running: "Em andamento", done: "Concluída", stopped: "Interrompida" };
 
-export default function SupplierEmailAudit({ suppliers }) {
+export default function SupplierEmailAudit({ suppliers, onApplyPublic }) {
   const { results, state, progress, run, cancel } = useEmailAudit();
+  const [applying, setApplying] = useState(false);
+  const [applied, setApplied] = useState(null);
+  const applyPublic = async () => {
+    const items = suppliers.map((s) => ({ s, pub: publicOf(results, s) })).filter((x) => x.pub)
+      .map(({ s, pub }) => ({ row: s, corrections: publicCorrections(s, pub) }))
+      .filter(({ row, corrections }) => JSON.stringify(corrections) !== JSON.stringify(Object.fromEntries((row._corrected || []).map((k) => [k, row[k]]))));
+    setApplying(true);
+    await onApplyPublic(items).finally(() => setApplying(false));
+    setApplied(items.length);
+  };
 
   const rows = useMemo(() => suppliers.map((s) => {
     const cnpj = onlyDigits(s.cnpj || "");
     if (!validCnpj(cnpj)) return { ...s, status: "cnpj_invalido", email_corrigido: "" };
     const res = results[cnpj];
-    const status = classify(s, res);
+    const status = classify({ email: s._erp?.email ?? s.email }, res);
     return { ...s, status, email_corrigido: res?.status === "ok" ? res.email : "", found_email: res?.email || "", erro: res?.error || "" };
   }), [suppliers, results]);
 
@@ -60,6 +71,8 @@ export default function SupplierEmailAudit({ suppliers }) {
         </div>
         <div className="flex items-center gap-3">
           <span className="text-xs text-gray-400">Status: <b className="text-white">{RUN_LABEL[state]}</b>{progress.total > 0 && ` · ${fmtNum(progress.done)}/${fmtNum(progress.total)} CNPJs`}</span>
+          {applied !== null && <span className="text-xs text-emerald-400">{fmtNum(applied)} fornecedores corrigidos no Cérebro</span>}
+          <button onClick={applyPublic} disabled={applying || state === "running" || !Object.keys(results).length} title="Grava razão social, e-mail, endereço e IBGE da fonte pública como correção no Cérebro (não altera o Sisloc; correções manuais são mantidas)" className="px-3 py-1.5 bg-amber-600 hover:bg-amber-500 disabled:opacity-40 disabled:cursor-not-allowed rounded-lg text-xs text-white font-medium">{applying ? "Aplicando…" : "Aplicar dados públicos no Cérebro"}</button>
           <button onClick={() => exportSupplierImport(rows.filter((r) => r.status !== "pendente"), results)} disabled={!Object.keys(results).length} className="flex items-center gap-1 px-3 py-1.5 bg-sky-700 hover:bg-sky-600 disabled:opacity-40 disabled:cursor-not-allowed rounded-lg text-xs text-white font-medium"><FileSpreadsheet className="w-3.5 h-3.5" /> Planilha completa p/ importação (Excel)</button>
           <button onClick={exportXlsx} disabled={!corrected.length} className="flex items-center gap-1 px-3 py-1.5 bg-emerald-700 hover:bg-emerald-600 disabled:opacity-40 disabled:cursor-not-allowed rounded-lg text-xs text-white font-medium"><FileSpreadsheet className="w-3.5 h-3.5" /> Exportar corrigidos (Excel)</button>
           {state === "running"

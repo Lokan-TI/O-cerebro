@@ -5,7 +5,7 @@ export const EDIT_FIELDS = [
   ["nm_pessoa", "Razão social"], ["nm_fan_pessoa", "Nome fantasia"], ["cnpj", "CNPJ"], ["cpf", "CPF"],
   ["inscricao_estadual", "Inscrição estadual"], ["email", "E-mail"], ["telefone", "Telefone"],
   ["logradouro", "Logradouro"], ["numero", "Número"], ["complemento", "Complemento"],
-  ["bairro", "Bairro"], ["cidade", "Cidade"], ["uf", "UF"], ["cep", "CEP"],
+  ["bairro", "Bairro"], ["cidade", "Cidade"], ["uf", "UF"], ["cep", "CEP"], ["codigo_ibge", "Código IBGE"],
 ];
 
 export default function SupplierEditDialog({ row, onClose, onSave }) {

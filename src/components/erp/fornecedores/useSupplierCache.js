@@ -69,5 +69,14 @@ export default function useSupplierCache(sourceKey) {
     setRows((rs) => rs.map((r) => (r._id === row._id ? merge({ id: r._id, erp: r._erp, corrections }) : r)));
   };
 
-  return { rows, syncedAt, state, progress, error, syncFromErp, saveCorrections };
+  // Grava em lote as correções vindas da fonte pública (somente no Cérebro).
+  const saveManyCorrections = async (items) => {
+    for (let i = 0; i < items.length; i += 500) {
+      await E().bulkUpdate(items.slice(i, i + 500).map(({ row, corrections }) => ({ id: row._id, corrections })));
+    }
+    const byId = Object.fromEntries(items.map((x) => [x.row._id, x.corrections]));
+    setRows((rs) => rs.map((r) => (byId[r._id] ? merge({ id: r._id, erp: r._erp, corrections: byId[r._id] }) : r)));
+  };
+
+  return { rows, syncedAt, state, progress, error, syncFromErp, saveCorrections, saveManyCorrections };
 }

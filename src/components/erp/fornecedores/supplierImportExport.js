@@ -1,31 +1,31 @@
 import * as XLSX from "xlsx";
 import { onlyDigits } from "@/lib/erpFormat";
 import { STATUS } from "./emailAudit";
+import { effective, publicOf } from "./publicFields";
 
-// Planilha para importação no novo ERP: dados atuais (ERP) e da Receita (OpenCNPJ) em colunas separadas.
+// Planilha para importação no novo ERP: colunas "final" priorizam correção do Cérebro > fonte pública > ERP.
+// As colunas (ERP) ficam apenas como referência; o Sisloc nunca é alterado.
 export function exportSupplierImport(rows, results) {
   const data = rows.map((r) => {
-    const d = results[onlyDigits(r.cnpj || "")]?.status === "ok" ? results[onlyDigits(r.cnpj || "")] : {};
+    const d = publicOf(results, r) || {};
+    const f = (k) => effective(r, publicOf(results, r), k);
+    const erp = (k) => r._erp?.[k] ?? r[k] ?? "";
     return {
-      "Código ERP": r.cd_pessoa, "CNPJ": onlyDigits(r.cnpj || ""), "Status consulta": STATUS[r.status]?.label || "", "Erro": r.erro || "", "Campos corrigidos no Cérebro": (r._corrected || []).join(", "),
-      "Razão social (ERP)": r.nm_pessoa, "Razão social (Receita)": d.razao_social || "",
-      "Nome fantasia (ERP)": r.nm_fan_pessoa || "", "Nome fantasia (Receita)": d.nome_fantasia || "",
-      "Inscrição estadual (ERP)": r.inscricao_estadual || "",
-      "E-mail (ERP)": r.email || "", "E-mail (Receita)": d.email || "",
-      "Telefone (ERP)": r.telefone || "", "Telefone 1 (Receita)": d.telefone1 || "", "Telefone 2 (Receita)": d.telefone2 || "",
-      "Logradouro (ERP)": r.logradouro || "", "Logradouro (Receita)": d.logradouro || "",
-      "Número (ERP)": r.numero || "", "Número (Receita)": d.numero || "",
-      "Complemento (ERP)": r.complemento || "", "Complemento (Receita)": d.complemento || "",
-      "Bairro (ERP)": r.bairro || "", "Bairro (Receita)": d.bairro || "",
-      "CEP (ERP)": onlyDigits(r.cep || ""), "CEP (Receita)": d.cep || "",
-      "Cidade (ERP)": r.cidade || "", "Cidade (Receita)": d.municipio || "",
-      "UF (ERP)": r.uf || "", "UF (Receita)": d.uf || "",
-      "Código IBGE": d.codigo_ibge || "", "Código município (Receita)": d.codigo_municipio_receita || "",
+      "Código ERP": r.cd_pessoa, "CNPJ": onlyDigits(r.cnpj || ""), "Status consulta": STATUS[r.status]?.label || "", "Erro": r.erro || "",
+      "Fonte pública": d.fonte || "", "Campos corrigidos no Cérebro": (r._corrected || []).join(", "),
+      "Razão social": f("nm_pessoa"), "Nome fantasia": f("nm_fan_pessoa"),
+      "Inscrição estadual": r.inscricao_estadual || "",
+      "E-mail": f("email"), "Telefone": f("telefone"), "Telefone 2": d.telefone2 || "",
+      "Logradouro": f("logradouro"), "Número": f("numero"), "Complemento": f("complemento"),
+      "Bairro": f("bairro"), "CEP": onlyDigits(f("cep")), "Cidade": f("cidade"), "UF": f("uf"),
+      "Código IBGE": f("codigo_ibge"), "Código município (Receita)": d.codigo_municipio_receita || "",
       "Situação cadastral": d.situacao || "", "Data situação": d.data_situacao || "",
       "Matriz/Filial": d.matriz_filial || "", "Data abertura": d.data_abertura || "",
       "CNAE principal": d.cnae_principal || "", "Descrição CNAE": d.cnae_descricao || "",
       "Natureza jurídica": d.natureza_juridica || "", "Porte": d.porte || "",
       "Simples": d.simples || "", "MEI": d.mei || "", "Capital social": d.capital_social || "",
+      "Razão social (ERP)": erp("nm_pessoa"), "E-mail (ERP)": erp("email"),
+      "Cidade (ERP)": erp("cidade"), "UF (ERP)": erp("uf"), "CEP (ERP)": onlyDigits(erp("cep")),
     };
   });
   const ws = XLSX.utils.json_to_sheet(data);
