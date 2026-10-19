@@ -56,7 +56,7 @@ async function lookup(cnpj: string) {
         telefone2: tel[1] || '',
       };
     } catch (e) {
-      if (attempt === 2) return { cnpj, status: 'error', error: (e as Error).message };
+      if (attempt === 2) break;
       await sleep(800 * (attempt + 1));
     }
   }
@@ -101,8 +101,8 @@ Deno.serve(async (req) => {
     const body = await req.json().catch(() => ({}));
     const cnpjs: string[] = (body?.cnpjs || []).map((c: any) => String(c).replace(/\D/g, '')).filter((c: string) => c.length === 14).slice(0, 25);
     const results: any[] = [];
-    for (let i = 0; i < cnpjs.length; i += 5) {
-      results.push(...await Promise.all(cnpjs.slice(i, i + 5).map(lookup)));
+    for (let i = 0; i < cnpjs.length; i += 3) {
+      results.push(...await Promise.all(cnpjs.slice(i, i + 3).map(lookup)));
     }
     return Response.json({ results });
   } catch (error) {
