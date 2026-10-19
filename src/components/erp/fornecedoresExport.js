@@ -29,35 +29,31 @@ const COLS = [
 
 import { fmtDoc, fmtIe } from "@/lib/erpFormat";
 
-const DOC_COLS = new Set(["cnpj", "cpf"]);
-// Inscrição estadual precisa ir como texto para o Excel não descartar zeros à esquerda
-const asExcelText = (v) => (v ? `="${v}"` : "");
+import * as XLSX from "xlsx";
 
+const DOC_COLS = new Set(["cnpj", "cpf"]);
+const NUM_COLS = new Set(["cap_qtd", "cap_total", "cap_aberto", "cap_baixado", "cap_vencido"]);
+
+// Planilha .xlsx em formato de tabela: 1 linha de cabeçalho + 1 linha por fornecedor, células próprias,
+// com autofiltro. Textos (CNPJ, IE, número, CEP) gravados como texto para preservar zeros.
 export function exportFornecedoresCsv(suppliers) {
-  const esc = (v) => {
+  const cell = (r, key) => {
+    const v = r[key];
     if (v === true) return "Sim";
     if (v === false) return "Não";
-    if (typeof v === "number") return String(v).replace(".", ",");
-    const s = String(v ?? "");
-    return /[;"\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+    if (NUM_COLS.has(key)) return Number(v) || 0;
+    if (DOC_COLS.has(key)) return fmtDoc(v) || "";
+    if (key === "inscricao_estadual") return fmtIe(v) || "";
+    return String(v ?? "").trim();
   };
-  const header = COLS.map(([, label]) => label).join(";");
-  const lines = suppliers.map((r) =>
-    COLS.map(([key]) => {
-      if (DOC_COLS.has(key)) return esc(fmtDoc(r[key]));
-      if (key === "inscricao_estadual") return esc(asExcelText(fmtIe(r[key])));
-      // Número da residência vai como texto: evita que "12-34" ou "0045" virem data/número no Excel
-      if (key === "numero") return esc(asExcelText(String(r[key] ?? "").trim()));
-      return esc(r[key]);
-    }).join(";")
-  );
-  const csv = "\uFEFF" + [header, ...lines].join("\r\n");
-
-  const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = `fornecedores_historico_completo.csv`;
-  a.click();
-  URL.revokeObjectURL(url);
+  const aoa = [COLS.map(([, l]) => l), ...suppliers.map((r) => COLS.map(([k]) => cell(r, k)))];
+  const ws = XLSX.utils.aoa_to_sheet(aoa);
+  Object.keys(ws).forEach((addr) => {
+    if (addr[0] !== "!" && ws[addr].t === "s") ws[addr].z = "@";
+  });
+  ws["!cols"] = COLS.map(() => ({ wch: 20 }));
+  ws["!autofilter"] = { ref: ws["!ref"] };
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, "Fornecedores");
+  XLSX.writeFile(wb, `fornecedores_historico_completo_${new Date().toISOString().slice(0, 10)}.xlsx`);
 }

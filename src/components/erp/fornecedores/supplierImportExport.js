@@ -30,6 +30,7 @@ export function exportSupplierImport(rows, results) {
   });
   const ws = XLSX.utils.json_to_sheet(data);
   ws["!cols"] = Object.keys(data[0] || {}).map(() => ({ wch: 22 }));
+  if (ws["!ref"]) ws["!autofilter"] = { ref: ws["!ref"] };
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, "Fornecedores");
   XLSX.writeFile(wb, `fornecedores_importacao_${new Date().toISOString().slice(0, 10)}.xlsx`);
