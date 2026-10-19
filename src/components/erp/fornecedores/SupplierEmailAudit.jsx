@@ -1,6 +1,7 @@
 import { useMemo } from "react";
-import { MailCheck, Square } from "lucide-react";
-import { onlyDigits, fmtNum } from "@/lib/erpFormat";
+import { MailCheck, Square, FileSpreadsheet } from "lucide-react";
+import * as XLSX from "xlsx";
+import { onlyDigits, fmtNum, fmtDoc } from "@/lib/erpFormat";
 import useEmailAudit from "./useEmailAudit";
 import EmailAuditList from "./EmailAuditList";
 import { STATUS, validCnpj, classify, downloadCsv } from "./emailAudit";
@@ -25,6 +26,17 @@ export default function SupplierEmailAudit({ suppliers }) {
   const exportList = (name, field, list) => downloadCsv(name, ["Código", "Fornecedor", "CNPJ", "E-mail", "Status", "Erro"],
     list.map((r) => [r.cd_pessoa, r.nm_pessoa, r.cnpj, r[field], STATUS[r.status].label, r.erro || ""]));
 
+  const exportXlsx = () => {
+    const ws = XLSX.utils.json_to_sheet(corrected.map((r) => ({
+      "Código": r.cd_pessoa, "Fornecedor": r.nm_pessoa, "Nome Fantasia": r.nm_fan_pessoa || "", "CNPJ": fmtDoc(r.cnpj),
+      "E-mail atual (ERP)": r.email || "", "E-mail encontrado (OpenCNPJ)": r.email_corrigido, "Status": STATUS[r.status].label,
+    })));
+    ws["!cols"] = [{ wch: 10 }, { wch: 40 }, { wch: 30 }, { wch: 20 }, { wch: 36 }, { wch: 36 }, { wch: 14 }];
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Corrigidos");
+    XLSX.writeFile(wb, `fornecedores_emails_corrigidos_${new Date().toISOString().slice(0, 10)}.xlsx`);
+  };
+
   return (
     <div className="bg-gray-900/60 border border-purple-800/30 rounded-xl p-4 space-y-4">
       <div className="flex items-center justify-between flex-wrap gap-3">
@@ -34,6 +46,7 @@ export default function SupplierEmailAudit({ suppliers }) {
         </div>
         <div className="flex items-center gap-3">
           <span className="text-xs text-gray-400">Status: <b className="text-white">{RUN_LABEL[state]}</b>{progress.total > 0 && ` · ${fmtNum(progress.done)}/${fmtNum(progress.total)} CNPJs`}</span>
+          <button onClick={exportXlsx} disabled={!corrected.length} className="flex items-center gap-1 px-3 py-1.5 bg-emerald-700 hover:bg-emerald-600 disabled:opacity-40 disabled:cursor-not-allowed rounded-lg text-xs text-white font-medium"><FileSpreadsheet className="w-3.5 h-3.5" /> Exportar corrigidos (Excel)</button>
           {state === "running"
             ? <button onClick={cancel} className="flex items-center gap-1 px-3 py-1.5 bg-gray-800 rounded-lg text-xs text-white"><Square className="w-3 h-3" /> Parar</button>
             : <button onClick={() => run(suppliers)} className="px-3 py-1.5 bg-purple-600 hover:bg-purple-500 rounded-lg text-xs text-white font-medium">{state === "idle" ? "Iniciar auditoria" : "Executar novamente"}</button>}
