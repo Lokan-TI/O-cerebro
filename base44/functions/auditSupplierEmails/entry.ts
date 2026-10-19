@@ -21,7 +21,8 @@ async function lookup(cnpj: string) {
     try {
       const res = await fetch(`https://api.opencnpj.org/${cnpj}`, { signal: AbortSignal.timeout(10000) });
       if (res.status === 404) return { cnpj, status: 'not_found' };
-      if (res.status === 429 || res.status >= 500) { await sleep(1000 * (attempt + 1)); continue; }
+      if (res.status === 429) break;
+      if (res.status >= 500) { await sleep(1000 * (attempt + 1)); continue; }
       if (!res.ok) return { cnpj, status: 'error', error: `HTTP ${res.status}` };
       const d = await res.json();
       if (String(d.cnpj || '').replace(/\D/g, '') !== cnpj) return { cnpj, status: 'error', error: 'CNPJ divergente na resposta' };
@@ -50,7 +51,7 @@ async function lookup(cnpj: string) {
         municipio: d.municipio || '',
         uf: d.uf || '',
         codigo_municipio_receita: d.codigo_municipio || '',
-        codigo_ibge: await ibgeCode(d.uf, d.municipio),
+        codigo_ibge: await ibgeCode(d.uf, d.municipio).catch(() => ''),
         telefone1: tel[0] || '',
         telefone2: tel[1] || '',
       };
@@ -59,7 +60,37 @@ async function lookup(cnpj: string) {
       await sleep(800 * (attempt + 1));
     }
   }
-  return { cnpj, status: 'error', error: 'Limite de consultas atingido' };
+  return await brasilApi(cnpj);
+}
+
+// Alternativa quando o OpenCNPJ limita as consultas: BrasilAPI (mesmos dados públicos da Receita).
+async function brasilApi(cnpj: string) {
+  try {
+    const res = await fetch(`https://brasilapi.com.br/api/cnpj/v1/${cnpj}`, { signal: AbortSignal.timeout(15000) });
+    if (res.status === 404) return { cnpj, status: 'not_found' };
+    if (!res.ok) return { cnpj, status: 'error', error: `Limite de consultas atingido (OpenCNPJ e BrasilAPI HTTP ${res.status})` };
+    const d = await res.json();
+    const yn = (v: any) => v === true ? 'S' : v === false ? 'N' : '';
+    const tel = (v: string) => { const t = String(v || '').replace(/\D/g, ''); return t ? `(${t.slice(0, 2)}) ${t.slice(2)}` : ''; };
+    return {
+      cnpj, status: 'ok',
+      email: String(d.email || '').trim().toLowerCase(),
+      razao_social: d.razao_social || '', nome_fantasia: d.nome_fantasia || '',
+      situacao: d.descricao_situacao_cadastral || '', data_situacao: d.data_situacao_cadastral || '',
+      matriz_filial: d.descricao_identificador_matriz_filial || '', data_abertura: d.data_inicio_atividade || '',
+      cnae_principal: String(d.cnae_fiscal || ''), cnae_descricao: d.cnae_fiscal_descricao || '',
+      natureza_juridica: [d.codigo_natureza_juridica, d.natureza_juridica].filter(Boolean).join(' - '),
+      porte: d.porte || '', simples: yn(d.opcao_pelo_simples), mei: yn(d.opcao_pelo_mei),
+      capital_social: String(d.capital_social ?? ''),
+      logradouro: [d.descricao_tipo_de_logradouro, d.logradouro].filter(Boolean).join(' '),
+      numero: d.numero || '', complemento: String(d.complemento || '').replace(/\s+/g, ' ').trim(),
+      bairro: d.bairro || '', cep: d.cep || '', municipio: d.municipio || '', uf: d.uf || '',
+      codigo_municipio_receita: String(d.codigo_municipio || ''), codigo_ibge: String(d.codigo_municipio_ibge || ''),
+      telefone1: tel(d.ddd_telefone_1), telefone2: tel(d.ddd_telefone_2),
+    };
+  } catch (e) {
+    return { cnpj, status: 'error', error: `Falha na consulta: ${(e as Error).message}` };
+  }
 }
 
 Deno.serve(async (req) => {

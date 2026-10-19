@@ -20,7 +20,7 @@ export default function EmailAuditList({ title, rows, field, onExport }) {
                 <td className="text-white text-xs">{r.nm_pessoa}</td>
                 <td className="text-gray-400 font-mono text-xs">{fmtDoc(r.cnpj) || "—"}</td>
                 <td className="text-gray-300 text-xs break-all">{r[field] || "—"}</td>
-                <td className={`text-xs whitespace-nowrap ${STATUS[r.status].cls}`}>{STATUS[r.status].label}</td>
+                <td className={`text-xs whitespace-nowrap ${STATUS[r.status].cls}`}>{STATUS[r.status].label}{r.erro && <div className="text-[10px] text-gray-500 whitespace-normal">{r.erro}</div>}</td>
               </tr>
             ))}
           </tbody>
