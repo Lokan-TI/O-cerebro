@@ -7,7 +7,7 @@ export function exportSupplierImport(rows, results) {
   const data = rows.map((r) => {
     const d = results[onlyDigits(r.cnpj || "")]?.status === "ok" ? results[onlyDigits(r.cnpj || "")] : {};
     return {
-      "Código ERP": r.cd_pessoa, "CNPJ": onlyDigits(r.cnpj || ""), "Status consulta": STATUS[r.status]?.label || "", "Erro": r.erro || "",
+      "Código ERP": r.cd_pessoa, "CNPJ": onlyDigits(r.cnpj || ""), "Status consulta": STATUS[r.status]?.label || "", "Erro": r.erro || "", "Campos corrigidos no Cérebro": (r._corrected || []).join(", "),
       "Razão social (ERP)": r.nm_pessoa, "Razão social (Receita)": d.razao_social || "",
       "Nome fantasia (ERP)": r.nm_fan_pessoa || "", "Nome fantasia (Receita)": d.nome_fantasia || "",
       "Inscrição estadual (ERP)": r.inscricao_estadual || "",

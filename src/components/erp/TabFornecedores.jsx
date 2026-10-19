@@ -1,34 +1,23 @@
 import { useState, useMemo } from "react";
-import { base44 } from "@/api/base44Client";
+import useSupplierCache from "@/components/erp/fornecedores/useSupplierCache";
+import SupplierEditDialog from "@/components/erp/fornecedores/SupplierEditDialog";
 import { useErpSource, ALL_SOURCES_ID } from "@/lib/ErpSourceContext";
 import { fmtCur, fmtNum, fmtDoc, onlyDigits } from "@/lib/erpFormat";
 import { exportFornecedoresCsv } from "@/components/erp/fornecedoresExport";
-import QueryInspector from "@/components/erp/QueryInspector";
 import SupplierEmailAudit from "@/components/erp/fornecedores/SupplierEmailAudit";
-import { Truck, Download, RefreshCw, Search } from "lucide-react";
+import { Truck, Download, RefreshCw, Search, Pencil } from "lucide-react";
 
 export default function TabFornecedores() {
   const { selectedSource } = useErpSource();
-  const [data, setData] = useState(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
+  const sourceKey = selectedSource?.id && selectedSource.id !== ALL_SOURCES_ID ? selectedSource.id : "all";
+  const cache = useSupplierCache(sourceKey);
+  const data = cache.rows ? { suppliers: cache.rows } : null;
+  const loading = cache.state !== "idle";
+  const error = cache.error;
+  const [editing, setEditing] = useState(null);
   const [search, setSearch] = useState("");
   const [onlyComCap, setOnlyComCap] = useState(false);
-
-  const load = async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const payload = {};
-      if (selectedSource?.id && selectedSource.id !== ALL_SOURCES_ID) payload.source_id = selectedSource.id;
-      const res = await base44.functions.invoke("listFornecedores", payload);
-      setData(res.data);
-    } catch (e) {
-      setError(e?.response?.data?.error || e.message || "Falha ao carregar fornecedores");
-    } finally {
-      setLoading(false);
-    }
-  };
+  const load = cache.syncFromErp;
 
   const rows = useMemo(() => {
     let list = data?.suppliers || [];
@@ -66,17 +55,16 @@ export default function TabFornecedores() {
         <div className="text-sm text-gray-400 flex items-center gap-2">
           <Truck className="w-4 h-4 text-purple-400" />
           Fornecedores cadastrados (relacionamento fornecedor) — consumo em Contas a Pagar
-          {data && <span className="text-gray-600">· {data.period_label} · {fmtNum(data.total_fornecedores)} fornecedores</span>}
+          {data && <span className="text-gray-600">· {fmtNum(data.suppliers.length)} fornecedores no Cérebro · carga de {new Date(cache.syncedAt).toLocaleString("pt-BR")}</span>}
         </div>
         <div className="flex items-center gap-2">
-          <QueryInspector queries={data?.queries} title="Queries — Fornecedores" />
           <button
             onClick={load}
             disabled={loading}
             className="flex items-center gap-1.5 px-3 py-1.5 bg-purple-600 hover:bg-purple-500 disabled:opacity-50 rounded-lg text-white text-xs font-medium"
           >
             <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin" : ""}`} />
-            {data ? "Recarregar" : "Carregar fornecedores"}
+            {data ? "Atualizar do Sisloc" : "Carregar fornecedores"}
           </button>
           {data && (
             <button
@@ -96,9 +84,11 @@ export default function TabFornecedores() {
           Clique em "Carregar fornecedores" para consultar o cadastro e o consumo no Contas a Pagar.
         </div>
       )}
-      {loading && <div className="text-gray-500 p-8 text-center">Consultando fornecedores no ERP…</div>}
+      {loading && <div className="text-gray-500 p-8 text-center">{cache.progress || "Lendo fornecedores salvos no Cérebro…"}</div>}
 
-      {data && (
+      <SupplierEditDialog row={editing} onClose={() => setEditing(null)} onSave={cache.saveCorrections} />
+
+      {data && !loading && (
         <>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             <div className="bg-gray-900 border border-gray-800 rounded-xl p-3">
@@ -150,6 +140,7 @@ export default function TabFornecedores() {
                   <th className="text-right py-2 px-3">Em aberto</th>
                   <th className="text-right py-2 px-3">Vencido</th>
                   <th className="text-right py-2 px-3">Último lanç.</th>
+                  <th className="py-2 px-3"></th>
                 </tr>
               </thead>
               <tbody>
@@ -166,9 +157,13 @@ export default function TabFornecedores() {
                     <td className="py-2 px-3 text-right text-amber-400">{fmtCur(r.cap_aberto)}</td>
                     <td className="py-2 px-3 text-right text-red-400">{fmtCur(r.cap_vencido)}</td>
                     <td className="py-2 px-3 text-right text-gray-500 text-xs">{r.cap_ultimo || "—"}</td>
+                    <td className="py-2 px-3 text-right whitespace-nowrap">
+                      {r._corrected.length > 0 && <span className="text-[11px] text-amber-400 mr-2">{r._corrected.length} corrigido(s)</span>}
+                      <button onClick={() => setEditing(r)} className="text-gray-500 hover:text-purple-400"><Pencil className="w-3.5 h-3.5" /></button>
+                    </td>
                   </tr>
                 ))}
-                {rows.length === 0 && <tr><td colSpan={8} className="text-center text-gray-600 py-6">Nenhum fornecedor encontrado</td></tr>}
+                {rows.length === 0 && <tr><td colSpan={9} className="text-center text-gray-600 py-6">Nenhum fornecedor encontrado</td></tr>}
               </tbody>
             </table>
             {rows.length > 300 && (
