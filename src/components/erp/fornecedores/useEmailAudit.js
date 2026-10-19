@@ -17,6 +17,7 @@ export default function useEmailAudit() {
     setResults({});
     setState("running");
     setProgress({ done: 0, total: cnpjs.length });
+    const failed = [];
     try {
       for (let i = 0; i < cnpjs.length && !stop.current; i += BATCH) {
         const batch = cnpjs.slice(i, i + BATCH);
@@ -33,6 +34,22 @@ export default function useEmailAudit() {
         out = [...out, ...batch.filter((c) => !got.has(c)).map((cnpj) => ({ cnpj, status: "error", error: "Sem retorno do servidor" }))];
         setResults((r) => ({ ...r, ...Object.fromEntries(out.map((x) => [x.cnpj, x])) }));
         setProgress({ done: Math.min(i + BATCH, cnpjs.length), total: cnpjs.length });
+        out.forEach((x) => { if (x.status === "error") failed.push(x.cnpj); });
+      }
+      // Repassa os que falharam (limite temporário das fontes), devagar, até 2 rodadas.
+      for (let round = 0; round < 2 && failed.length && !stop.current; round++) {
+        await new Promise((r) => setTimeout(r, 15000));
+        const retry = failed.splice(0);
+        for (let i = 0; i < retry.length && !stop.current; i += 5) {
+          const batch = retry.slice(i, i + 5);
+          const res = await base44.functions.invoke("auditSupplierEmails", { cnpjs: batch }).catch(() => null);
+          const out = res?.data?.results || [];
+          const ok = out.filter((x) => x.status !== "error");
+          setResults((r) => ({ ...r, ...Object.fromEntries(ok.map((x) => [x.cnpj, x])) }));
+          const okSet = new Set(ok.map((x) => x.cnpj));
+          failed.push(...batch.filter((c) => !okSet.has(c)));
+          await new Promise((r) => setTimeout(r, 1500));
+        }
       }
     } finally {
       setState(stop.current ? "stopped" : "done");
