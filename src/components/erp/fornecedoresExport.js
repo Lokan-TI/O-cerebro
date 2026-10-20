@@ -1,6 +1,6 @@
 // Exporta a lista de fornecedores em CSV compatível com Excel (BOM + ponto e vírgula),
 // com todos os dados cadastrais para migração ao novo ERP.
-const COLS = [
+const ALL_COLS = [
   ["cd_pessoa", "Código"],
   ["nm_pessoa", "Razão Social"],
   ["nm_fan_pessoa", "Nome Fantasia"],
@@ -51,7 +51,8 @@ const NUM_COLS = new Set(["cap_qtd", "cap_total", "cap_aberto", "cap_baixado", "
 
 // Planilha .xlsx em formato de tabela: 1 linha de cabeçalho + 1 linha por fornecedor, células próprias,
 // com autofiltro. Textos (CNPJ, IE, número, CEP) gravados como texto para preservar zeros.
-export function exportFornecedoresCsv(suppliers) {
+export function exportFornecedoresCsv(suppliers, { name = "fornecedores_historico_completo", sheet = "Fornecedores", skipCap = false } = {}) {
+  const COLS = skipCap ? ALL_COLS.filter(([k]) => !k.startsWith("cap_")) : ALL_COLS;
   const cell = (r, key) => {
     const v = key.startsWith("_pub.") ? r._pub?.[key.slice(5)] : r[key];
     if (v === true) return "Sim";
@@ -69,6 +70,6 @@ export function exportFornecedoresCsv(suppliers) {
   ws["!cols"] = COLS.map(() => ({ wch: 20 }));
   ws["!autofilter"] = { ref: ws["!ref"] };
   const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, "Fornecedores");
-  XLSX.writeFile(wb, `fornecedores_historico_completo_${new Date().toISOString().slice(0, 10)}.xlsx`);
+  XLSX.utils.book_append_sheet(wb, ws, sheet);
+  XLSX.writeFile(wb, `${name}_${new Date().toISOString().slice(0, 10)}.xlsx`);
 }

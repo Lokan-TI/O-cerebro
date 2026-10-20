@@ -8,7 +8,7 @@ export const EDIT_FIELDS = [
   ["bairro", "Bairro"], ["cidade", "Cidade"], ["uf", "UF"], ["cep", "CEP"], ["codigo_ibge", "Código IBGE"],
 ];
 
-export default function SupplierEditDialog({ row, onClose, onSave }) {
+export default function SupplierEditDialog({ row, onClose, onSave, title = "Corrigir fornecedor" }) {
   const [form, setForm] = useState({});
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
@@ -37,7 +37,7 @@ export default function SupplierEditDialog({ row, onClose, onSave }) {
   return (
     <Dialog open={!!row} onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="bg-gray-950 border-gray-800 text-white max-w-2xl max-h-[85vh] overflow-y-auto">
-        <DialogHeader><DialogTitle>Corrigir fornecedor · código {row?.cd_pessoa}</DialogTitle></DialogHeader>
+        <DialogHeader><DialogTitle>{title} · código {row?.cd_pessoa}</DialogTitle></DialogHeader>
         <p className="text-xs text-gray-500">As correções ficam salvas no Cérebro e entram no Excel. O Sisloc não é alterado.</p>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           {EDIT_FIELDS.map(([k, label]) => {

@@ -8,7 +8,7 @@ const COLS = [
 ];
 const PUB = { ok: ["Encontrado", "text-emerald-400"], not_found: ["Não encontrado", "text-amber-400"], error: ["Erro", "text-red-400"] };
 
-export default function SupplierTable({ rows, onEdit }) {
+export default function SupplierTable({ rows, onEdit, hideCap = false }) {
   const val = (r, k) => (k === "cnpj" ? fmtDoc(r.cnpj) || fmtDoc(r.cpf) : r[k]) || "—";
   return (
     <table className="w-full text-xs">
@@ -17,7 +17,7 @@ export default function SupplierTable({ rows, onEdit }) {
           <th className="text-left">Código</th>
           {COLS.map(([k, l]) => <th key={k} className="text-left">{l}</th>)}
           <th className="text-left">Fonte pública</th>
-          <th className="text-right">Consumo (CAP)</th>
+          {!hideCap && <th className="text-right">Consumo (CAP)</th>}
           <th></th>
         </tr>
       </thead>
@@ -25,11 +25,11 @@ export default function SupplierTable({ rows, onEdit }) {
         {rows.map((r) => {
           const p = PUB[r._pubStatus];
           return (
-            <tr key={r.cd_pessoa}>
+            <tr key={r._id || r.cd_pessoa}>
               <td className="text-gray-500">{r.cd_pessoa}</td>
               {COLS.map(([k]) => <td key={k} className="text-gray-200 whitespace-nowrap">{val(r, k)}</td>)}
               <td className={`whitespace-nowrap ${p?.[1] || "text-gray-600"}`} title={r._pubError}>{p?.[0] || "Não consultado"}</td>
-              <td className="text-right text-red-400 whitespace-nowrap">{fmtCur(r.cap_total)}</td>
+              {!hideCap && <td className="text-right text-red-400 whitespace-nowrap">{fmtCur(r.cap_total)}</td>}
               <td><button onClick={() => onEdit(r)} className="text-gray-500 hover:text-purple-400"><Pencil className="w-3.5 h-3.5" /></button></td>
             </tr>
           );

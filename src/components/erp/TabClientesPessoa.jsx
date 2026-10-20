@@ -10,6 +10,7 @@ import { getEmpresaLabel } from "@/lib/empresaLabels";
 import { fmtCur, fmtNum } from "@/lib/erpFormat";
 import ClientesReceitaChart from "@/components/erp/ClientesReceitaChart";
 import ClientesAtivosTable from "@/components/erp/ClientesAtivosTable";
+import ClientesCorrecaoCnpj from "@/components/erp/clientesCnpj/ClientesCorrecaoCnpj";
 import ClientesMesPanel from "@/components/erp/ClientesMesPanel";
 import ClientePatrimoniosModal from "@/components/erp/ClientePatrimoniosModal";
 import { Users, TrendingUp, Search, Crown, FileText, Repeat, Percent } from "lucide-react";
@@ -204,6 +205,8 @@ export default function TabClientesPessoa() {
       {selectedMonth && (
         <ClientesMesPanel ano={selectedMonth.ano} mes={selectedMonth.mes} onClose={() => setSelectedMonth(null)} />
       )}
+
+      <ClientesCorrecaoCnpj />
 
       {/* Lista completa de clientes ativos — consulta ao vivo + exportação */}
       <ClientesAtivosTable onSelectClient={setSelectedClient} />

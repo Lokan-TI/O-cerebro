@@ -1,0 +1,67 @@
+{
+  "name": "ClienteCadastroCache",
+  "type": "object",
+  "properties": {
+    "source_key": {
+      "type": "string",
+      "description": "ID da fonte ERP"
+    },
+    "cd_pessoa": {
+      "type": "string",
+      "description": "C\u00f3digo do cliente no ERP"
+    },
+    "erp": {
+      "type": "object",
+      "description": "Dados originais do ERP na \u00faltima carga"
+    },
+    "corrections": {
+      "type": "object",
+      "description": "Campos corrigidos manualmente no C\u00e9rebro (n\u00e3o gravados no Sisloc)"
+    },
+    "public_data": {
+      "type": "object",
+      "description": "\u00daltimo retorno da fonte p\u00fablica (OpenCNPJ/BrasilAPI)"
+    },
+    "public_status": {
+      "type": "string",
+      "description": "ok, not_found, error"
+    },
+    "public_error": {
+      "type": "string"
+    },
+    "public_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "synced_at": {
+      "type": "string",
+      "format": "date-time"
+    }
+  },
+  "required": [
+    "source_key",
+    "cd_pessoa"
+  ],
+  "rls": {
+    "read": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

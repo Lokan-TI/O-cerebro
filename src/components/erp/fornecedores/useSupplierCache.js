@@ -6,7 +6,7 @@ const E = () => base44.entities.FornecedorCache;
 import { PUBLIC_MAP } from "./publicFields";
 
 // Prioridade por campo: correção manual > fonte pública > ERP.
-const merge = (rec) => {
+export const merge = (rec) => {
   const pub = rec.public_status === "ok" ? rec.public_data || {} : {};
   const pubVals = Object.fromEntries(PUBLIC_MAP.map(([k, s]) => [k, String(pub[s] ?? "").trim()]).filter(([, v]) => v));
   return {
@@ -22,7 +22,7 @@ const merge = (rec) => {
     _corrected: Object.keys(rec.corrections || {}),
   };
 };
-const recOf = (r) => ({ id: r._id, erp: r._erp, corrections: r._corrections, public_data: r._pub, public_status: r._pubStatus, public_error: r._pubError });
+export const recOf = (r) => ({ id: r._id, erp: r._erp, corrections: r._corrections, public_data: r._pub, public_status: r._pubStatus, public_error: r._pubError });
 
 export default function useSupplierCache(sourceKey) {
   const [rows, setRows] = useState(null);
