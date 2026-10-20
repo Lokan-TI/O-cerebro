@@ -3,14 +3,26 @@ import { base44 } from "@/api/base44Client";
 
 const E = () => base44.entities.FornecedorCache;
 
-// Junta dado original do ERP com as correções feitas no Cérebro.
-const merge = (rec) => ({
-  ...rec.erp,
-  ...(rec.corrections || {}),
-  _id: rec.id,
-  _erp: rec.erp || {},
-  _corrected: Object.keys(rec.corrections || {}),
-});
+import { PUBLIC_MAP } from "./publicFields";
+
+// Prioridade por campo: correção manual > fonte pública > ERP.
+const merge = (rec) => {
+  const pub = rec.public_status === "ok" ? rec.public_data || {} : {};
+  const pubVals = Object.fromEntries(PUBLIC_MAP.map(([k, s]) => [k, String(pub[s] ?? "").trim()]).filter(([, v]) => v));
+  return {
+    ...rec.erp,
+    ...pubVals,
+    ...(rec.corrections || {}),
+    _id: rec.id,
+    _erp: rec.erp || {},
+    _pub: pub,
+    _pubStatus: rec.public_status || "",
+    _pubError: rec.public_error || "",
+    _corrections: rec.corrections || {},
+    _corrected: Object.keys(rec.corrections || {}),
+  };
+};
+const recOf = (r) => ({ id: r._id, erp: r._erp, corrections: r._corrections, public_data: r._pub, public_status: r._pubStatus, public_error: r._pubError });
 
 export default function useSupplierCache(sourceKey) {
   const [rows, setRows] = useState(null);
@@ -66,7 +78,19 @@ export default function useSupplierCache(sourceKey) {
 
   const saveCorrections = async (row, corrections) => {
     await E().update(row._id, { corrections });
-    setRows((rs) => rs.map((r) => (r._id === row._id ? merge({ id: r._id, erp: r._erp, corrections }) : r)));
+    setRows((rs) => rs.map((r) => (r._id === row._id ? merge({ ...recOf(r), corrections }) : r)));
+  };
+
+  // Grava o retorno da fonte pública por fornecedor (somente no Cérebro, nunca no ERP).
+  const savePublic = async (items) => {
+    const now = new Date().toISOString();
+    const upd = items.map(({ row, res }) => ({
+      id: row._id, public_status: res.status, public_error: res.error || "",
+      public_data: res.status === "ok" ? res : row._pub || {}, public_at: now,
+    }));
+    for (let i = 0; i < upd.length; i += 500) await E().bulkUpdate(upd.slice(i, i + 500));
+    const byId = Object.fromEntries(upd.map((u) => [u.id, u]));
+    setRows((rs) => rs.map((r) => (byId[r._id] ? merge({ ...recOf(r), ...byId[r._id] }) : r)));
   };
 
   // Grava em lote as correções vindas da fonte pública (somente no Cérebro).
@@ -75,8 +99,8 @@ export default function useSupplierCache(sourceKey) {
       await E().bulkUpdate(items.slice(i, i + 500).map(({ row, corrections }) => ({ id: row._id, corrections })));
     }
     const byId = Object.fromEntries(items.map((x) => [x.row._id, x.corrections]));
-    setRows((rs) => rs.map((r) => (byId[r._id] ? merge({ id: r._id, erp: r._erp, corrections: byId[r._id] }) : r)));
+    setRows((rs) => rs.map((r) => (byId[r._id] ? merge({ ...recOf(r), corrections: byId[r._id] }) : r)));
   };
 
-  return { rows, syncedAt, state, progress, error, syncFromErp, saveCorrections, saveManyCorrections };
+  return { rows, syncedAt, state, progress, error, syncFromErp, saveCorrections, saveManyCorrections, savePublic };
 }

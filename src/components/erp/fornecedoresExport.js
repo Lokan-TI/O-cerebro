@@ -14,8 +14,23 @@ const COLS = [
   ["cidade", "Cidade"],
   ["uf", "UF"],
   ["cep", "CEP"],
+  ["codigo_ibge", "Código IBGE"],
   ["telefone", "Telefone"],
   ["email", "E-mail"],
+  ["_pub.telefone2", "Telefone 2"],
+  ["_pub.codigo_municipio_receita", "Código Município (Receita)"],
+  ["_pub.situacao", "Situação Cadastral"],
+  ["_pub.data_situacao", "Data Situação"],
+  ["_pub.matriz_filial", "Matriz/Filial"],
+  ["_pub.data_abertura", "Data Abertura"],
+  ["_pub.cnae_principal", "CNAE Principal"],
+  ["_pub.cnae_descricao", "Descrição CNAE"],
+  ["_pub.natureza_juridica", "Natureza Jurídica"],
+  ["_pub.porte", "Porte"],
+  ["_pub.simples", "Simples"],
+  ["_pub.mei", "MEI"],
+  ["_pub.capital_social", "Capital Social"],
+  ["_pub.fonte", "Fonte Pública"],
   ["ativo", "Ativo"],
   ["dt_cadastro", "Data de Cadastro"],
   ["cap_qtd", "Títulos CAP (total)"],
@@ -38,7 +53,7 @@ const NUM_COLS = new Set(["cap_qtd", "cap_total", "cap_aberto", "cap_baixado", "
 // com autofiltro. Textos (CNPJ, IE, número, CEP) gravados como texto para preservar zeros.
 export function exportFornecedoresCsv(suppliers) {
   const cell = (r, key) => {
-    const v = r[key];
+    const v = key.startsWith("_pub.") ? r._pub?.[key.slice(5)] : r[key];
     if (v === true) return "Sim";
     if (v === false) return "Não";
     if (NUM_COLS.has(key)) return Number(v) || 0;

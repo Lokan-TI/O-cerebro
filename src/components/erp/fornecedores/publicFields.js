@@ -10,7 +10,8 @@ export const PUBLIC_MAP = [
 
 export const publicOf = (results, row) => {
   const d = results[onlyDigits(row.cnpj || "")];
-  return d?.status === "ok" ? d : null;
+  if (d?.status === "ok") return d;
+  return row._pubStatus === "ok" ? row._pub : null;
 };
 
 // Prioridade: correção salva no Cérebro > fonte pública > ERP.

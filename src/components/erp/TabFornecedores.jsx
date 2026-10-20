@@ -5,7 +5,9 @@ import { useErpSource, ALL_SOURCES_ID } from "@/lib/ErpSourceContext";
 import { fmtCur, fmtNum, fmtDoc, onlyDigits } from "@/lib/erpFormat";
 import { exportFornecedoresCsv } from "@/components/erp/fornecedoresExport";
 import SupplierEmailAudit from "@/components/erp/fornecedores/SupplierEmailAudit";
-import { Truck, Download, RefreshCw, Search, Pencil } from "lucide-react";
+import { Truck, Download, RefreshCw, Search } from "lucide-react";
+import SupplierTable from "@/components/erp/fornecedores/SupplierTable";
+import PublicEnrichBar from "@/components/erp/fornecedores/PublicEnrichBar";
 
 export default function TabFornecedores() {
   const { selectedSource } = useErpSource();
@@ -109,6 +111,8 @@ export default function TabFornecedores() {
             </div>
           </div>
 
+          <PublicEnrichBar suppliers={data.suppliers} savePublic={cache.savePublic} />
+
           <SupplierEmailAudit suppliers={data.suppliers || []} onApplyPublic={cache.saveManyCorrections} />
 
           <div className="flex items-center gap-3 flex-wrap">
@@ -129,43 +133,7 @@ export default function TabFornecedores() {
           </div>
 
           <div className="bg-gray-900 border border-gray-800 rounded-xl overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="text-gray-500 text-xs uppercase border-b border-gray-800">
-                  <th className="text-left py-2 px-3">Fornecedor</th>
-                  <th className="text-left py-2 px-3">CNPJ/CPF</th>
-                  <th className="text-left py-2 px-3">Cidade/UF</th>
-                  <th className="text-right py-2 px-3">Títulos</th>
-                  <th className="text-right py-2 px-3">Consumo (CAP)</th>
-                  <th className="text-right py-2 px-3">Em aberto</th>
-                  <th className="text-right py-2 px-3">Vencido</th>
-                  <th className="text-right py-2 px-3">Último lanç.</th>
-                  <th className="py-2 px-3"></th>
-                </tr>
-              </thead>
-              <tbody>
-                {rows.slice(0, 300).map((r) => (
-                  <tr key={r.cd_pessoa} className="border-b border-gray-800/50 hover:bg-gray-800/30">
-                    <td className="py-2 px-3">
-                      <div className="text-white">{r.nm_fan_pessoa || r.nm_pessoa}</div>
-                      {r.nm_fan_pessoa && <div className="text-xs text-gray-600">{r.nm_pessoa}</div>}
-                    </td>
-                    <td className="py-2 px-3 text-gray-400 font-mono text-xs">{fmtDoc(r.cnpj) || fmtDoc(r.cpf) || "—"}</td>
-                    <td className="py-2 px-3 text-gray-400 text-xs">{r.cidade ? `${r.cidade}/${r.uf}` : "—"}</td>
-                    <td className="py-2 px-3 text-right text-gray-300">{fmtNum(r.cap_qtd)}</td>
-                    <td className="py-2 px-3 text-right text-red-400 font-medium">{fmtCur(r.cap_total)}</td>
-                    <td className="py-2 px-3 text-right text-amber-400">{fmtCur(r.cap_aberto)}</td>
-                    <td className="py-2 px-3 text-right text-red-400">{fmtCur(r.cap_vencido)}</td>
-                    <td className="py-2 px-3 text-right text-gray-500 text-xs">{r.cap_ultimo || "—"}</td>
-                    <td className="py-2 px-3 text-right whitespace-nowrap">
-                      {r._corrected.length > 0 && <span className="text-[11px] text-amber-400 mr-2">{r._corrected.length} corrigido(s)</span>}
-                      <button onClick={() => setEditing(r)} className="text-gray-500 hover:text-purple-400"><Pencil className="w-3.5 h-3.5" /></button>
-                    </td>
-                  </tr>
-                ))}
-                {rows.length === 0 && <tr><td colSpan={9} className="text-center text-gray-600 py-6">Nenhum fornecedor encontrado</td></tr>}
-              </tbody>
-            </table>
+            <SupplierTable rows={rows.slice(0, 300)} onEdit={setEditing} />
             {rows.length > 300 && (
               <div className="text-xs text-gray-600 px-3 py-2 border-t border-gray-800">
                 Exibindo os 300 maiores — a exportação inclui todos os {fmtNum(rows.length)} fornecedores filtrados.
