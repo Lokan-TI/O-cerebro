@@ -23,6 +23,16 @@ export default function SupplierEditDialog({ row, onClose, onSave, title = "Corr
     const corrections = Object.fromEntries(
       Object.entries(form).filter(([k, v]) => String(v ?? "") !== String(row._erp[k] ?? ""))
     );
+    const d = (k) => String(form[k] ?? "").replace(/\D/g, "");
+    const invalid = [
+      corrections.cnpj !== undefined && d("cnpj") && d("cnpj").length !== 14 && "CNPJ deve ter 14 dígitos",
+      corrections.cpf !== undefined && d("cpf") && d("cpf").length !== 11 && "CPF deve ter 11 dígitos",
+      corrections.cep !== undefined && d("cep") && d("cep").length !== 8 && "CEP deve ter 8 dígitos",
+      corrections.uf !== undefined && form.uf && !/^[A-Za-z]{2}$/.test(String(form.uf).trim()) && "UF deve ter 2 letras",
+      corrections.email !== undefined && form.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(form.email).trim()) && "E-mail inválido",
+      corrections.codigo_ibge !== undefined && d("codigo_ibge") && d("codigo_ibge").length !== 7 && "Código IBGE deve ter 7 dígitos",
+    ].filter(Boolean);
+    if (invalid.length) return setError(invalid.join(" · "));
     setSaving(true);
     try {
       await onSave(row, corrections);

@@ -52,8 +52,10 @@ export default function useClienteCache(sourceIds) {
     try {
       const now = new Date().toISOString();
       for (const id of key.split(",")) {
+        // Lê a fonte inteira antes de gravar: uma leitura que falha no meio não sobrescreve nada.
         const all = await fetchAllClientesCadastro(id, (n) => setProgress(`Lendo clientes do Sisloc… ${n}`));
         const list = all.map(toErp).filter((c) => validCnpj(c.cnpj));
+        if (!list.length) throw new Error("O ERP não retornou clientes com CNPJ válido. Os dados salvos foram mantidos.");
         for (let i = 0; i < list.length; i += 500) {
           setProgress(`Salvando no Cérebro ${Math.min(i + 500, list.length)}/${list.length}…`);
           await E().upsert(list.slice(i, i + 500).map((c) => ({ source_key: id, cd_pessoa: c.cd_pessoa, erp: c, synced_at: now })), { key: ["source_key", "cd_pessoa"] });

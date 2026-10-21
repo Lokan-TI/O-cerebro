@@ -950,13 +950,18 @@ async function processRefresh(base44, source, run, version, previousVersion, sta
 
     // Etapa 12: Publicar — desmarcar anterior, marcar nova
     await updateStep(11, 95);
+    // Integridade: uma carga vazia ou sem data máxima não substitui a última versão válida.
+    if (!maxDateStr || !(totalRecords > 0) || !(monthlyRevenue?.length > 0)) {
+      throw new Error('Validação de integridade falhou: a carga voltou vazia ou incompleta. A versão anterior foi mantida.');
+    }
+    // Publica a nova antes de despublicar as antigas, para nunca ficar sem versão ativa.
+    await base44.asServiceRole.entities.ErpSnapshot.update(snapshot.id, { is_current: true });
     if (previousVersion) {
       await base44.asServiceRole.entities.ErpSnapshot.updateMany(
-        { source_id: run.source_id, is_current: true },
+        { source_id: run.source_id, is_current: true, version: { $ne: version } },
         { $set: { is_current: false } }
       );
     }
-    await base44.asServiceRole.entities.ErpSnapshot.update(snapshot.id, { is_current: true });
 
     // Concluir execução
     const completedAt = new Date();

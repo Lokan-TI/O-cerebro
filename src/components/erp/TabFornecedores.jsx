@@ -70,6 +70,7 @@ export default function TabFornecedores() {
           </button>
           {data && (
             <button
+              disabled={!rows.length}
               onClick={() => exportFornecedoresCsv(rows)}
               className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-700 hover:bg-emerald-600 rounded-lg text-white text-xs font-medium"
             >

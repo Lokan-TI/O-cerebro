@@ -37,7 +37,7 @@ export default function ClientesCorrecaoCnpj() {
             <RefreshCw className={`w-3.5 h-3.5 ${busy ? "animate-spin" : ""}`} /> {cache.rows ? "Atualizar do Sisloc" : "Carregar clientes"}
           </button>
           {cache.rows && (
-            <button onClick={() => exportFornecedoresCsv(rows, { name: "clientes_cadastro_corrigido", sheet: "Clientes", skipCap: true })} className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-700 hover:bg-emerald-600 rounded-lg text-white text-xs font-medium">
+            <button disabled={!rows.length} title={rows.length ? `Exporta os ${rows.length} clientes do filtro atual` : "Nenhum cliente no filtro atual"} onClick={() => exportFornecedoresCsv(rows, { name: "clientes_cadastro_corrigido", sheet: "Clientes", skipCap: true })} className="disabled:opacity-50 flex items-center gap-1.5 px-3 py-1.5 bg-emerald-700 hover:bg-emerald-600 rounded-lg text-white text-xs font-medium">
               <Download className="w-3.5 h-3.5" /> Exportar Excel
             </button>
           )}
