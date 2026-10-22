@@ -35,7 +35,7 @@ export default function QuedaLocacoes({ sourceId, empresa }) {
   };
 
   return (
-    <div className="bg-gray-900 border border-gray-800 rounded-xl p-4 space-y-4">
+    <div translate="no" className="notranslate bg-gray-900 border border-gray-800 rounded-xl p-4 space-y-4">
       <div>
         <h3 className="text-base font-semibold text-white">Queda na frequência de locações</h3>
         <p className="text-xs text-gray-400">Fichas fechadas (com movimentação) iniciadas em cada período · renovações contadas à parte · orçamentos não fechados mapeados.</p>
@@ -57,7 +57,7 @@ export default function QuedaLocacoes({ sourceId, empresa }) {
               <input value={text} onChange={(e) => setText(e.target.value)} placeholder="Cliente ou documento" className="bg-gray-950 border border-gray-700 rounded-md pl-7 pr-2 py-1 text-xs text-white" />
             </div>
             <Button size="sm" variant="outline" disabled={!rows.length || !!exp} onClick={doExport} className="border-gray-700 bg-transparent text-gray-200">
-              {exp ? <Loader2 className="w-3.5 h-3.5 animate-spin mr-1" /> : <Download className="w-3.5 h-3.5 mr-1" />}{exp || `Excel (${rows.length})`}
+              <span key={exp ? "l" : "d"} className="inline-flex">{exp ? <Loader2 className="w-3.5 h-3.5 animate-spin mr-1" /> : <Download className="w-3.5 h-3.5 mr-1" />}</span><span>{exp || `Excel (${rows.length})`}</span>
             </Button>
           </div>
           <QuedaTable rows={rows} params={q.params} sort={sort} onSort={onSort} />

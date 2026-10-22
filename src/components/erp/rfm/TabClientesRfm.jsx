@@ -57,7 +57,7 @@ export default function TabClientesRfm() {
   }, [state.rows, selectedEmpresa, win.end, limits]);
 
   return (
-    <div className="space-y-4">
+    <div translate="no" className="notranslate space-y-4">
       <div className={`${card} flex flex-wrap items-center justify-between gap-3`}>
         <div>
           <h2 className="text-lg font-semibold text-white">Análise RFM (Recência, Frequência e Monetário)</h2>

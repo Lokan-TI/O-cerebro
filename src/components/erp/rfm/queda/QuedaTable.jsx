@@ -16,7 +16,9 @@ export default function QuedaTable({ rows, params, sort, onSort }) {
   if (!rows.length) return <p className="text-sm text-gray-500 text-center py-10">Nenhum cliente neste filtro para os períodos comparados.</p>;
   const cell = (c, k) => {
     if (k === "status") return <span className={`px-2 py-0.5 rounded-full text-[11px] ${STATUS[c.status].cls}`}>{STATUS[c.status].label}</span>;
-    if (k === "pct") return fmtPct(c.pct);
+    if (k === "pct") return <span>{fmtPct(c.pct)}</span>;
+    if (k === "ult_loc" || k === "ult_orc") return <span>{fmtD(c[k])}</span>;
+    if (k !== "diff" && k !== "nome") return <span>{c[k]}</span>;
     if (k === "diff") return <span className={c.diff < 0 ? "text-red-300" : c.diff > 0 ? "text-emerald-300" : ""}>{c.diff > 0 ? `+${c.diff}` : c.diff}</span>;
     if (k === "ult_loc" || k === "ult_orc") return fmtD(c[k]);
     if (k === "nome") return <span className="text-white">{c.nome}</span>;
@@ -26,7 +28,7 @@ export default function QuedaTable({ rows, params, sort, onSort }) {
     <div className="overflow-auto max-h-[640px] rounded-lg border border-gray-800">
       <table className="text-xs text-gray-300">
         <thead><tr><th />{COLS.map(([k, l]) => (
-          <th key={k} onClick={() => onSort(k)} className="cursor-pointer text-left text-gray-400 hover:text-white">{l}{sort.key === k ? (sort.dir === 1 ? " ↑" : " ↓") : ""}</th>
+          <th key={k} onClick={() => onSort(k)} className="cursor-pointer text-left text-gray-400 hover:text-white"><span>{l}{sort.key === k ? (sort.dir === 1 ? " ↑" : " ↓") : ""}</span></th>
         ))}</tr></thead>
         <tbody>
           {rows.slice(0, limit).map((c) => (
