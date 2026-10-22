@@ -5,6 +5,7 @@ import { computeAnalytics } from '../../shared/analyticsBlock.ts';
 import { empFilter } from '../../shared/empresaScope.ts';
 import { invoiceUniverse } from '../../shared/invoiceUniverse.ts';
 import { assertIsoDate } from '../../shared/periodContract.ts';
+import { canView } from '../../shared/access.ts';
 
 const STEPS = [
   { id: 'conectando', label: 'Conectando ao banco' },
@@ -117,8 +118,8 @@ Deno.serve(async (req) => {
     const base44 = createClientFromRequest(req);
     const user = await base44.auth.me();
     if (!user) return Response.json({ success: false, error: 'Unauthorized' }, { status: 401 });
-    if (user.role !== 'admin') {
-      return Response.json({ success: false, error: 'Apenas administradores e analistas podem atualizar dados.' }, { status: 403 });
+    if (!canView(user)) {
+      return Response.json({ success: false, error: 'Seu perfil não tem acesso para atualizar os dados do BI.' }, { status: 403 });
     }
 
     const body = await req.json();
@@ -196,6 +197,21 @@ Deno.serve(async (req) => {
       total_steps: STEPS.length,
       progress: 5,
     });
+
+    // Trava contra chamadas simultâneas: a execução mais antiga vence; as demais são canceladas.
+    const contenders = await base44.asServiceRole.entities.ErpSyncRun.filter(
+      { source_id: sourceId, status: 'running' }, 'created_date', 10);
+    const winner = contenders[0];
+    if (winner && winner.id !== run.id) {
+      await base44.asServiceRole.entities.ErpSyncRun.update(run.id, {
+        status: 'cancelled', error_message: 'Outra atualização desta fonte já estava em andamento.', completed_at: new Date().toISOString(),
+      });
+      return Response.json({
+        success: false, already_running: true,
+        error: `Já existe uma atualização da fonte ${source.name} em processamento.`,
+        run: { id: winner.id, started_at: winner.started_at, started_by_name: winner.started_by_name, step_label: winner.step_label, progress: winner.progress },
+      });
+    }
 
     // Processar sincronamente — o frontend dispara sem aguardar e consulta o status
     const result = await processRefresh(base44, source, run, version, previousVersion, requestedStartBody, requestedEndBody);
