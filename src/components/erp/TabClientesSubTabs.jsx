@@ -5,6 +5,7 @@ import TabProdutosEquipamentos from "@/components/erp/TabProdutosEquipamentos";
 import TabClientesRfm from "@/components/erp/rfm/TabClientesRfm";
 import { Users, Package, Wrench, Grid3x3, Megaphone } from "lucide-react";
 import TabRdMarketingCrm from "@/components/erp/rdmc/TabRdMarketingCrm";
+import MigracaoExportButton from "@/components/erp/MigracaoExportButton";
 import CustomerSearch from "@/components/erp/customers/CustomerSearch";
 
 const SUB_TABS = [
@@ -36,6 +37,7 @@ export default function TabClientesSubTabs() {
             </button>
           );
         })}
+        <MigracaoExportButton />
       </div>
 
       {sub === "lista" && <TabClientesPessoa />}
