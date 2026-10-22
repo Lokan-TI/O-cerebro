@@ -89,8 +89,12 @@ Deno.serve(async (req) => {
       raw_remessas: [`SELECT TOP ${limit} r.* FROM fl_remessa r WITH (NOLOCK) WHERE r.fl_rem_cancelada = 'N' AND r.cd_flremessa > ${after}
         AND EXISTS (SELECT 1 ${openF} AND f.cd_controle = r.cd_controle) ORDER BY r.cd_flremessa`, 'cd_flremessa'],
       raw_itens: [`SELECT TOP ${limit} e.*,
-          ISNULL((SELECT SUM(d.qt_devolucao) FROM fl_dev_equ d WITH (NOLOCK) WHERE d.cd_flremequ = e.cd_flremequ),0) AS qt_devolvida_calc
+          ISNULL((SELECT SUM(d.qt_devolucao) FROM fl_dev_equ d WITH (NOLOCK) WHERE d.cd_flremequ = e.cd_flremequ),0) AS qt_devolvida_calc,
+          (SELECT MAX(COALESCE(dv.dt_devolucao, dv.dt_entrada)) FROM fl_dev_equ d WITH (NOLOCK)
+            JOIN fl_devolucao dv WITH (NOLOCK) ON dv.cd_fldevolucao = d.cd_fldevolucao WHERE d.cd_flremequ = e.cd_flremequ) AS dt_retirada_calc,
+          q.nm_equipto AS nm_equipto_calc
         FROM fl_rem_equ e WITH (NOLOCK) JOIN fl_remessa r WITH (NOLOCK) ON r.cd_flremessa = e.cd_flremessa
+        LEFT JOIN equipto q WITH (NOLOCK) ON q.cd_equipto = e.cd_equipto
         WHERE r.fl_rem_cancelada = 'N' AND e.cd_flremequ > ${after}
           AND EXISTS (SELECT 1 ${openF} AND f.cd_controle = r.cd_controle) ORDER BY e.cd_flremequ`, 'cd_flremequ'],
       raw_faturas: [`SELECT TOP ${limit} ft.* FROM fl_fatura ft WITH (NOLOCK) WHERE ft.cd_flfatura > ${after}

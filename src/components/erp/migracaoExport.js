@@ -47,6 +47,34 @@ function clienteCols(p = {}, c) {
   };
 }
 
+const MAX_MOV = 40;
+const pat = (e) => (num(e.cd_patrimonio) > 0 ? s(e.cd_patrimonio) : "");
+const prod = (e) => s(e.nm_equipto_calc) || s(e.ds_equipto) || s(e.cd_equipto);
+
+// Entregas (remessas) e retiradas (devoluções) em colunas numeradas por ficha; patrimônio vazio = produto sem vínculo (ex.: andaimes).
+function movCols(its, remCtrl) {
+  const ent = its.map((e) => ({ e, d: dt(remCtrl.get(e.cd_flremessa)?.dt_entrega) || dt(remCtrl.get(e.cd_flremessa)?.dt_saida) }))
+    .sort((a, b) => s(a.d).localeCompare(s(b.d)));
+  const ret = its.filter((e) => num(e.qt_devolvida_calc) > 0).map((e) => ({ e, d: dt(e.dt_retirada_calc) }))
+    .sort((a, b) => s(a.d).localeCompare(s(b.d)));
+  const o = {
+    "Qtd. entregas": ent.length, "Qtd. retiradas": ret.length,
+    "Itens sem patrimônio": its.filter((e) => !pat(e)).length,
+    "Itens com patrimônio": its.filter((e) => pat(e)).length,
+  };
+  const put = (label, list, qty) => list.slice(0, MAX_MOV).forEach(({ e, d }, i) => {
+    const p = `${label} ${i + 1} - `;
+    o[p + "Data"] = s(d).slice(0, 10);
+    o[p + "Produto"] = prod(e);
+    o[p + "Patrimônio"] = pat(e);
+    o[p + "Qtd"] = qty(e);
+    o[p + "Vl. unit."] = e.vl_uni_locacao == null ? "" : num(e.vl_uni_locacao);
+  });
+  put("Entrega", ent, (e) => num(e.qt_remessa));
+  put("Retirada", ret, (e) => num(e.qt_devolvida_calc));
+  return o;
+}
+
 export async function exportMigracao(sourceId, empresa, onMsg) {
   onMsg("Buscando fichas abertas...");
   const fichas = await fetchContratos(sourceId, empresa, (n) => onMsg(`${n} fichas...`), "fichas");
@@ -88,15 +116,23 @@ export async function exportMigracao(sourceId, empresa, onMsg) {
       "Itens (equipamento · patrimônio · qtd enviada/devolvida · vl unit.)": cell(its.map((e) =>
         `${s(e.ds_equipto) || s(e.cd_equipto)} · Pat ${s(e.cd_patrimonio) || "-"} · ${num(e.qt_remessa)}/${num(e.qt_devolvida_calc)} · ${num(e.vl_uni_locacao).toFixed(2)}`).join(" | ")),
       "Patrimônios em posse": cell(emPosse.map((e) => s(e.cd_patrimonio)).filter(Boolean).join(", ")),
+      ...movCols(its, remCtrl),
     };
   }).sort((a, b) => a["Empresa (filial)"].localeCompare(b["Empresa (filial)"]) || a["Razão social / Nome"].localeCompare(b["Razão social / Nome"]));
 
   if (!linhas.length) return 0;
   const wb = XLSX.utils.book_new();
   const add = (name, data) => {
-    const ws = XLSX.utils.json_to_sheet(data);
+    const all = [...new Set(data.flatMap((r) => Object.keys(r)))];
+    const slot = (h) => h.match(/^(Entrega|Retirada) (\d+) - /);
+    const order = ["Data", "Produto", "Patrimônio", "Qtd", "Vl. unit."];
+    const header = [...all.filter((h) => !slot(h)), ...all.filter(slot).sort((a, b) => {
+      const x = slot(a), y = slot(b);
+      return x[1].localeCompare(y[1]) || x[2] - y[2] || order.indexOf(a.split(" - ")[1]) - order.indexOf(b.split(" - ")[1]);
+    })];
+    const ws = XLSX.utils.json_to_sheet(data, { header });
     if (ws["!ref"]) ws["!autofilter"] = { ref: ws["!ref"] };
-    ws["!cols"] = Object.keys(data[0]).map((h) => ({ wch: Math.min(Math.max(h.length + 2, 14), 60) }));
+    ws["!cols"] = header.map((h) => ({ wch: Math.min(Math.max(h.length + 2, 14), 60) }));
     XLSX.utils.book_append_sheet(wb, ws, name.replace(/[\\/?*[\]:]/g, " ").slice(0, 31));
   };
   add("Todas as fichas", linhas);
