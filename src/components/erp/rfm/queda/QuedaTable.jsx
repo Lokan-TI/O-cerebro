@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { prefetchDetalhes } from "./detailCache";
 import { ChevronDown, ChevronRight } from "lucide-react";
 import { STATUS, fmtD, fmtPct } from "./quedaCalc";
@@ -31,15 +31,13 @@ export default function QuedaTable({ rows, params, sort, onSort }) {
           <th key={k} onClick={() => onSort(k)} className="cursor-pointer text-left text-gray-400 hover:text-white"><span>{l}{sort.key === k ? (sort.dir === 1 ? " ↑" : " ↓") : ""}</span></th>
         ))}</tr></thead>
         <tbody>
-          {rows.slice(0, limit).map((c) => (
-            <Fragment key={c.cd_pessoa}>
-              <tr className="cursor-pointer" onClick={() => setOpen(open === c.cd_pessoa ? null : c.cd_pessoa)}>
+          {rows.slice(0, limit).flatMap((c) => [
+              <tr key={c.cd_pessoa} className="cursor-pointer" onClick={() => setOpen(open === c.cd_pessoa ? null : c.cd_pessoa)}>
                 <td>{open === c.cd_pessoa ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}</td>
                 {COLS.map(([k]) => <td key={k} className="whitespace-nowrap">{cell(c, k)}</td>)}
-              </tr>
-              {open === c.cd_pessoa && <tr><td /><td colSpan={COLS.length}><QuedaFichaDetail params={params} cdPessoa={c.cd_pessoa} /></td></tr>}
-            </Fragment>
-          ))}
+              </tr>,
+              open === c.cd_pessoa && <tr key={`${c.cd_pessoa}-d`}><td /><td colSpan={COLS.length}><QuedaFichaDetail params={params} cdPessoa={c.cd_pessoa} /></td></tr>,
+          ])}
         </tbody>
       </table>
       {rows.length > limit && <button onClick={() => setLimit(limit + 200)} className="w-full py-2 text-xs text-violet-300 hover:text-violet-200">Mostrar mais ({rows.length - limit} restantes)</button>}

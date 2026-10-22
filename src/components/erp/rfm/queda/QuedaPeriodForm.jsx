@@ -35,7 +35,7 @@ export default function QuedaPeriodForm({ loading, onRun }) {
           </div>
         ))}
         <Button onClick={submit} disabled={loading} className="bg-violet-600 hover:bg-violet-500 text-white">
-          {loading ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : <Play className="w-4 h-4 mr-1" />} Comparar
+<span key={loading ? "l" : "p"} className="inline-flex">{loading ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : <Play className="w-4 h-4 mr-1" />}</span><span>Comparar</span>
         </Button>
       </div>
       {err && <p className="text-xs text-red-400">{err}</p>}
