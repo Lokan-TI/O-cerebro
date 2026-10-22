@@ -47,22 +47,26 @@ export default async function (req: Request): Promise<Response> {
       if (!ids.length) return Response.json({ fichas: [], orcamentos: [] });
       const idList = ids.join(',');
       const fichaSql = `SELECT f.cd_controle, f.cd_pessoa, f.cd_empresa, f.numero_prefixo, f.numero, f.numero_sufixo, f.dt_pedido,
-          f.dt_enc_ficha, f.tp_ope_pedido,
-          (SELECT COUNT(*) FROM fl_fatura ft WITH (NOLOCK) WHERE ft.cd_controle = f.cd_controle AND ${NAO_COMPL}) AS nfat,
-          (SELECT MAX(ft.dt_inicio) FROM fl_fatura ft WITH (NOLOCK) WHERE ft.cd_controle = f.cd_controle AND ${NAO_COMPL}) AS ult_ini,
-          (SELECT MAX(ft.dt_fim) FROM fl_fatura ft WITH (NOLOCK) WHERE ft.cd_controle = f.cd_controle AND ${NAO_COMPL}) AS ult_fim
+          f.dt_enc_ficha, f.tp_ope_pedido
         FROM fich_loc f WITH (NOLOCK)
         WHERE f.cd_pessoa IN (${idList}) AND f.tp_ope_pedido <> 'O'
           AND ((${inP(p1.start, e1)}) OR (${inP(p2.start, e2)}))${emp}`;
-      const fichas = rs(await execRead(source, fichaSql, 90000)).filter((r: any) => Number(r.nfat) > 0);
-      const ctrl = fichas.map((r: any) => Number(r.cd_controle));
+      const cand = rs(await execRead(source, fichaSql, 90000));
       const renov: Record<string, string[]> = {};
+      const ultFim: Record<string, string | null> = {};
       const equip: Record<string, any[]> = {};
+      if (cand.length) {
+        const fatSql = `SELECT ft.cd_controle, ft.dt_inicio, ft.dt_fim FROM fl_fatura ft WITH (NOLOCK)
+          WHERE ft.cd_controle IN (${cand.map((r: any) => Number(r.cd_controle)).join(',')}) AND ${NAO_COMPL} ORDER BY ft.cd_controle, ft.dt_inicio`;
+        for (const r of rs(await execRead(source, fatSql, 90000))) {
+          (renov[r.cd_controle] ||= []).push(`${day(r.dt_inicio) || '?'}→${day(r.dt_fim) || '?'}`);
+          const f = day(r.dt_fim); if (f && (!ultFim[r.cd_controle] || f > ultFim[r.cd_controle]!)) ultFim[r.cd_controle] = f;
+        }
+      }
+      const fichas = cand.filter((r: any) => renov[r.cd_controle]?.length);
+      const ctrl = fichas.map((r: any) => Number(r.cd_controle));
       if (ctrl.length) {
         const cl = ctrl.join(',');
-        const fatSql = `SELECT ft.cd_controle, ft.dt_inicio, ft.dt_fim FROM fl_fatura ft WITH (NOLOCK)
-          WHERE ft.cd_controle IN (${cl}) AND ${NAO_COMPL} ORDER BY ft.cd_controle, ft.dt_inicio`;
-        for (const r of rs(await execRead(source, fatSql, 90000))) (renov[r.cd_controle] ||= []).push(`${day(r.dt_inicio) || '?'}→${day(r.dt_fim) || '?'}`);
         const eqSql = `SELECT r.cd_controle, COALESCE(q.nm_equipto, e.ds_equipto) AS nome, e.cd_patrimonio,
             SUM(e.qt_remessa) AS qt, SUM(ISNULL(dv.qt,0)) AS dev
           FROM fl_remessa r WITH (NOLOCK)
@@ -92,7 +96,7 @@ export default async function (req: Request): Promise<Response> {
         fichas: fichas.map((r: any) => ({
           cd_pessoa: String(r.cd_pessoa).trim(), cd_controle: Number(r.cd_controle), numero: fichaNum(r), cd_empresa: Number(r.cd_empresa) || 0,
           inicio: day(r.dt_pedido), periodo: day(r.dt_pedido)! <= p1.end ? 'A' : 'B', encerrada: day(r.dt_enc_ficha),
-          renovacoes: Math.max(0, Number(r.nfat) - 1), movimentacoes: renov[r.cd_controle] || [], ult_fim: day(r.ult_fim),
+          renovacoes: Math.max(0, renov[r.cd_controle].length - 1), movimentacoes: renov[r.cd_controle], ult_fim: ultFim[r.cd_controle] || null,
           equipamentos: equip[r.cd_controle] || [],
         })),
         orcamentos,

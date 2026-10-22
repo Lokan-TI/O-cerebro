@@ -5,9 +5,11 @@ import { STATUS, fmtD } from "./quedaCalc";
 // Exporta exatamente o recorte filtrado: aba Clientes + aba Fichas (renovações e equipamentos por ficha).
 export async function exportQueda(params, list, onProgress) {
   const det = { fichas: [], orcamentos: [] };
-  for (let i = 0; i < list.length; i += 150) {
-    onProgress?.(Math.min(i + 150, list.length), list.length);
-    const d = await fetchDetalhes(params, list.slice(i, i + 150).map((c) => c.cd_pessoa));
+  const B = 40;
+  for (let i = 0; i < list.length; i += B) {
+    onProgress?.(Math.min(i + B, list.length), list.length);
+    const ids = list.slice(i, i + B).map((c) => c.cd_pessoa);
+    const d = await fetchDetalhes(params, ids).catch(() => fetchDetalhes(params, ids));
     det.fichas.push(...d.fichas); det.orcamentos.push(...d.orcamentos);
   }
   const orc = new Map(det.orcamentos.map((o) => [o.cd_pessoa, o]));

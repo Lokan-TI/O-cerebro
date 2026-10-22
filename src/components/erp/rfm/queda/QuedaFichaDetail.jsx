@@ -8,15 +8,17 @@ const cache = new Map();
 export default function QuedaFichaDetail({ params, cdPessoa }) {
   const key = `${JSON.stringify(params)}|${cdPessoa}`;
   const [st, setSt] = useState(cache.get(key) || { loading: true });
+  const [tries, setTries] = useState(0);
   useEffect(() => {
     if (cache.has(key)) return;
+    setSt({ loading: true });
     fetchDetalhes(params, [cdPessoa])
       .then((d) => { const v = { data: d }; cache.set(key, v); setSt(v); })
       .catch((e) => setSt({ error: e.message }));
-  }, [key]);
+  }, [key, tries]);
 
   if (st.loading) return <p className="flex items-center gap-2 text-xs text-gray-400 py-3"><Loader2 className="w-3 h-3 animate-spin" /> Carregando fichas…</p>;
-  if (st.error) return <p className="text-xs text-red-400 py-3">{st.error}</p>;
+  if (st.error) return <p className="text-xs text-red-400 py-3">{st.error} <button onClick={() => setTries(tries + 1)} className="ml-2 underline text-violet-300">Tentar novamente</button></p>;
   const { fichas, orcamentos } = st.data;
   const orc = orcamentos[0];
   return (
