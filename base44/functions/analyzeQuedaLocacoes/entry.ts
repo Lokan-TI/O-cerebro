@@ -54,11 +54,15 @@ export default async function (req: Request): Promise<Response> {
       const cand = rs(await execRead(source, fichaSql, 90000));
       const renov: Record<string, string[]> = {};
       const ultFim: Record<string, string | null> = {};
+      const valRen: Record<string, number> = {}, valCompl: Record<string, number> = {};
       const equip: Record<string, any[]> = {};
       if (cand.length) {
-        const fatSql = `SELECT ft.cd_controle, ft.dt_inicio, ft.dt_fim FROM fl_fatura ft WITH (NOLOCK)
-          WHERE ft.cd_controle IN (${cand.map((r: any) => Number(r.cd_controle)).join(',')}) AND ${NAO_COMPL} ORDER BY ft.cd_controle, ft.dt_inicio`;
+        const fatSql = `SELECT ft.cd_controle, ft.dt_inicio, ft.dt_fim, ft.vl_fatura, ISNULL(ft.fatura_complementar,'N') AS compl FROM fl_fatura ft WITH (NOLOCK)
+          WHERE ft.cd_controle IN (${cand.map((r: any) => Number(r.cd_controle)).join(',')}) ORDER BY ft.cd_controle, ft.dt_inicio`;
         for (const r of rs(await execRead(source, fatSql, 90000))) {
+          const v = Number(r.vl_fatura) || 0;
+          if (r.compl === 'S') { valCompl[r.cd_controle] = (valCompl[r.cd_controle] || 0) + v; continue; }
+          valRen[r.cd_controle] = (valRen[r.cd_controle] || 0) + v;
           (renov[r.cd_controle] ||= []).push(`${day(r.dt_inicio) || '?'}→${day(r.dt_fim) || '?'}`);
           const f = day(r.dt_fim); if (f && (!ultFim[r.cd_controle] || f > ultFim[r.cd_controle]!)) ultFim[r.cd_controle] = f;
         }
@@ -97,6 +101,8 @@ export default async function (req: Request): Promise<Response> {
           cd_pessoa: String(r.cd_pessoa).trim(), cd_controle: Number(r.cd_controle), numero: fichaNum(r), cd_empresa: Number(r.cd_empresa) || 0,
           inicio: day(r.dt_pedido), periodo: day(r.dt_pedido)! <= p1.end ? 'A' : 'B', encerrada: day(r.dt_enc_ficha),
           renovacoes: Math.max(0, renov[r.cd_controle].length - 1), movimentacoes: renov[r.cd_controle], ult_fim: ultFim[r.cd_controle] || null,
+          valor_renovacoes: Math.round((valRen[r.cd_controle] || 0) * 100) / 100, valor_complementar: Math.round((valCompl[r.cd_controle] || 0) * 100) / 100,
+          valor_total: Math.round(((valRen[r.cd_controle] || 0) + (valCompl[r.cd_controle] || 0)) * 100) / 100,
           equipamentos: equip[r.cd_controle] || [],
         })),
         orcamentos,

@@ -1,4 +1,5 @@
-import { Fragment, useState } from "react";
+import { Fragment, useEffect, useState } from "react";
+import { prefetchDetalhes } from "./detailCache";
 import { ChevronDown, ChevronRight } from "lucide-react";
 import { STATUS, fmtD, fmtPct } from "./quedaCalc";
 import QuedaFichaDetail from "./QuedaFichaDetail";
@@ -9,6 +10,9 @@ const COLS = [["nome", "Cliente"], ["status", "Status"], ["loc_a", "Fichas A"], 
 export default function QuedaTable({ rows, params, sort, onSort }) {
   const [open, setOpen] = useState(null);
   const [limit, setLimit] = useState(100);
+  // Carrega de uma vez as fichas dos primeiros clientes exibidos, para o detalhe abrir sem espera.
+  const topIds = rows.slice(0, 40).map((c) => c.cd_pessoa).join(",");
+  useEffect(() => { if (topIds) prefetchDetalhes(params, topIds.split(",")); }, [topIds, JSON.stringify(params)]);
   if (!rows.length) return <p className="text-sm text-gray-500 text-center py-10">Nenhum cliente neste filtro para os períodos comparados.</p>;
   const cell = (c, k) => {
     if (k === "status") return <span className={`px-2 py-0.5 rounded-full text-[11px] ${STATUS[c.status].cls}`}>{STATUS[c.status].label}</span>;

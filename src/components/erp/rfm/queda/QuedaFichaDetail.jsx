@@ -1,21 +1,21 @@
 import { useEffect, useState } from "react";
 import { Loader2 } from "lucide-react";
-import { fetchDetalhes } from "./useQuedaLocacoes";
+import { getDetalhe } from "./detailCache";
 import { fmtD } from "./quedaCalc";
 
-const cache = new Map();
+const brl = (v) => (Number(v) || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
 export default function QuedaFichaDetail({ params, cdPessoa }) {
-  const key = `${JSON.stringify(params)}|${cdPessoa}`;
-  const [st, setSt] = useState(cache.get(key) || { loading: true });
+  const [st, setSt] = useState({ loading: true });
   const [tries, setTries] = useState(0);
   useEffect(() => {
-    if (cache.has(key)) return;
+    let alive = true;
     setSt({ loading: true });
-    fetchDetalhes(params, [cdPessoa])
-      .then((d) => { const v = { data: d }; cache.set(key, v); setSt(v); })
-      .catch((e) => setSt({ error: e.message }));
-  }, [key, tries]);
+    getDetalhe(params, cdPessoa)
+      .then((d) => alive && setSt({ data: d }))
+      .catch((e) => alive && setSt({ error: e.message }));
+    return () => { alive = false; };
+  }, [JSON.stringify(params), cdPessoa, tries]);
 
   if (st.loading) return <p className="flex items-center gap-2 text-xs text-gray-400 py-3"><Loader2 className="w-3 h-3 animate-spin" /> Carregando fichas…</p>;
   if (st.error) return <p className="text-xs text-red-400 py-3">{st.error} <button onClick={() => setTries(tries + 1)} className="ml-2 underline text-violet-300">Tentar novamente</button></p>;
@@ -35,6 +35,8 @@ export default function QuedaFichaDetail({ params, cdPessoa }) {
             <span>Período {f.periodo}</span><span>Início {fmtD(f.inicio)}</span>
             <span><b className="text-violet-300">{f.renovacoes}</b> renovações</span>
             <span>{f.encerrada ? `Encerrada ${fmtD(f.encerrada)}` : "Em aberto"}</span>
+            <span>Valor total <b className="text-emerald-300">{brl(f.valor_total)}</b>
+              <span className="text-gray-500"> (contrato e renovações {brl(f.valor_renovacoes)} + à parte {brl(f.valor_complementar)})</span></span>
           </div>
           {f.movimentacoes.length > 0 && <p className="text-gray-500 mt-1">Movimentações: {f.movimentacoes.map((m) => m.split("→").map(fmtD).join(" a ")).join(" · ")}</p>}
           <p className="text-gray-400 mt-1">
