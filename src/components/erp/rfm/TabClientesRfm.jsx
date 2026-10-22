@@ -16,6 +16,7 @@ import RfmClientList from "./RfmClientList";
 import OrcLocPeriods from "./OrcLocPeriods";
 import useOrcLoc from "./useOrcLoc";
 import QuedaLocacoes from "./queda/QuedaLocacoes";
+import QuedaErrorBoundary from "./queda/QuedaErrorBoundary";
 
 const YEARS = Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - i);
 const card = "bg-gray-900 border border-gray-800 rounded-xl p-4";
@@ -93,7 +94,7 @@ export default function TabClientesRfm() {
             : <p className="text-xs text-gray-500 text-center">Clique em um segmento ou barra para ver a lista de clientes.</p>}
         </>
       )}
-      <QuedaLocacoes sourceId={srcId} empresa={selectedEmpresa} />
+      <QuedaErrorBoundary><QuedaLocacoes sourceId={srcId} empresa={selectedEmpresa} /></QuedaErrorBoundary>
     </div>
   );
 }

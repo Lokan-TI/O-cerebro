@@ -2,7 +2,10 @@ import { useState } from "react";
 import { base44 } from "@/api/base44Client";
 import { enrich } from "./quedaCalc";
 
-const errMsg = (e) => e?.response?.data?.error || e?.message || "Falha na consulta.";
+const errMsg = (e) => {
+  const m = e?.response?.data?.error || e?.message || "Falha na consulta.";
+  return typeof m === "string" ? m : (m.message || JSON.stringify(m));
+};
 
 export function fetchDetalhes(params, ids) {
   return base44.functions.invoke("analyzeQuedaLocacoes", { ...params, mode: "detalhes", cd_pessoas: ids })
@@ -16,7 +19,9 @@ export default function useQuedaLocacoes() {
     setState({ loading: true, error: null, data: null, params });
     try {
       const { data } = await base44.functions.invoke("analyzeQuedaLocacoes", params);
-      setState({ loading: false, error: null, params, data: { ...data, clientes: (data.clientes || []).map(enrich) } });
+      if (!data || !Array.isArray(data.clientes)) throw new Error(data?.error || "A consulta não retornou dados válidos. Tente um período menor.");
+      const clientes = data.clientes.map((c) => enrich({ ...c, nome: String(c.nome || ""), doc: String(c.doc || ""), cd_pessoa: String(c.cd_pessoa) }));
+      setState({ loading: false, error: null, params, data: { ...data, clientes } });
     } catch (e) {
       setState({ loading: false, error: errMsg(e), data: null, params });
     }
