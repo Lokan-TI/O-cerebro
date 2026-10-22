@@ -18,7 +18,8 @@ export default function useQuedaLocacoes() {
   const run = async (params) => {
     setState({ loading: true, error: null, data: null, params });
     try {
-      const { data } = await base44.functions.invoke("analyzeQuedaLocacoes", params);
+      const timeout = new Promise((_, rej) => setTimeout(() => rej(new Error("A consulta excedeu o tempo limite (3 min). Tente períodos menores ou filtre por empresa.")), 180000));
+      const { data } = await Promise.race([base44.functions.invoke("analyzeQuedaLocacoes", params), timeout]);
       if (!data || !Array.isArray(data.clientes)) throw new Error(data?.error || "A consulta não retornou dados válidos. Tente um período menor.");
       const clientes = data.clientes.map((c) => enrich({ ...c, nome: String(c.nome || ""), doc: String(c.doc || ""), cd_pessoa: String(c.cd_pessoa) }));
       setState({ loading: false, error: null, params, data: { ...data, clientes } });
