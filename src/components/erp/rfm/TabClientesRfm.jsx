@@ -2,7 +2,6 @@ import { useEffect, useMemo, useState } from "react";
 import { Loader2 } from "lucide-react";
 import { useErpSource, ALL_SOURCES_ID } from "@/lib/ErpSourceContext";
 import { useEmpresaFilter } from "@/lib/EmpresaFilterContext";
-import { useErpSnapshot } from "@/lib/ErpSnapshotContext";
 import { fetchClientesAtivos } from "@/components/erp/clientesAtivosCache";
 import { computeRfm, rfmWindow, loadLimits, saveLimits } from "@/lib/rfm";
 import RfmLimitsMenu from "./RfmLimitsMenu";
@@ -26,9 +25,9 @@ export default function TabClientesRfm() {
   const [mode, setMode] = useState("global");
   const [custom, setCustom] = useState({ start: period.start, end: period.end });
   const [state, setState] = useState({ loading: true, rows: null, error: null });
-  const { selectedSource } = useErpSource();
+  const { selectedSource, loading: sourcesLoading } = useErpSource();
   const { selectedEmpresa } = useEmpresaFilter();
-  const { snapshot } = useErpSnapshot();
+  const [retry, setRetry] = useState(0);
   const win = mode === "global" ? { start: period.start, end: period.end } : custom;
   const [sel, setSel] = useState(null);
   const [limits, setLimits] = useState(loadLimits);
@@ -42,12 +41,14 @@ export default function TabClientesRfm() {
   useEffect(() => {
     let alive = true;
     setState({ loading: true, rows: null, error: null });
+    if (sourcesLoading) return () => { alive = false; };
     const sourceId = selectedSource?.id && selectedSource.id !== ALL_SOURCES_ID ? selectedSource.id : null;
-    fetchClientesAtivos(sourceId, win.start, win.end, snapshot?.version, true)
+    // Consulta ao vivo da própria janela do RFM — independente do snapshot; cache renovado diariamente.
+    fetchClientesAtivos(sourceId, win.start, win.end, `rfm-${new Date().toISOString().slice(0, 10)}`, true)
       .then((d) => alive && setState({ loading: false, rows: d?.rows || [], error: null }))
       .catch((e) => alive && setState({ loading: false, rows: null, error: e.message }));
     return () => { alive = false; };
-  }, [win.start, win.end, selectedSource?.id, snapshot?.version]);
+  }, [win.start, win.end, selectedSource?.id, sourcesLoading, retry]);
 
   const rfm = useMemo(() => {
     if (!state.rows) return null;
@@ -67,7 +68,7 @@ export default function TabClientesRfm() {
       </div>
 
       {state.loading && <div className={`${card} flex items-center justify-center gap-2 text-sm text-gray-400 py-16`}><Loader2 className="w-4 h-4 animate-spin" /> Calculando RFM…</div>}
-      {state.error && <div className={`${card} text-sm text-red-400`}>Erro ao carregar clientes: {state.error}</div>}
+      {state.error && <div className={`${card} text-sm text-red-400`}>Erro ao carregar clientes: {state.error} <button onClick={() => setRetry((n) => n + 1)} className="ml-2 underline text-purple-300">Tentar novamente</button></div>}
       {rfm && rfm.total === 0 && <div className={`${card} text-sm text-gray-400 text-center py-12`}>Nenhum cliente com faturamento no período.</div>}
 
       {rfm && rfm.total > 0 && (

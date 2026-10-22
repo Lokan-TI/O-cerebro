@@ -10,8 +10,9 @@ export function fetchClientesAtivos(sourceId, start, end, snapshotVersion = "", 
   // reutilizar silenciosamente o resultado ao vivo calculado sobre a versão anterior.
   const key = `v3${light ? "L" : ""}|${sourceId || "all"}|${start}|${end}|${snapshotVersion || "no-version"}`;
   if (!cache.has(key)) {
-    const p = loadSaved(key)
-      .then((saved) => saved || fetchAndSave(key, sourceId, start, end, light))
+    const work = loadSaved(key).then((saved) => saved || fetchAndSave(key, sourceId, start, end, light));
+    const timeout = new Promise((_, rej) => setTimeout(() => rej(new Error("A consulta ao ERP excedeu o tempo limite (3 min). Tente um período menor ou tente novamente.")), 180000));
+    const p = Promise.race([work, timeout])
       .catch((e) => {
         cache.delete(key);
         throw e;
