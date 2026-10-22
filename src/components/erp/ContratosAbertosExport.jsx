@@ -5,6 +5,7 @@ import { fetchContratos, exportContratosXlsx } from "./contratosAbertosExport";
 import { buildResumo } from "./contratosResumo";
 import { exportContratosBruto } from "./contratosBrutoExport";
 import ContratosResumoTable from "./ContratosResumoTable";
+import { exportMigracao } from "./migracaoExport";
 
 export default function ContratosAbertosExport({ sourceId, empresas = [] }) {
   const [empresa, setEmpresa] = useState(empresas[0] ? String(empresas[0].cd_empresa) : "");
@@ -42,6 +43,17 @@ export default function ContratosAbertosExport({ sourceId, empresas = [] }) {
     setLoading(false);
   };
 
+  const runMigracao = async () => {
+    setLoading(true);
+    try {
+      const n = await exportMigracao(sourceId, empresa, setMsg);
+      setMsg(n ? `${n} fichas abertas exportadas (1 linha por ficha)` : "Nenhuma ficha aberta encontrada.");
+    } catch (e) {
+      setMsg(`Erro: ${e.message}`);
+    }
+    setLoading(false);
+  };
+
   return (
     <>
     <div className="px-4 py-3 border-b border-gray-800 flex flex-wrap items-center gap-2">
@@ -53,6 +65,9 @@ export default function ContratosAbertosExport({ sourceId, empresas = [] }) {
       {msg && <span className={`text-xs ${msg.startsWith("Erro") ? "text-red-400" : "text-gray-500"}`}>{msg}</span>}
       <button onClick={runBruto} disabled={loading || !sourceId} className="ml-auto flex items-center gap-1.5 px-3 py-1.5 bg-gray-700 hover:bg-gray-600 rounded-lg text-white text-xs font-medium disabled:opacity-50">
         {loading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <FileSpreadsheet className="w-3.5 h-3.5" />} Exportar bruto (Sisloc)
+      </button>
+      <button onClick={runMigracao} disabled={loading || !sourceId} className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-700 hover:bg-emerald-600 rounded-lg text-white text-xs font-medium disabled:opacity-50">
+        {loading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <FileSpreadsheet className="w-3.5 h-3.5" />} Exportar para migração (novo ERP)
       </button>
       <button onClick={run} disabled={loading || !sourceId} className="flex items-center gap-1.5 px-3 py-1.5 bg-violet-700 hover:bg-violet-600 rounded-lg text-white text-xs font-medium disabled:opacity-50">
         {loading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <FileSpreadsheet className="w-3.5 h-3.5" />} Exportar contratos

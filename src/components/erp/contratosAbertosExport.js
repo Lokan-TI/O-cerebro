@@ -21,7 +21,7 @@ export async function fetchContratos(sourceId, cdEmpresa, onProgress, mode) {
   }
 }
 
-const contratoCols = (r) => ({
+export const contratoCols = (r) => ({
   "ID contrato (ficha)": txt(r.cd_controle),
   "Nº contrato": [r.numero_prefixo, r.numero, r.numero_sufixo].filter(Boolean).join(""),
   "Empresa": getEmpresaLabel(r.cd_empresa),
