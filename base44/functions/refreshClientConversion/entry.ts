@@ -70,7 +70,7 @@ Deno.serve(async (req) => {
             SUM(CASE WHEN f.dt_enc_ficha IS NULL THEN 1 ELSE 0 END) OVER (PARTITION BY f.cd_pessoa) AS ativas,
             ROW_NUMBER() OVER (PARTITION BY f.cd_pessoa ORDER BY f.dt_pedido, f.cd_controle) AS rn
           FROM fich_loc f WITH (NOLOCK)
-          WHERE f.cd_pessoa IN (${novosSub}) AND f.dt_pedido IS NOT NULL
+          WHERE f.cd_pessoa IN (${novosSub}) AND f.dt_pedido IS NOT NULL AND ISNULL(f.tp_ope_pedido,'') <> 'O'
             ${empFilter('f')}
         ) x WHERE rn = 1`;
       fichas = getRows(await runQuery(source, wrap(fichaSql), 60000));

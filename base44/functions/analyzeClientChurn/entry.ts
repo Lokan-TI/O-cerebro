@@ -215,7 +215,7 @@ Deno.serve(async (req) => {
       LEFT JOIN calcfat cf WITH (NOLOCK) ON cf.cd_calcfat = f.cd_calcfat
       LEFT JOIN remessa_by_contract rb ON rb.cd_controle = f.cd_controle
       LEFT JOIN nf_by_contract nb ON nb.cd_controle = f.cd_controle
-      WHERE f.cd_pessoa IS NOT NULL ${empFilter('f')}
+      WHERE f.cd_pessoa IS NOT NULL AND ISNULL(f.tp_ope_pedido,'') <> 'O' ${empFilter('f')}
     )
     SELECT
       r.cd_pessoa,
@@ -463,7 +463,7 @@ Deno.serve(async (req) => {
             SUM(CASE WHEN fl_rep_ficha = 'S' THEN 1 ELSE 0 END) AS qtd_renovacoes,
             ISNULL(SUM(vl_encerramento),0) AS total_encerramento
             FROM fich_loc WITH (NOLOCK)
-            WHERE cd_pessoa IN (${codesList})
+            WHERE cd_pessoa IN (${codesList}) AND ISNULL(tp_ope_pedido,'') <> 'O'
               ${empFilter()}
             GROUP BY cd_pessoa`; 
           for (const f of getRows(await runQuery(source, wrap(fichSql), 20000))) {
