@@ -3,6 +3,7 @@ const SUM_KPIS = [
   "fat_ano", "fat_ano_ant", "fat_mes", "fat_mes_ant", "fat_mes_ant_full", "nfs_mes_ant", "clientes_mes_ant", "nfs_ano", "nfs_mes", "clientes_ano", "clientes_mes",
   "new_clients", "new_client_revenue", "retained_revenue", "retained_clients",
   "clients_last_year", "churned_clients",
+  "fat_ano_ant_full", "nfs_ano_ant", "clientes_ano_ant", "clients_last_year_full", "churned_clients_full",
 ];
 const SUM_ANALYTICS = [
   "car_total", "car_aberto", "car_vencido", "cap_total", "cap_aberto", "receita_gerada",
@@ -32,6 +33,9 @@ export function mergeSnapshots(snapshots) {
   k.crescimento_mes = k.fat_mes_ant ? ((k.fat_mes - k.fat_mes_ant) / k.fat_mes_ant) * 100 : null;
   k.mes_parcial = rows.some((r) => r.kpis?.mes_parcial);
   k.mtd_dia = rows[0].kpis?.mtd_dia ?? null;
+  k.ano_parcial = rows.some((r) => r.kpis?.ano_parcial);
+  k.ano_ytd_dia = rows[0].kpis?.ano_ytd_dia ?? null;
+  k.ano_ytd_ate = rows[0].kpis?.ano_ytd_ate ?? null;
   k.retention_rate = k.clients_last_year ? (k.retained_clients / k.clients_last_year) * 100 : 0;
   k.churn_rate = k.clients_last_year ? (k.churned_clients / k.clients_last_year) * 100 : 0;
   k.receita_por_cliente = k.clientes_ano ? k.fat_ano / k.clientes_ano : 0;

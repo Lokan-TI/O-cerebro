@@ -50,6 +50,11 @@ export default function SnapshotKpiGrid() {
 
   const parcial = !!kpis.mes_parcial;
   const config = KPI_CONFIG.map((kpi) => {
+    if (kpi.key === "crescimento_ano") {
+      return kpis.ano_parcial
+        ? { ...kpi, label: "Crescimento Ano (YTD)", sub: "vs. mesmo período do ano anterior" }
+        : { ...kpi, label: "Crescimento Ano", sub: "vs. ano anterior" };
+    }
     if (kpi.key !== "fat_mes" || !parcial) return kpi;
     const g = kpis.crescimento_mes;
     return {

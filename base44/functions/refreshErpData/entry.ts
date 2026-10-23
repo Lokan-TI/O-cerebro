@@ -39,8 +39,10 @@ function generateAlerts(kpis, topClients) {
   if (kpis.crescimento_ano != null && kpis.crescimento_ano < 0) {
     alerts.push({
       type: 'attention', severity: kpis.crescimento_ano < -15 ? 'critical' : 'warning',
-      title: 'Queda na receita anual',
-      message: `A receita anual caiu ${Math.abs(kpis.crescimento_ano).toFixed(1)}% em relação ao ano anterior.`,
+      title: kpis.ano_parcial ? 'Queda na receita anual (YTD)' : 'Queda na receita anual',
+      message: kpis.ano_parcial
+        ? `Ano parcial (até ${kpis.ano_ytd_ate}): a receita YTD caiu ${Math.abs(kpis.crescimento_ano).toFixed(1)}% vs. o mesmo período do ano anterior.`
+        : `A receita anual caiu ${Math.abs(kpis.crescimento_ano).toFixed(1)}% em relação ao ano anterior.`,
       impact: kpis.fat_ano_ant - kpis.fat_ano,
     });
   }
@@ -62,7 +64,9 @@ function generateAlerts(kpis, topClients) {
     alerts.push({
       type: 'risk', severity: kpis.churn_rate > 35 ? 'critical' : 'warning',
       title: 'Churn de clientes elevado',
-      message: `${kpis.churned_clients} clientes do ano anterior não voltaram a alugar (churn de ${kpis.churn_rate.toFixed(1)}%).`,
+      message: kpis.ano_parcial
+        ? `${kpis.churned_clients} clientes que faturaram até ${String(kpis.ano_ytd_ate || '').slice(5).split('-').reverse().join('/')} do ano anterior ainda não faturaram este ano (churn YTD de ${kpis.churn_rate.toFixed(1)}%).`
+        : `${kpis.churned_clients} clientes do ano anterior não voltaram a alugar (churn de ${kpis.churn_rate.toFixed(1)}%).`,
       impact: null,
     });
   }
@@ -95,7 +99,7 @@ function generateAlerts(kpis, topClients) {
     alerts.push({
       type: 'opportunity', severity: 'info',
       title: 'Crescimento anual expressivo',
-      message: `A receita anual cresceu ${kpis.crescimento_ano.toFixed(1)}% vs. ano anterior. Avaliar investimento em retenção da base.`,
+      message: `A receita anual cresceu ${kpis.crescimento_ano.toFixed(1)}% vs. ${kpis.ano_parcial ? 'o mesmo período do ano anterior' : 'ano anterior'}. Avaliar investimento em retenção da base.`,
       impact: kpis.fat_ano - kpis.fat_ano_ant,
     });
   }
@@ -293,11 +297,24 @@ async function processRefresh(base44, source, run, version, previousVersion, sta
     const monthStart = 'DATEFROMPARTS(YEAR(GETDATE()),MONTH(GETDATE()),1)';
     const monthEnd = 'DATEADD(month,1,DATEFROMPARTS(YEAR(GETDATE()),MONTH(GETDATE()),1))';
     const prevMonthStart = 'DATEADD(month,-1,DATEFROMPARTS(YEAR(GETDATE()),MONTH(GETDATE()),1))';
-    // Comparação anual: mesma janela deslocada em 1 ano quando há período explícito.
-    const lastYearEnd = requestedEnd ? `DATEADD(year,-1,CAST('${requestedEnd}' AS date))` : 'DATEADD(year,-1,GETDATE())';
+    const mtdEnd = 'DATEADD(day,1,CAST(GETDATE() AS date))';
+    // Comparação anual apples-to-apples (Pente Fino 8/8): YTD vs YTD. O fim efetivo do
+    // período atual é limitado a hoje (inclusive); o ano anterior usa a mesma janela de dias.
+    // Ano anterior completo (mesmo início, fim do período deslocado) exposto em *_ant_full.
+    const effEnd = requestedEnd
+      ? `(CASE WHEN CAST('${requestedEnd}' AS date) < ${mtdEnd} THEN CAST('${requestedEnd}' AS date) ELSE ${mtdEnd} END)`
+      : mtdEnd;
+    const lastYearEnd = `DATEADD(year,-1,${effEnd})`;
+    const lastYearFullEnd = `DATEADD(year,-1,${yearEnd})`;
+    const ytdExtra = `
+        ISNULL(SUM(CASE WHEN dt_emi_nf >= ${lastYearStart} AND dt_emi_nf < ${lastYearFullEnd} THEN vl_faturamento ELSE 0 END),0) AS fat_ano_ant_full,
+        COUNT(CASE WHEN dt_emi_nf >= ${lastYearStart} AND dt_emi_nf < ${lastYearEnd} THEN 1 END) AS nfs_ano_ant,
+        COUNT(DISTINCT CASE WHEN dt_emi_nf >= ${lastYearStart} AND dt_emi_nf < ${lastYearEnd} THEN cd_pessoa END) AS clientes_ano_ant,
+        CASE WHEN ${effEnd} < CAST(${yearEnd} AS date) THEN 1 ELSE 0 END AS ano_parcial,
+        DAY(GETDATE()) AS ano_ytd_dia,
+        CONVERT(varchar(10), DATEADD(day,-1,${effEnd}), 23) AS ano_ytd_ate,`;
     // Comparação mensal apples-to-apples (Pente Fino 5/8): MTD atual vs MTD do mês anterior
     // (mesma janela de dias, DATEADD(month,-1,...)). Mês anterior cheio exposto à parte (fat_mes_ant_full).
-    const mtdEnd = 'DATEADD(day,1,CAST(GETDATE() AS date))';
     const lastMonthStart = `DATEADD(month,-1,${monthStart})`;
     const lastMonthEnd = `DATEADD(month,-1,${mtdEnd})`;
     const lastMonthFullEnd = monthStart;
@@ -316,7 +333,7 @@ async function processRefresh(base44, source, run, version, previousVersion, sta
         ISNULL(SUM(CASE WHEN dt_emi_nf >= ${yearStart} AND dt_emi_nf < ${yearEnd} THEN vl_faturamento ELSE 0 END),0) AS fat_ano,
         ISNULL(SUM(CASE WHEN dt_emi_nf >= ${lastYearStart} AND dt_emi_nf < ${lastYearEnd} THEN vl_faturamento ELSE 0 END),0) AS fat_ano_ant,
         ISNULL(SUM(CASE WHEN dt_emi_nf >= ${monthStart} AND dt_emi_nf < ${monthEnd} THEN vl_faturamento ELSE 0 END),0) AS fat_mes,
-        ISNULL(SUM(CASE WHEN dt_emi_nf >= ${lastMonthStart} AND dt_emi_nf < ${lastMonthEnd} THEN vl_faturamento ELSE 0 END),0) AS fat_mes_ant,${mtdExtra}
+        ISNULL(SUM(CASE WHEN dt_emi_nf >= ${lastMonthStart} AND dt_emi_nf < ${lastMonthEnd} THEN vl_faturamento ELSE 0 END),0) AS fat_mes_ant,${mtdExtra}${ytdExtra}
         COUNT(CASE WHEN dt_emi_nf >= ${monthStart} AND dt_emi_nf < ${monthEnd} THEN 1 END) AS nfs_mes,
         COUNT(CASE WHEN dt_emi_nf >= ${yearStart} AND dt_emi_nf < ${yearEnd} THEN 1 END) AS nfs_ano,
         COUNT(DISTINCT CASE WHEN dt_emi_nf >= ${monthStart} AND dt_emi_nf < ${monthEnd} THEN cd_pessoa END) AS clientes_mes,
@@ -325,6 +342,7 @@ async function processRefresh(base44, source, run, version, previousVersion, sta
         ISNULL(SUM(CASE WHEN dt_emi_nf >= ${monthStart} AND dt_emi_nf < ${monthEnd} THEN vl_faturamento ELSE 0 END),0) / NULLIF(COUNT(CASE WHEN dt_emi_nf >= ${monthStart} AND dt_emi_nf < ${monthEnd} THEN 1 END),0) AS ticket_mes,
         MAX(dt_emi_nf) AS max_date
       FROM nf WHERE dt_emi_nf >= ${lastYearStart} AND dt_emi_nf < ${yearEnd} ${nfF} ${empF}`;
+      // Nota: fat_ano_ant_full cobre o ano anterior até lastYearFullEnd (<= yearStart), dentro do WHERE.
 
       const kpiRes = await runQuery(source, wrap(kpiSql), 90000);
       queryCount++;
@@ -521,10 +539,11 @@ async function processRefresh(base44, source, run, version, previousVersion, sta
       // Evita três scans consecutivos da mesma tabela, principal ponto de timeout observado no refresh.
       const cohortSql = `SELECT cd_empresa, cd_pessoa,
           MAX(CASE WHEN dt_emi_nf >= ${lastYearStart} AND dt_emi_nf < ${lastYearEnd} THEN 1 ELSE 0 END) AS ly,
+          MAX(CASE WHEN dt_emi_nf >= ${lastYearStart} AND dt_emi_nf < ${lastYearFullEnd} THEN 1 ELSE 0 END) AS ly_full,
           MAX(CASE WHEN dt_emi_nf >= ${yearStart} AND dt_emi_nf < ${yearEnd} THEN 1 ELSE 0 END) AS ty,
           ISNULL(SUM(CASE WHEN dt_emi_nf >= ${yearStart} AND dt_emi_nf < ${yearEnd} THEN vl_faturamento ELSE 0 END),0) AS rev
         FROM nf WITH (NOLOCK)
-        WHERE ((dt_emi_nf >= ${lastYearStart} AND dt_emi_nf < ${lastYearEnd})
+        WHERE ((dt_emi_nf >= ${lastYearStart} AND dt_emi_nf < ${lastYearFullEnd})
             OR (dt_emi_nf >= ${yearStart} AND dt_emi_nf < ${yearEnd}))
           ${nfF} ${empF}
           AND cd_pessoa IS NOT NULL
@@ -545,13 +564,15 @@ async function processRefresh(base44, source, run, version, previousVersion, sta
         if (ly === 1 && ty === 1) { ce.retained++; ce.retainedSet.add(code); }
         if (ty === 1 && ly === 0) { ce.newC++; ce.newSet.add(code); }
         if (ly === 1 && ty === 0) ce.churned++;
-        if (!consolidated[code]) consolidated[code] = { ly: 0, ty: 0 };
+        if (!consolidated[code]) consolidated[code] = { ly: 0, ty: 0, lyFull: 0 };
         consolidated[code].ly = Math.max(consolidated[code].ly, ly);
+        consolidated[code].lyFull = Math.max(consolidated[code].lyFull, Number(r.ly_full) > 0 ? 1 : 0);
         consolidated[code].ty = Math.max(consolidated[code].ty, ty);
       }
-      let retained = 0, newC = 0, churned = 0, clientsLastYear = 0;
+      let retained = 0, newC = 0, churned = 0, clientsLastYear = 0, clientsLastYearFull = 0, churnedFull = 0;
       const newSet = new Set(), retainedSet = new Set();
       for (const [code, v] of Object.entries(consolidated)) {
+        if (v.lyFull === 1) { clientsLastYearFull++; if (v.ty === 0) churnedFull++; }
         if (v.ly === 1) clientsLastYear++;
         if (v.ly === 1 && v.ty === 1) { retained++; retainedSet.add(code); }
         if (v.ty === 1 && v.ly === 0) { newC++; newSet.add(code); }
@@ -578,6 +599,9 @@ async function processRefresh(base44, source, run, version, previousVersion, sta
         new_clients: newC,
         churned_clients: churned,
         clients_last_year: clientsLastYear,
+        clients_last_year_full: clientsLastYearFull,
+        churned_clients_full: churnedFull,
+        churn_rate_full: clientsLastYearFull > 0 ? (churnedFull / clientsLastYearFull * 100) : null,
         retention_rate: clientsLastYear > 0 ? (retained / clientsLastYear * 100) : null,
         churn_rate: clientsLastYear > 0 ? (churned / clientsLastYear * 100) : null,
         new_client_revenue: newRevenue,
@@ -921,6 +945,12 @@ async function processRefresh(base44, source, run, version, previousVersion, sta
       clientes_mes_ant: Number(kpiRow.clientes_mes_ant) || 0,
       mes_parcial: Number(kpiRow.mes_parcial) === 1,
       mtd_dia: Number(kpiRow.mtd_dia) || null,
+      fat_ano_ant_full: Number(kpiRow.fat_ano_ant_full) || 0,
+      nfs_ano_ant: Number(kpiRow.nfs_ano_ant) || 0,
+      clientes_ano_ant: Number(kpiRow.clientes_ano_ant) || 0,
+      ano_parcial: Number(kpiRow.ano_parcial) === 1,
+      ano_ytd_dia: Number(kpiRow.ano_ytd_dia) || null,
+      ano_ytd_ate: kpiRow.ano_ytd_ate || null,
       nfs_mes: Number(kpiRow.nfs_mes) || 0,
       nfs_ano: Number(kpiRow.nfs_ano) || 0,
       clientes_mes: Number(kpiRow.clientes_mes) || 0,
@@ -936,6 +966,9 @@ async function processRefresh(base44, source, run, version, previousVersion, sta
     kpis.new_clients = cohortKpis.new_clients || 0;
     kpis.churned_clients = cohortKpis.churned_clients || 0;
     kpis.clients_last_year = cohortKpis.clients_last_year || 0;
+    kpis.clients_last_year_full = cohortKpis.clients_last_year_full || 0;
+    kpis.churned_clients_full = cohortKpis.churned_clients_full || 0;
+    kpis.churn_rate_full = cohortKpis.churn_rate_full ?? null;
     kpis.retention_rate = cohortKpis.retention_rate;
     kpis.churn_rate = cohortKpis.churn_rate;
     kpis.new_client_revenue = cohortKpis.new_client_revenue || 0;
