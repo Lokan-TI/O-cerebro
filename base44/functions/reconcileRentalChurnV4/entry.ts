@@ -3,12 +3,12 @@ import { execRead } from '../../shared/erpConnection.ts';
 import {
   RENTAL_CHURN_V4_STATUS,
   RENTAL_CHURN_V4_VERSION,
-  buildRentalChurnV4CustomerSql,
-  buildRentalChurnV4EpisodeSql,
-  buildRentalChurnV4FichaDetailSql,
+  DW_API_MAX_SQL_CHARS,
+  buildRentalChurnV4StepSql,
   normalizeRentalChurnV4Context,
   rentalChurnV4Dates,
 } from '../../shared/rentalChurnV4.ts';
+import { runRentalChurnV4 } from '../../shared/rentalChurnV4Engine.ts';
 
 function rowsOf(result: any) {
   return Array.isArray(result?.recordset) ? result.recordset : [];
@@ -199,7 +199,6 @@ export default async function (req: Request): Promise<Response> {
     });
     const dates = rentalChurnV4Dates(ctx);
 
-    const customerSql = buildRentalChurnV4CustomerSql(ctx);
     await trace({
       status: 'customer_query',
       step: 'customer_query_started',
@@ -208,16 +207,24 @@ export default async function (req: Request): Promise<Response> {
       period_end: ctx.periodEnd,
       inactivity_months: ctx.inactivityMonths,
     });
-    const customerRows = rowsOf(await stepQuery('customer_query', source, customerSql));
-    await trace({ status: 'customer_query', step: 'customer_query_completed', customer_rows: customerRows.length });
+    // O wrapper DW_API aceita no máximo 8.000 caracteres por SQL: a v4 roda em etapas
+    // pequenas sequenciais e o rollup/episódios é calculado em memória.
+    const stepRows: Record<string, number> = {};
+    const v4 = await runRentalChurnV4(ctx, async (step, sql) => {
+      await trace({ status: 'customer_query', step: `${step}_started` });
+      const rows = rowsOf(await stepQuery(step, source, sql));
+      stepRows[step] = rows.length;
+      await trace({ status: 'customer_query', step: `${step}_completed` });
+      return rows;
+    });
+    const customerRows = v4.customerRows;
+    await trace({ status: 'customer_query', step: 'customer_query_completed', customer_rows: customerRows.length, context_json: JSON.stringify({ sql_limit: DW_API_MAX_SQL_CHARS, sql_lengths: v4.sql_lengths, step_rows: stepRows }) });
 
     // Motor temporal separado: transforma fichas efetivamente ativadas em intervalos,
     // une contratos sobrepostos e cria um evento de churn apenas quando o gap até o
     // próximo episódio supera N meses. Assim um churn histórico seguido de reativação
     // não desaparece do período só porque o cliente alugou novamente depois.
-    const episodeSql = buildRentalChurnV4EpisodeSql(ctx);
-    await trace({ status: 'episode_query', step: 'episode_query_started' });
-    const episodeRows = rowsOf(await stepQuery('episode_query', source, episodeSql));
+    const episodeRows = v4.episodeRows;
     await trace({ status: 'episode_query', step: 'episode_query_completed', episode_rows: episodeRows.length });
 
     await trace({ status: 'normalizing', step: 'normalizing_results' });
@@ -315,12 +322,10 @@ export default async function (req: Request): Promise<Response> {
       ...auditCandidates.map((c: any) => c.row.cd_pessoa),
     ])].slice(0, detailLimit);
     let fichaDetails: any[] = [];
-    let detailSql: string | null = null;
     if (includeDetails && detailCodes.length) {
-      const detailCtx = normalizeRentalChurnV4Context({ ...ctx, customerIds: detailCodes });
-      detailSql = buildRentalChurnV4FichaDetailSql(detailCtx);
-      await trace({ status: 'detail_query', step: 'detail_query_started', audit_cases: auditCandidates.length });
-      fichaDetails = rowsOf(await stepQuery('detail_query', source, detailSql, 30000)).map((r: any) => ({
+      // Evidência por ficha já está em memória (etapas acima) — sem nova consulta ao ERP.
+      const wanted = new Set(detailCodes.map(String));
+      fichaDetails = v4.fichas.filter((f: any) => wanted.has(String(f.cd_pessoa))).map((r: any) => ({
         ...r,
         cd_pessoa: String(r.cd_pessoa || ''),
         cd_controle: String(r.cd_controle || ''),
@@ -494,7 +499,7 @@ export default async function (req: Request): Promise<Response> {
         pending_returns: devolucoesPendentes,
         valid_linked_nf_count: Number(r.valid_linked_nf_count) || 0,
         canonical_nf_count: Number(r.canonical_nf_count) || 0,
-        evidence_json: JSON.stringify(evidence).slice(0, 60000),
+        evidence_json: JSON.stringify(evidence).slice(0, 15000),
         sisloc_observed_status: '',
         verdict: 'pending',
         reviewed: false,
@@ -548,6 +553,7 @@ export default async function (req: Request): Promise<Response> {
         persistenceWarning = `Reconciliação calculada, mas não foi possível persistir o run: ${persistError?.message || String(persistError)}`;
       }
     }
+    await trace({ status: 'completed', step: persistenceWarning ? 'completed_with_persistence_warning' : 'completed', error_message: persistenceWarning || undefined, completed_at: new Date().toISOString() });
 
     return Response.json({
       success: true,
@@ -578,7 +584,7 @@ export default async function (req: Request): Promise<Response> {
       top_divergences: divergenceRows,
       audit_cases: auditCaseRecords.map(({ evidence_json, ...r }: any) => r),
       ficha_evidence: fichaDetails,
-      queries: body?.include_queries === true ? { customer: customerSql, episodes: episodeSql, detail: detailSql } : undefined,
+      queries: body?.include_queries === true ? buildRentalChurnV4StepSql(ctx) : undefined,
       duration_ms: Date.now() - started,
     });
   } catch (error) {
