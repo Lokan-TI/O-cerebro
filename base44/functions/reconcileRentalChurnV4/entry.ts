@@ -14,6 +14,18 @@ function rowsOf(result: any) {
   return Array.isArray(result?.recordset) ? result.recordset : [];
 }
 
+// Executa uma etapa com timeout próprio e mensagem clara (etapa + tempo), para o log
+// mostrar exatamente onde a execução parou em vez de "operation timed out".
+async function stepQuery(step: string, source: any, sql: string, timeoutMs = 50000) {
+  const t0 = Date.now();
+  try {
+    // O wrapper DW_API limita o tamanho do texto: compacta espaços (o SQL v4 não usa comentários "--").
+    return await execRead(source, sql.replace(/\s+/g, ' ').trim(), timeoutMs);
+  } catch (e: any) {
+    throw new Error(`Etapa ${step} falhou após ${Math.round((Date.now() - t0) / 1000)}s (limite ${timeoutMs / 1000}s): ${(e?.message || String(e)).slice(0, 200)}`);
+  }
+}
+
 function iso(value: any) {
   if (!value) return null;
   try { return new Date(value).toISOString().slice(0, 10); } catch { return null; }
@@ -196,7 +208,7 @@ export default async function (req: Request): Promise<Response> {
       period_end: ctx.periodEnd,
       inactivity_months: ctx.inactivityMonths,
     });
-    const customerRows = rowsOf(await execRead(source, customerSql, 120000));
+    const customerRows = rowsOf(await stepQuery('customer_query', source, customerSql));
     await trace({ status: 'customer_query', step: 'customer_query_completed', customer_rows: customerRows.length });
 
     // Motor temporal separado: transforma fichas efetivamente ativadas em intervalos,
@@ -205,7 +217,7 @@ export default async function (req: Request): Promise<Response> {
     // não desaparece do período só porque o cliente alugou novamente depois.
     const episodeSql = buildRentalChurnV4EpisodeSql(ctx);
     await trace({ status: 'episode_query', step: 'episode_query_started' });
-    const episodeRows = rowsOf(await execRead(source, episodeSql, 120000));
+    const episodeRows = rowsOf(await stepQuery('episode_query', source, episodeSql));
     await trace({ status: 'episode_query', step: 'episode_query_completed', episode_rows: episodeRows.length });
 
     await trace({ status: 'normalizing', step: 'normalizing_results' });
@@ -308,7 +320,7 @@ export default async function (req: Request): Promise<Response> {
       const detailCtx = normalizeRentalChurnV4Context({ ...ctx, customerIds: detailCodes });
       detailSql = buildRentalChurnV4FichaDetailSql(detailCtx);
       await trace({ status: 'detail_query', step: 'detail_query_started', audit_cases: auditCandidates.length });
-      fichaDetails = rowsOf(await execRead(source, detailSql, 120000)).map((r: any) => ({
+      fichaDetails = rowsOf(await stepQuery('detail_query', source, detailSql, 30000)).map((r: any) => ({
         ...r,
         cd_pessoa: String(r.cd_pessoa || ''),
         cd_controle: String(r.cd_controle || ''),

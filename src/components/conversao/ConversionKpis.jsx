@@ -32,7 +32,7 @@ export default function ConversionKpis({ k }) {
       <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-4">
         <Card icon={UserPlus} tone="purple" label="Novos cadastros" value={fmtNum(k.novos_cadastros)} hint={`${fmtNum(k.nao_confirmados)} não confirmados como cliente`} />
         <Card icon={FileText} tone="blue" label="Clientes com ficha" value={fmtNum(k.com_ficha)} hint={`${fmtNum(k.sem_ficha)} sem ficha`} />
-        <Card icon={Receipt} tone="green" label="Clientes com nota fiscal" value={fmtNum(k.com_nf)} hint={`${fmtNum(k.ficha_sem_nf)} com ficha sem NF`} />
+        <Card icon={Receipt} tone="green" label="Com NF de locação" value={fmtNum(k.com_nf)} hint={`${fmtNum(k.ficha_sem_nf)} com ficha sem NF · ${fmtNum(k.nf_sem_ficha || 0)} com NF sem ficha de locação`} />
         <Card icon={Percent} tone="blue" label="Cadastro → Ficha" value={pctTxt(k.taxa_cadastro_ficha)} hint="Conversão da 1ª etapa" />
         <Card icon={TrendingUp} tone="green" label="Cadastro → Nota fiscal" value={pctTxt(k.taxa_cadastro_nf)} hint={`Ficha → NF: ${pctTxt(k.taxa_ficha_nf)}`} />
         <Card icon={DollarSign} tone="green" label="Faturamento dos novos" value={fmtCur(k.faturamento_novos)} hint={`Média ${fmtCur(k.faturamento_medio_convertido)}/convertido`} />

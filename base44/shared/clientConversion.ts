@@ -160,7 +160,9 @@ export function buildConversion({ pessoas, fichas, notas, notasCanceladas, vendo
   const confirmados = rows.filter(r => r.cliente_confirmado);
   const total = confirmados.length;
   const comFicha = confirmados.filter(r => r.nr_ficha != null);
-  const comNf = confirmados.filter(r => r.dt_nf != null);
+  // Funil aninhado: NF só conta dentro de quem tem ficha de locação real. NF sem ficha é saída paralela.
+  const comNf = comFicha.filter(r => r.dt_nf != null);
+  const nfSemFicha = confirmados.filter(r => r.nr_ficha == null && r.dt_nf != null);
   const faturamento = comNf.reduce((s, r) => s + (r.vl_total || 0), 0);
   const primeiraNfTotal = comNf.reduce((s, r) => s + (r.vl_primeira_nf || 0), 0);
 
@@ -176,6 +178,8 @@ export function buildConversion({ pessoas, fichas, notas, notasCanceladas, vendo
     com_nf: comNf.length,
     sem_ficha: total - comFicha.length,
     ficha_sem_nf: comFicha.length - comNf.length,
+    nf_sem_ficha: nfSemFicha.length,
+    faturamento_nf_sem_ficha: nfSemFicha.reduce((s, r) => s + (r.vl_total || 0), 0),
     taxa_cadastro_ficha: pct(comFicha.length, total),
     taxa_ficha_nf: pct(comNf.length, comFicha.length),
     taxa_cadastro_nf: pct(comNf.length, total),
@@ -211,7 +215,7 @@ export function buildConversion({ pessoas, fichas, notas, notasCanceladas, vendo
       perda: total - comFicha.length,
     },
     {
-      etapa: 'Com nota fiscal', qtd: comNf.length,
+      etapa: 'Com NF de locação', qtd: comNf.length,
       pct_anterior: pct(comNf.length, comFicha.length), pct_total: pct(comNf.length, total),
       perda: comFicha.length - comNf.length,
     },
@@ -226,7 +230,7 @@ export function buildConversion({ pessoas, fichas, notas, notasCanceladas, vendo
     const c = cohortMap[key];
     c.novos++;
     if (r.nr_ficha != null) { c.com_ficha++; if (r.dias_ficha != null) c.dias_ficha.push(r.dias_ficha); }
-    if (r.dt_nf) { c.com_nf++; c.faturamento += r.vl_total || 0; if (r.dias_nf != null) c.dias_nf.push(r.dias_nf); }
+    if (r.dt_nf && r.nr_ficha != null) { c.com_nf++; c.faturamento += r.vl_total || 0; if (r.dias_nf != null) c.dias_nf.push(r.dias_nf); }
   }
   const cohorts = Object.values(cohortMap).map((c: any) => ({
     mes: c.mes,
@@ -258,7 +262,7 @@ export function buildConversion({ pessoas, fichas, notas, notasCanceladas, vendo
     const v = vendMap[key];
     v.novos++;
     if (r.nr_ficha != null) { v.com_ficha++; if (r.dias_ficha != null) v.dias_ficha.push(r.dias_ficha); }
-    if (r.dt_nf) { v.com_nf++; v.faturamento += r.vl_total || 0; if (r.dias_nf != null) v.dias_nf.push(r.dias_nf); }
+    if (r.dt_nf && r.nr_ficha != null) { v.com_nf++; v.faturamento += r.vl_total || 0; if (r.dias_nf != null) v.dias_nf.push(r.dias_nf); }
   }
   const by_vendor = Object.values(vendMap).map((v: any) => ({
     vendedor: v.vendedor,

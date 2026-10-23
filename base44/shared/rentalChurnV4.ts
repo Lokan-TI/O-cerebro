@@ -71,8 +71,24 @@ export function buildRentalChurnV4Ctes(raw: RentalChurnV4Context) {
   const customerFilter = numericCustomerFilter(ctx.customerIds);
   const companyFilter = empFilter('f');
 
+  // Escopo enxuto (correção 7/8): só fichas reais (sem orçamento 'O') de clientes com
+  // atividade desde refStart ou ficha ainda aberta. Clientes cujo relacionamento terminou
+  // antes de refStart não podem gerar churn no período. Todas as agregações fl_* passam a
+  // varrer apenas essas fichas, em vez do histórico completo das tabelas.
+  const scopeCte = `scope_clients AS (
+  SELECT DISTINCT f.cd_pessoa FROM fich_loc f WITH (NOLOCK)
+  WHERE f.cd_pessoa IS NOT NULL AND ISNULL(f.tp_ope_pedido,'') <> 'O'
+    AND (f.dt_pedido >= '${dates.refStart}' OR f.dt_enc_ficha IS NULL OR f.dt_enc_ficha >= '${dates.refStart}') ${companyFilter}${customerFilter}
+),
+scope_fichas AS (
+  SELECT f.cd_controle FROM fich_loc f WITH (NOLOCK)
+  INNER JOIN scope_clients sc ON sc.cd_pessoa = f.cd_pessoa
+  WHERE ISNULL(f.tp_ope_pedido,'') <> 'O' ${companyFilter}
+),`;
+
   return `
-WITH remessa_header AS (
+WITH ${scopeCte}
+remessa_header AS (
   SELECT
     r.cd_controle,
     MIN(CASE WHEN r.dt_saida IS NOT NULL AND ISNULL(r.fl_rem_cancelada,'N') <> 'S' THEN r.dt_saida END) AS first_remessa,
@@ -81,6 +97,7 @@ WITH remessa_header AS (
     SUM(CASE WHEN ISNULL(r.fl_rem_cancelada,'N') <> 'S' AND (r.dt_pedido IS NULL OR r.dt_saida IS NULL) THEN 1 ELSE 0 END) AS remessas_em_andamento,
     SUM(CASE WHEN ISNULL(r.fl_rem_cancelada,'N') = 'S' THEN 1 ELSE 0 END) AS remessas_canceladas
   FROM fl_remessa r WITH (NOLOCK)
+  INNER JOIN scope_fichas s ON s.cd_controle = r.cd_controle
   GROUP BY r.cd_controle
 ),
 remessa_items AS (
@@ -94,6 +111,7 @@ remessa_items AS (
       ELSE 0 END) AS saldo_fisico_atual
   FROM fl_remessa r WITH (NOLOCK)
   INNER JOIN fl_rem_equ re WITH (NOLOCK) ON re.cd_flremessa = r.cd_flremessa
+  INNER JOIN scope_fichas s ON s.cd_controle = r.cd_controle
   GROUP BY r.cd_controle
 ),
 devolucao_agg AS (
@@ -106,6 +124,7 @@ devolucao_agg AS (
     MAX(CASE WHEN d.fl_operacao = 'D' AND ISNULL(d.fl_dev_cancelada,'N') <> 'S' THEN d.dt_devolucao END) AS last_dt_devolucao,
     MAX(CASE WHEN d.fl_operacao = 'D' AND ISNULL(d.fl_dev_cancelada,'N') <> 'S' AND d.dt_entrada IS NOT NULL THEN d.dt_entrada END) AS last_dt_entrada
   FROM fl_devolucao d WITH (NOLOCK)
+  INNER JOIN scope_fichas s ON s.cd_controle = d.cd_controle
   GROUP BY d.cd_controle
 ),
 fatura_agg AS (
@@ -119,6 +138,7 @@ fatura_agg AS (
     MAX(CASE WHEN fat.dt_inicio IS NOT NULL AND fat.dt_fim IS NOT NULL
       AND fat.dt_inicio <= '${ctx.asOfDate}' AND fat.dt_fim >= '${ctx.asOfDate}' THEN 1 ELSE 0 END) AS cobertura_faturada_vigente
   FROM fl_fatura fat WITH (NOLOCK)
+  INNER JOIN scope_fichas s ON s.cd_controle = fat.cd_controle
   GROUP BY fat.cd_controle
 ),
 linked_nf AS (
@@ -131,6 +151,7 @@ linked_nf AS (
     CASE WHEN ISNULL(CAST(n.fl_can_nf AS varchar(5)),'N') NOT IN ('S','1')
       AND n.dt_cancelamento IS NULL AND n.dt_anul_nf IS NULL AND n.fl_ent_sai = 'S' THEN 1 ELSE 0 END AS valid_canonical
   FROM fl_fatura fat WITH (NOLOCK)
+  INNER JOIN scope_fichas s ON s.cd_controle = fat.cd_controle
   INNER JOIN nf n WITH (NOLOCK) ON n.cd_nf = fat.cd_nf
   LEFT JOIN v_nf_emissao v WITH (NOLOCK) ON v.cd_nf = n.cd_nf
   WHERE fat.cd_nf IS NOT NULL
@@ -146,6 +167,7 @@ linked_nf AS (
     CASE WHEN ISNULL(CAST(n.fl_can_nf AS varchar(5)),'N') NOT IN ('S','1')
       AND n.dt_cancelamento IS NULL AND n.dt_anul_nf IS NULL AND n.fl_ent_sai = 'S' THEN 1 ELSE 0 END AS valid_canonical
   FROM fl_fatura fat WITH (NOLOCK)
+  INNER JOIN scope_fichas s ON s.cd_controle = fat.cd_controle
   INNER JOIN nf n WITH (NOLOCK) ON n.cd_nf = fat.cd_nf_mo
   LEFT JOIN v_nf_emissao v WITH (NOLOCK) ON v.cd_nf = n.cd_nf
   WHERE fat.cd_nf_mo IS NOT NULL
@@ -214,6 +236,7 @@ ficha_raw AS (
   LEFT JOIN devolucao_agg da ON da.cd_controle = f.cd_controle
   LEFT JOIN fatura_agg fa ON fa.cd_controle = f.cd_controle
   LEFT JOIN nf_agg na ON na.cd_controle = f.cd_controle
+  INNER JOIN scope_fichas s ON s.cd_controle = f.cd_controle
   WHERE f.cd_pessoa IS NOT NULL ${companyFilter}${customerFilter}
 ),
 ficha_state AS (
