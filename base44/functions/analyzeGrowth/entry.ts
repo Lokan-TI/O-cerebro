@@ -104,7 +104,7 @@ export default async function (req: Request): Promise<Response> {
         COUNT(*) AS propostas,
         SUM(CASE WHEN dt_aprovacao IS NOT NULL THEN 1 ELSE 0 END) AS aprovadas,
         SUM(CASE WHEN dt_enc_ficha IS NOT NULL THEN 1 ELSE 0 END) AS encerradas,
-        SUM(CASE WHEN dt_enc_ficha IS NULL AND UPPER(COALESCE(fl_baixada,'N')) <> 'S' THEN 1 ELSE 0 END) AS ativas,
+        SUM(CASE WHEN tp_ope_pedido IN ('L','C','E') AND dt_enc_ficha IS NULL AND UPPER(COALESCE(fl_baixada,'N')) <> 'S' THEN 1 ELSE 0 END) AS ativas,
         COUNT(DISTINCT cd_pessoa) AS clientes,
         SUM(COALESCE(vl_minimo_locacao,0)) AS vl_minimo,
         AVG(CASE WHEN dt_aprovacao IS NOT NULL

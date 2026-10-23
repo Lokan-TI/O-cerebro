@@ -8,7 +8,8 @@ const cache = new Map();
 export function fetchClientesAtivos(sourceId, start, end, snapshotVersion = "", light = false) {
   // A versão publicada faz parte da chave: após um refresh, nenhuma aba pode
   // reutilizar silenciosamente o resultado ao vivo calculado sobre a versão anterior.
-  const key = `v3${light ? "L" : ""}|${sourceId || "all"}|${start}|${end}|${snapshotVersion || "no-version"}`;
+  // v4: contratos_ativos só com fichas Abertas L/C/E (GOV-FICHA-LIFECYCLE) — invalida caches anteriores.
+  const key = `v4${light ? "L" : ""}|${sourceId || "all"}|${start}|${end}|${snapshotVersion || "no-version"}`;
   if (!cache.has(key)) {
     const work = loadSaved(key).then((saved) => saved || fetchAndSave(key, sourceId, start, end, light));
     const timeout = new Promise((_, rej) => setTimeout(() => rej(new Error("A consulta ao ERP excedeu o tempo limite (3 min). Tente um período menor ou tente novamente.")), 180000));

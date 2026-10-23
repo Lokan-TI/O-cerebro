@@ -200,7 +200,7 @@ export async function computeAnalytics({ source, wrap, startDate, endDate, lastY
     const fichSql = `SELECT
       cd_empresa,
       COUNT(*) AS qtd,
-      ISNULL(SUM(CASE WHEN fl_baixada <> 'S' AND dt_enc_ficha IS NULL THEN 1 ELSE 0 END),0) AS qtd_ativas,
+      ISNULL(SUM(CASE WHEN tp_ope_pedido IN ('L','C','E') AND ISNULL(fl_baixada,'N') <> 'S' AND dt_enc_ficha IS NULL THEN 1 ELSE 0 END),0) AS qtd_ativas,
       ISNULL(SUM(CASE WHEN dt_enc_ficha IS NOT NULL THEN 1 ELSE 0 END),0) AS qtd_encerradas,
       ISNULL(SUM(vl_minimo_locacao),0) AS vl_minimo,
       ISNULL(SUM(vl_encerramento),0) AS vl_encerramento
@@ -344,7 +344,7 @@ export async function computeAnalytics({ source, wrap, startDate, endDate, lastY
     const topLocSql = `SELECT TOP 20 cd_pessoa,
       COUNT(*) AS qtd_loc,
       ISNULL(SUM(vl_minimo_locacao),0) AS vl_minimo,
-      ISNULL(SUM(CASE WHEN dt_enc_ficha IS NULL AND fl_baixada <> 'S' THEN 1 ELSE 0 END),0) AS qtd_ativas
+      ISNULL(SUM(CASE WHEN tp_ope_pedido IN ('L','C','E') AND dt_enc_ficha IS NULL AND ISNULL(fl_baixada,'N') <> 'S' THEN 1 ELSE 0 END),0) AS qtd_ativas
       FROM fich_loc WITH (NOLOCK)
       WHERE dt_pedido >= '${startDate}' AND dt_pedido < '${endDate}' ${empF}
       GROUP BY cd_pessoa

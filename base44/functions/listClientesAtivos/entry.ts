@@ -3,11 +3,13 @@ import { execRead } from '../../shared/erpConnection.ts';
 import { resolvePeriod } from '../../shared/periodContract.ts';
 import { empFilter } from '../../shared/empresaScope.ts';
 import { invoiceUniverse } from '../../shared/invoiceUniverse.ts';
+import { isAberta, isOrcamento } from '../../shared/fichaLifecycle.ts';
 
 // Lista COMPLETA de clientes ativos (com faturamento no período), na granularidade
 // empresa Sisloc × cliente. Sem TOP: a lista não é mais limitada aos maiores clientes.
 // Receita = SUM(nf.vl_faturamento) das NFs não canceladas.
-// Contratos ativos = fich_loc em aberto (dt_enc_ficha NULL e não baixada) do cliente.
+// Contratos ativos = fichas Abertas (L/C/E, dt_enc_ficha NULL, não baixada) — shared/fichaLifecycle.ts.
+// Orçamentos ('O') abertos vêm em orcamentos_abertos, nunca em contratos_ativos.
 export default async function (req: Request): Promise<Response> {
   try {
     const base44 = createClientFromRequest(req);
@@ -64,7 +66,8 @@ export default async function (req: Request): Promise<Response> {
     // não cruzar fich_loc com nf no mesmo plano de execução, o que estourava o tempo)
     const contratosSql = `SELECT cd_pessoa,
         COUNT(*) AS qtd_total,
-        SUM(CASE WHEN dt_enc_ficha IS NULL AND ISNULL(fl_baixada, '') <> 'S' THEN 1 ELSE 0 END) AS qtd_ativas
+        SUM(CASE WHEN ${isAberta('fich_loc')} AND ISNULL(fl_baixada, 'N') <> 'S' THEN 1 ELSE 0 END) AS qtd_ativas,
+        SUM(CASE WHEN ${isOrcamento('fich_loc')} AND dt_enc_ficha IS NULL AND ISNULL(fl_baixada, 'N') <> 'S' THEN 1 ELSE 0 END) AS qtd_orc_abertos
       FROM fich_loc WITH (NOLOCK)
       WHERE cd_pessoa IS NOT NULL AND cd_pessoa <> ''
       ${empFilter()}
@@ -107,12 +110,13 @@ export default async function (req: Request): Promise<Response> {
       warnings.push('Total fiscal não carregado: ' + ((e as Error)?.message || '').slice(0, 120));
     }
 
-    const contratos: Record<string, { ativas: number; total: number }> = {};
+    const contratos: Record<string, { ativas: number; total: number; orc: number }> = {};
     if (!light) try {
       for (const r of pick(await execRead(source, contratosSql, 90000))) {
         contratos[String(r.cd_pessoa || '').trim()] = {
           ativas: Number(r.qtd_ativas) || 0,
           total: Number(r.qtd_total) || 0,
+          orc: Number(r.qtd_orc_abertos) || 0,
         };
       }
     } catch (e) {
@@ -130,6 +134,7 @@ export default async function (req: Request): Promise<Response> {
       ultima_nf: r.ultima_nf ? new Date(r.ultima_nf as string).toISOString().slice(0, 10) : null,
       contratos_ativos: contratos[String(r.cd_pessoa || '').trim()]?.ativas ?? 0,
       contratos_total: contratos[String(r.cd_pessoa || '').trim()]?.total ?? 0,
+      orcamentos_abertos: contratos[String(r.cd_pessoa || '').trim()]?.orc ?? 0,
     }));
 
     const faturamento_atribuido_clientes = rows.reduce((s, r) => s + r.receita, 0);
