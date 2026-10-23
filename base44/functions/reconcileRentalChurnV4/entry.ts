@@ -135,6 +135,18 @@ export default async function (req: Request): Promise<Response> {
 
     const body = await req.json().catch(() => ({}));
 
+    // F5: execuções em estado intermediário há mais de 1h (worker morto/redeploy) viram 'abandoned'.
+    try {
+      const staleBefore = new Date(Date.now() - 3600000).toISOString();
+      await base44.asServiceRole.entities.ChurnV4ExecutionLog.updateMany(
+        {
+          status: { $in: ['started', 'resolving_source', 'customer_query', 'episode_query', 'normalizing', 'detail_query', 'persisting'] },
+          updated_at: { $lt: staleBefore },
+        },
+        { $set: { status: 'abandoned', error_message: 'Execução interrompida (sem atualização há mais de 1h) — marcada como abandonada pela limpeza automática.', completed_at: new Date().toISOString() } },
+      );
+    } catch { /* limpeza não bloqueia a execução */ }
+
     try {
       const log = await base44.asServiceRole.entities.ChurnV4ExecutionLog.create({
         execution_id: executionId,

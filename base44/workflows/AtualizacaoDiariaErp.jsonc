@@ -1,0 +1,45 @@
+{
+  "definition": {
+    "document": {
+      "dsl": "1.0.0",
+      "name": "atualizacao_diaria_erp",
+      "version": "1.0",
+      "namespace": "base44"
+    },
+    "do": [
+      {
+        "refresh_all": {
+          "call": "invoke_backend_function",
+          "with": {
+            "function_name": "refreshAllErpSources",
+            "args": {}
+          },
+          "then": "end",
+          "x-base44": {
+            "title": "Atualizar todas as fontes",
+            "description": "Matriz, Piracicaba, Jundia\u00ed"
+          }
+        }
+      }
+    ]
+  },
+  "trigger": {
+    "condition": null,
+    "config": {
+      "trigger_type": "scheduled",
+      "events": [],
+      "schedule_mode": "recurring",
+      "cron_expression": "0 6 * * *",
+      "one_time_date": null,
+      "timezone": "America/Sao_Paulo",
+      "interval_value": null,
+      "interval_unit": null,
+      "interval_anchor": null,
+      "ends_type": "never",
+      "ends_on_date": null,
+      "ends_after_count": null
+    }
+  },
+  "name": "Atualiza\u00e7\u00e3o di\u00e1ria ERP (todas as fontes)",
+  "description": "Todo dia \u00e0s 06:00 atualiza o snapshot ERP de todas as fontes ativas, isolando falhas por fonte."
+}

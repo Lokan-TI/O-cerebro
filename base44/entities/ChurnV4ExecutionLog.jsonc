@@ -22,7 +22,10 @@
         "detail_query",
         "persisting",
         "success",
-        "error"
+        "completed",
+        "error",
+        "abandoned",
+        "superseded"
       ],
       "default": "started"
     },
