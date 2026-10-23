@@ -7,6 +7,8 @@ import { fmtCur, fmtNum } from "@/lib/erpFormat";
 import { fetchClientesAtivos, invalidateClientesAtivos } from "@/components/erp/clientesAtivosCache";
 import { exportClientesAtivosCsv } from "@/components/erp/clientesAtivosExport";
 import QueryInspector from "@/components/erp/QueryInspector";
+import PadraoCells from "@/components/erp/padrao/PadraoCells";
+import { fetchPadraoLista } from "@/components/erp/padrao/padraoApi";
 import { Users, Download, RefreshCw, Search, Repeat } from "lucide-react";
 
 // Listagem completa (sem corte de top N) de clientes ativos por empresa Sisloc,
@@ -24,6 +26,9 @@ export default function ClientesAtivosTable({ onSelectClient }) {
   const [end, setEnd] = useState(period.end);
   const [limit, setLimit] = useState(300);
   const loadedRange = useRef(null);
+  const [padrao, setPadrao] = useState(null);
+
+  useEffect(() => { fetchPadraoLista().then(setPadrao).catch(() => setPadrao(new Map())); }, []);
 
   // O período do filtro global define a janela inicial; o usuário ainda pode
   // ajustar data a data aqui — a consulta é refeita automaticamente.
@@ -146,14 +151,19 @@ export default function ClientesAtivosTable({ onSelectClient }) {
                   <th className="text-right py-2 px-3">NFs</th>
                   <th className="text-right py-2 px-3">Última NF</th>
                   <th className="text-right py-2 px-3">Contratos ativos</th>
+                  <th className="text-right py-2 px-3">Fichas/mês (média)</th>
+                  <th className="text-right py-2 px-3">Equip. no cliente</th>
+                  <th className="text-right py-2 px-3">Última ficha</th>
+                  <th className="text-left py-2 px-3">Tendência</th>
+                  <th className="text-left py-2 px-3">Ciclo</th>
                 </tr>
               </thead>
               <tbody>
                 {rows.slice(0, limit).map((r, i) => (
                   <tr
                     key={`${r.cd_empresa}-${r.cd_pessoa}-${i}`}
-                    onClick={() => onSelectClient?.({ cd_pessoa: r.cd_pessoa, nm_pessoa: r.nm_pessoa, receita: r.receita, nfs: r.nfs })}
-                    className="border-b border-gray-800/50 hover:bg-gray-800/30 cursor-pointer"
+                    onClick={() => onSelectClient?.({ cd_pessoa: r.cd_pessoa, nm_pessoa: r.nm_pessoa, receita: r.receita, nfs: r.nfs, padrao: padrao?.get(String(r.cd_pessoa)) })}
+                    className={`border-b border-gray-800/50 hover:bg-gray-800/30 cursor-pointer ${padrao?.get(String(r.cd_pessoa))?.oportunidade_comercial ? "shadow-[inset_3px_0_0_0_rgb(245,158,11)] bg-amber-950/10" : ""}`}
                   >
                     <td className="py-2 px-3 text-gray-500">{i + 1}</td>
                     <td className="py-2 px-3 text-white">
@@ -175,9 +185,10 @@ export default function ClientesAtivosTable({ onSelectClient }) {
                         <span className="text-gray-600 text-xs">/{fmtNum(r.contratos_total)}</span>
                       </span>
                     </td>
+                    <PadraoCells p={padrao?.get(String(r.cd_pessoa))} loading={!padrao} />
                   </tr>
                 ))}
-                {rows.length === 0 && <tr><td colSpan={8} className="text-center text-gray-600 py-6">Nenhum cliente encontrado</td></tr>}
+                {rows.length === 0 && <tr><td colSpan={13} className="text-center text-gray-600 py-6">Nenhum cliente encontrado</td></tr>}
               </tbody>
             </table>
           </div>

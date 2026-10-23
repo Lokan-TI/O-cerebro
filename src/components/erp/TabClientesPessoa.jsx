@@ -10,6 +10,7 @@ import { getEmpresaLabel } from "@/lib/empresaLabels";
 import { fmtCur, fmtNum } from "@/lib/erpFormat";
 import ClientesReceitaChart from "@/components/erp/ClientesReceitaChart";
 import ClientesAtivosTable from "@/components/erp/ClientesAtivosTable";
+import PadraoLocacaoModal from "@/components/erp/padrao/PadraoLocacaoModal";
 import ClientesCorrecaoCnpj from "@/components/erp/clientesCnpj/ClientesCorrecaoCnpj";
 import ClientesMesPanel from "@/components/erp/ClientesMesPanel";
 import ClientePatrimoniosModal from "@/components/erp/ClientePatrimoniosModal";
@@ -212,7 +213,7 @@ export default function TabClientesPessoa() {
       <ClientesAtivosTable onSelectClient={setSelectedClient} />
 
       {selectedClient && (
-        <ClientePatrimoniosModal client={selectedClient} onClose={() => setSelectedClient(null)} />
+        <PadraoLocacaoModal client={selectedClient} padrao={selectedClient.padrao} onClose={() => setSelectedClient(null)} />
       )}
 
       {/* Distribuição por faixa de receita */}
