@@ -9,6 +9,7 @@ import {
   rentalChurnV4Dates,
 } from '../../shared/rentalChurnV4.ts';
 import { runRentalChurnV4 } from '../../shared/rentalChurnV4Engine.ts';
+import { buildDirected30 } from './directedSample.ts';
 
 function rowsOf(result: any) {
   return Array.isArray(result?.recordset) ? result.recordset : [];
@@ -222,9 +223,12 @@ export default async function (req: Request): Promise<Response> {
     // O wrapper DW_API aceita no máximo 8.000 caracteres por SQL: a v4 roda em etapas
     // pequenas sequenciais e o rollup/episódios é calculado em memória.
     const stepRows: Record<string, number> = {};
+    // Limite por etapa configurável por fonte: filiais (Piracicaba/Jundiaí) são mais lentas que a Matriz.
+    const isMatriz = String(source.name || '').toLowerCase() === 'matriz';
+    const stepTimeoutMs = Math.min(Math.max(Number(body?.step_timeout_ms) || (isMatriz ? 50000 : 150000), 20000), 240000);
     const v4 = await runRentalChurnV4(ctx, async (step, sql) => {
       await trace({ status: 'customer_query', step: `${step}_started` });
-      const rows = rowsOf(await stepQuery(step, source, sql));
+      const rows = rowsOf(await stepQuery(step, source, sql, stepTimeoutMs));
       stepRows[step] = rows.length;
       await trace({ status: 'customer_query', step: `${step}_completed` });
       return rows;
@@ -257,6 +261,36 @@ export default async function (req: Request): Promise<Response> {
       v3_family: statusFamilyV3(String(r.v3_status || '')),
       divergence_explanation: DIVERGENCE_EXPLANATIONS[String(r.divergence_type || '')] || null,
     }));
+
+    if (body?.directed_sample === true) {
+      const sample = buildDirected30(normalized, episodeRows, v4.fichas, ctx.periodStart, ctx.inactivityMonths);
+      const codes = sample.map((s) => s.r.cd_pessoa).filter((v) => /^\d+$/.test(v));
+      const nm: Record<string, string> = {};
+      if (codes.length) {
+        const res = await execRead(source, `SELECT cd_pessoa, COALESCE(NULLIF(nm_fan_pessoa,''), nm_pessoa) AS nm_pessoa FROM pessoa WITH (NOLOCK) WHERE cd_pessoa IN (${codes.join(',')})`, 30000);
+        for (const r of rowsOf(res)) nm[String(r.cd_pessoa)] = String(r.nm_pessoa || '');
+      }
+      const sampleRunId = `DIRECTED30-${source.id}-${ctx.asOfDate}-${Date.now()}`;
+      const records = sample.map((s, i) => ({
+        run_id: sampleRunId, source_id: source.id, case_type: s.cat, priority: 30 - i,
+        cd_pessoa: s.r.cd_pessoa, nm_pessoa: nm[s.r.cd_pessoa] || '',
+        v3_status: String(s.r.v3_status || ''), v4_status: String(s.r.v4_status || ''),
+        divergence_type: String(s.r.divergence_type || ''),
+        relationship_end_date: s.r.relationship_end_date || '', churn_date: s.r.churn_date || '',
+        last_rental_nf: s.dates.ultimo_faturamento || '',
+        active_operational_fichas: Number(s.r.active_operational_fichas) || 0,
+        inconsistent_fichas: Number(s.r.inconsistent_fichas) || 0,
+        valid_linked_nf_count: Number(s.r.valid_linked_nf_count) || 0,
+        canonical_nf_count: Number(s.r.canonical_nf_count) || 0,
+        explanation: `v4=${s.r.v4_status} · v3=${s.r.v3_status} · ${s.motivo}`.slice(0, 1000),
+        evidence_json: JSON.stringify({ classificacao_v4: s.r.v4_status, classificacao_v3: s.r.v3_status, datas: s.dates, episodios: s.ep, motivo: s.motivo, fichas: s.fichas_count }).slice(0, 15000),
+        sisloc_observed_status: '', verdict: 'pending', reviewed: false,
+      }));
+      if (records.length) await base44.asServiceRole.entities.ChurnV4AuditCase.bulkCreate(records);
+      await trace({ status: 'completed', step: 'directed_sample_saved', run_id: sampleRunId, audit_cases: records.length, completed_at: new Date().toISOString() });
+      const byCat = records.reduce((a: any, r: any) => { a[r.case_type] = (a[r.case_type] || 0) + 1; return a; }, {});
+      return Response.json({ success: true, run_id: sampleRunId, total: records.length, by_category: byCat });
+    }
 
     const activated = normalized.filter((r: any) => Number(r.activated_fichas) > 0);
     const v3Population = normalized.filter((r: any) => Number(r.v3_population_member) === 1);

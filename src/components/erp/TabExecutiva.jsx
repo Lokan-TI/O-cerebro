@@ -1,4 +1,5 @@
 import { useRef } from "react";
+import ChurnLensBadge from "@/components/erp/ChurnLensBadge";
 import { useErpSnapshot } from "@/lib/ErpSnapshotContext";
 import ExecutivaPdfButton from "@/components/erp/ExecutivaPdfButton";
 import AnnualGrowthChart from "@/components/erp/AnnualGrowthChart";
@@ -160,8 +161,9 @@ export default function TabExecutiva() {
           <KpiCard icon={Users} label="Clientes ativos (ano)" value={fmtNum(clientes)} sub={`${fmtNum(clientesMes)} no mês`} color="purple" />
           <KpiCard icon={UserPlus} label="Novos clientes" value={fmtNum(newClients)} sub="Primeira compra no ano" color="green" />
           <KpiCard icon={Repeat} label="Recorrentes" value={fmtNum(retainedClients)} sub="Compraram ano anterior e atual" color="blue" />
-          <KpiCard icon={UserMinus} label="Sem NF (comparativo 12m)" value={churn12Scoped ? fmtNum(churn12Scoped.churned_clients) : "—"} sub={isAll ? "Benchmark legado; churn oficial está em Retenção & Churn" : "Benchmark legado da filial"} color="red" />
+          <KpiCard icon={UserMinus} label="Churn12 rolling (sem NF 12m)" value={churn12Scoped ? fmtNum(churn12Scoped.churned_clients) : "—"} sub={isAll ? "Benchmark legado; churn oficial está em Retenção & Churn" : "Benchmark legado da filial"} color="red" />
         </div>
+        <ChurnLensBadge lens="churn12" />
       </div>
 
       {/* Retenção */}
@@ -197,10 +199,11 @@ export default function TabExecutiva() {
         </h3>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <KpiCard icon={Repeat} label="Retenção no ano" value={fmtPct(retencao)} sub={`${fmtNum(retainedClients)} recorrentes de quem faturou no ano anterior`} color="green" />
-          <KpiCard icon={UserMinus} label="Churn no ano" value={fmtPct(churn)} sub={`${fmtNum(churnedClients)} sem faturar neste ano civil`} color="red" />
+          <KpiCard icon={UserMinus} label="Churn anual YTD" value={fmtPct(churn)} sub={`${fmtNum(churnedClients)} sem faturar neste ano (mesma janela YTD)`} color="red" />
           <KpiCard icon={TrendingUp} label="Receita de novos" value={fmtCur(newRevenue)} sub={`${fmtNum(newClients)} clientes de primeira compra no ano`} color="green" />
           <KpiCard icon={TrendingDown} label="Receita retida" value={fmtCur(retainedRevenue)} sub="De clientes recorrentes no ano civil" color="amber" />
         </div>
+        <ChurnLensBadge lens="annual_ytd" />
         <p className="text-[11px] text-gray-500 mt-2 leading-relaxed">
           Leitura por ano civil (compara quem faturou no ano anterior com quem faturou neste ano, ainda incompleto).
           Este bloco e o comparativo móvel de 12 meses são leituras históricas por NF. O churn oficial de locação é o v3 da aba

@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { base44 } from "@/api/base44Client";
+import ChurnLensBadge from "@/components/erp/ChurnLensBadge";
 import { AlertTriangle, CheckCircle2, FlaskConical, Loader2, RefreshCw } from "lucide-react";
 
 const num = (v) => Number(v || 0).toLocaleString("pt-BR");
@@ -288,11 +289,12 @@ export default function ChurnV4ReconciliationPanel({ sourceId, asOfDate, periodS
           </div>
 
           <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-            <Kpi label="Taxa churn do período · candidata" value={pct(pc.period_churn_rate)} sub="motor por episódios · NÃO TRUSTED" />
+            <Kpi label="Churn V4 (episódios) · candidata" value={pct(pc.period_churn_rate)} sub="motor por episódios · NÃO TRUSTED" />
             <Kpi label="Novos clientes em churn" value={num(pc.new_churn_customers)} sub={`${num(pc.new_churn_events)} evento(s) no período`} />
             <Kpi label="Base elegível no início" value={num(pc.eligible_customers_at_period_start)} sub={`${num(pc.excluded_current_operational_audit)} excluído(s) por auditoria`} />
             <Kpi label="Churns com reativação posterior" value={num(pc.historical_churns_with_later_reactivation)} sub="preservados pelo motor temporal" />
           </div>
+          <ChurnLensBadge lens="v4" />
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
             <div className="rounded-lg border border-gray-800 bg-gray-950 p-3">

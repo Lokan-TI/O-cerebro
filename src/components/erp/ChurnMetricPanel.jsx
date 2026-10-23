@@ -1,4 +1,5 @@
 import { fmtCur, fmtNum } from "@/lib/erpFormat";
+import ChurnLensBadge from "@/components/erp/ChurnLensBadge";
 import { Info, Repeat, UserMinus, TrendingDown, Users } from "lucide-react";
 
 const pct = (v) => (v == null ? "—" : `${v.toFixed(1)}%`);
@@ -18,7 +19,7 @@ export default function ChurnMetricPanel({ churn12, calendarChurn }) {
   const cards = [
     { icon: Users, label: "Base ativa (12 meses)", value: fmtNum(churn12.active_clients), sub: `${fmtNum(churn12.retained_clients)} recorrentes · ${fmtNum(churn12.new_clients)} novos`, color: "purple" },
     { icon: Repeat, label: "Retenção por NF (legado)", value: pct(churn12.retention_rate), sub: `De ${fmtNum(churn12.base_clients)} clientes dos 12 meses anteriores`, color: "green" },
-    { icon: UserMinus, label: "Sem NF por 12m", value: pct(churn12.churn_rate), sub: `${fmtNum(churn12.churned_clients)} sem faturar nos últimos 12 meses`, color: "red" },
+    { icon: UserMinus, label: "Churn12 rolling", value: pct(churn12.churn_rate), sub: `${fmtNum(churn12.churned_clients)} sem faturar nos últimos 12 meses`, color: "red" },
     { icon: TrendingDown, label: "Receita da base sem NF", value: pct(churn12.revenue_churn_rate), sub: `${fmtCur(churn12.revenue_at_risk)} da receita histórica da base`, color: "amber" },
   ];
   const colors = {
@@ -42,6 +43,7 @@ export default function ChurnMetricPanel({ churn12, calendarChurn }) {
           </div>
         ))}
       </div>
+      <ChurnLensBadge lens="churn12" />
 
       <div className="bg-gray-900 border border-gray-800 rounded-xl p-4 grid grid-cols-1 md:grid-cols-3 gap-4">
         <div>

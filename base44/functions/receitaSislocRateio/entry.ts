@@ -123,8 +123,8 @@ export default async function (req: Request): Promise<Response> {
 
     const today = new Date().toISOString().slice(0, 10);
     const period = resolvePeriod({
-      start: body?.start_date || body?.period_start,
-      endInclusive: body?.end_date || body?.period_end_inclusive,
+      start: body?.start_date || body?.period_start || body?.data_inicio || body?.dtini,
+      endInclusive: body?.end_date || body?.period_end_inclusive || body?.data_fim || body?.dtfim,
       endExclusive: body?.end_date_exclusive || body?.period_end_exclusive,
       defaultStart: `${new Date().getFullYear()}-01-01`,
       defaultEndInclusive: today,

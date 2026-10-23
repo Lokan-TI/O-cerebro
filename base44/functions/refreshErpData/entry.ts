@@ -921,6 +921,11 @@ async function processRefresh(base44, source, run, version, previousVersion, sta
 
     // Etapa 10: Calcular KPIs derivados
     const kpis = {
+      churn_definitions: {
+        churn_v4: 'Clientes elegíveis com episódios encerrados por gap, metodologia episódios (VALIDAÇÃO PENDENTE).',
+        churn12: 'Base dos últimos 12 meses vs ativos últimos 12 meses (rolling).',
+        churn_rate_annual_ytd: 'Clientes que faturaram no ano anterior (mesma janela YTD) e ainda não faturaram neste.',
+      },
       fat_ano: Number(kpiRow.fat_ano) || 0,
       fat_ano_ant: Number(kpiRow.fat_ano_ant) || 0,
       fat_mes: Number(kpiRow.fat_mes) || 0,
