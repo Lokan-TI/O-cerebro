@@ -90,16 +90,33 @@ const NOT_ORC = `ISNULL(fl.tp_ope_pedido,'') <> 'O'`;
 
 async function detalhe(src: any, cd: number, emp: number | null) {
   const fE = emp != null ? ` AND fl.cd_empresa = ${emp}` : '';
-  const fichas = await q(src, `SELECT TOP 200 fl.cd_controle, fl.numero AS numero_ficha, fl.dt_pedido, fl.dt_fai_ficha, fl.dt_faf_ficha, fl.dt_enc_ficha, fl.cd_tpcontrato, fl.cd_calcfat, fl.cd_pessoa_cap, MAX(fl.tp_ope_pedido) AS tp_ope_pedido, MAX(pes.nm_pessoa) AS nm_captador, COUNT(DISTINCT req.cd_patrimonio) AS itens_remessados, COUNT(DISTINCT rem.cd_flremessa) AS remessas_expedidas, SUM(${SALDO}) AS saldo_no_cliente FROM fich_loc fl WITH (NOLOCK) LEFT JOIN pessoa pes WITH (NOLOCK) ON pes.cd_pessoa = fl.cd_pessoa_cap LEFT JOIN fl_remessa rem WITH (NOLOCK) ON rem.cd_controle = fl.cd_controle AND ${isExpedida('rem')} LEFT JOIN fl_rem_equ req WITH (NOLOCK) ON req.cd_flremessa = rem.cd_flremessa WHERE fl.cd_pessoa = ${cd}${fE} AND fl.dt_pedido >= DATEADD(MONTH, -36, GETDATE()) GROUP BY fl.cd_controle, fl.numero, fl.dt_pedido, fl.dt_fai_ficha, fl.dt_faf_ficha, fl.dt_enc_ficha, fl.cd_tpcontrato, fl.cd_calcfat, fl.cd_pessoa_cap ORDER BY fl.dt_pedido DESC`);
+  // Uma query: saldo/expedição de TODAS as fichas do cliente (pré-agregado, sem date limit).
+  const saldos = await q(src, `SELECT fl.cd_controle, fl.tp_ope_pedido, fl.dt_enc_ficha, COUNT(DISTINCT req.cd_patrimonio) AS itens_remessados, COUNT(DISTINCT rem.cd_flremessa) AS remessas_expedidas, SUM(${SALDO}) AS saldo FROM fich_loc fl WITH (NOLOCK) JOIN fl_remessa rem WITH (NOLOCK) ON rem.cd_controle = fl.cd_controle AND ${isExpedida('rem')} JOIN fl_rem_equ req WITH (NOLOCK) ON req.cd_flremessa = rem.cd_flremessa WHERE fl.cd_pessoa = ${cd}${fE} GROUP BY fl.cd_controle, fl.tp_ope_pedido, fl.dt_enc_ficha`);
+  const saldoBy = new Map(saldos.map((s) => [String(s.cd_controle), s]));
+  const fichas = await q(src, `SELECT TOP 200 fl.cd_controle, fl.numero AS numero_ficha, fl.dt_pedido, fl.dt_fai_ficha, fl.dt_faf_ficha, fl.dt_enc_ficha, fl.cd_tpcontrato, fl.cd_calcfat, fl.cd_pessoa_cap, fl.tp_ope_pedido, pes.nm_pessoa AS nm_captador FROM fich_loc fl WITH (NOLOCK) LEFT JOIN pessoa pes WITH (NOLOCK) ON pes.cd_pessoa = fl.cd_pessoa_cap WHERE fl.cd_pessoa = ${cd}${fE} AND fl.dt_pedido >= DATEADD(MONTH, -36, GETDATE()) ORDER BY fl.dt_pedido DESC`);
+  for (const f of fichas) {
+    const s: any = saldoBy.get(String(f.cd_controle)) || {};
+    f.itens_remessados = Number(s.itens_remessados) || 0;
+    f.remessas_expedidas = Number(s.remessas_expedidas) || 0;
+    f.saldo_no_cliente = Number(s.saldo) || 0;
+  }
   const heatmap_mensal = await q(src, `SELECT YEAR(fl.dt_pedido) AS ano, MONTH(fl.dt_pedido) AS mes, COUNT(*) AS qtd_fichas FROM fich_loc fl WITH (NOLOCK) WHERE fl.cd_pessoa = ${cd}${fE} AND ${NOT_ORC} AND fl.dt_pedido >= DATEADD(MONTH, -36, GETDATE()) GROUP BY YEAR(fl.dt_pedido), MONTH(fl.dt_pedido) ORDER BY ano, mes`);
   const grupos_mais_locados = await q(src, `SELECT grupo.cd_grupo, grupo.nm_grupo, SUM(ISNULL(req.qt_remessa,0)) AS itens_enviados, SUM(CASE WHEN ${isAberta('fl')} THEN ${SALDO} ELSE 0 END) AS saldo_atual FROM fich_loc fl WITH (NOLOCK) ${JOIN_EQ} WHERE fl.cd_pessoa = ${cd}${fE} AND ${isExpedida('rem')} GROUP BY grupo.cd_grupo, grupo.nm_grupo ORDER BY itens_enviados DESC`);
-  const equipamentos_ativos = await q(src, `SELECT TOP 300 fl.cd_controle, fl.numero AS numero_ficha, req.cd_patrimonio, grupo.nm_grupo, eq.ds_descricaocomercial, ISNULL(req.qt_remessa,0) - ISNULL(req.qt_devolucao,0) AS saldo FROM fich_loc fl WITH (NOLOCK) ${JOIN_EQ.replace(/\bJOIN (patrimon|equipto|grupo)\b/g, 'LEFT JOIN $1')} WHERE fl.cd_pessoa = ${cd}${fE} AND ${isAberta('fl')} AND ${isExpedida('rem')} AND ISNULL(req.qt_remessa,0) - ISNULL(req.qt_devolucao,0) > 0 ORDER BY grupo.nm_grupo`);
+  // Equipamentos ativos: só fichas Abertas com saldo > 0, filtradas por IN (cd_controle) — evita varredura.
+  const abertasSaldo = saldos.filter((s) => fichaStatus(s.tp_ope_pedido, s.dt_enc_ficha).ficha_status === 'Aberta' && Number(s.saldo) > 0);
+  const openIds = abertasSaldo.map((s) => Number(s.cd_controle)).filter(Number.isInteger);
+  const equipamentos_ativos: any[] = [];
+  for (let i = 0; i < openIds.length && equipamentos_ativos.length < 300; i += 300) {
+    const ids = openIds.slice(i, i + 300).join(',');
+    equipamentos_ativos.push(...await q(src, `SELECT TOP 300 fl.cd_controle, fl.numero AS numero_ficha, req.cd_patrimonio, grupo.nm_grupo, eq.ds_descricaocomercial, ISNULL(req.qt_remessa,0) - ISNULL(req.qt_devolucao,0) AS saldo FROM fich_loc fl WITH (NOLOCK) ${JOIN_EQ.replace(/\bJOIN (patrimon|equipto|grupo)\b/g, 'LEFT JOIN $1')} WHERE fl.cd_controle IN (${ids}) AND ${isExpedida('rem')} AND ISNULL(req.qt_remessa,0) - ISNULL(req.qt_devolucao,0) > 0 ORDER BY grupo.nm_grupo`));
+  }
   for (const f of fichas) {
     Object.assign(f, fichaStatus(f.tp_ope_pedido, f.dt_enc_ficha, Number(f.remessas_expedidas) || 0));
     // Orçamento e ficha encerrada não têm máquina no cliente.
     f.saldo_no_cliente = f.ficha_status === 'Aberta' ? Number(f.saldo_no_cliente) || 0 : 0;
   }
-  const equipamentos_no_cliente = fichas.reduce((s: number, f: any) => s + (f.ficha_status === 'Aberta' ? f.saldo_no_cliente : 0), 0);
+  // Agregado sobre TODAS as fichas Abertas do cliente (inclui as fora da janela de 36m).
+  const equipamentos_no_cliente = abertasSaldo.reduce((s: number, x: any) => s + (Number(x.saldo) || 0), 0);
   return { fichas, equipamentos_no_cliente, heatmap_mensal, grupos_mais_locados, equipamentos_ativos };
 }
 
