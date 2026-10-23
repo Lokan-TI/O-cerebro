@@ -104,7 +104,8 @@ Deno.serve(async (req) => {
     try {
       const cancSql = `SELECT n.cd_pessoa, COUNT(*) AS qtd
         FROM nf n WITH (NOLOCK)
-        WHERE n.cd_pessoa IN (${novosSub}) AND n.fl_can_nf = 'S'
+        WHERE n.cd_pessoa IN (${novosSub}) AND n.fl_ent_sai = 'S'
+          AND (ISNULL(CAST(n.fl_can_nf AS varchar(5)), 'N') IN ('S', '1') OR n.dt_cancelamento IS NOT NULL OR n.dt_anul_nf IS NOT NULL)
           ${empFilter('n')}
         GROUP BY n.cd_pessoa`;
       notasCanceladas = getRows(await runQuery(source, wrap(cancSql), 60000));

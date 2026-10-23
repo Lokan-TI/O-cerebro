@@ -10,7 +10,7 @@ export const CONVERSION_DOCS = {
     { titulo: "Novo cadastro", texto: "pessoa.dt_cad_pessoa dentro do período selecionado. O período corrente é calculado dinamicamente na execução." },
     { titulo: "Confirmação de cliente", texto: "Apenas pessoa.fl_cliente_pessoa = 1 entra nos KPIs. Fornecedores, funcionários e demais cadastros ficam como TIPO DE PESSOA NÃO CONFIRMADO." },
     { titulo: "Ficha válida", texto: "Registro em fich_loc com dt_pedido preenchida. Fichas encerradas contam como conversão (dt_enc_ficha apenas classifica ativas x encerradas)." },
-    { titulo: "Nota válida", texto: "nf com dt_emi_nf preenchida e fl_can_nf <> 'S'. Notas canceladas somam apenas no status NOTA FISCAL CANCELADA." },
+    { titulo: "Nota válida", texto: "nf de saída (fl_ent_sai = 'S') com dt_emi_nf preenchida, fl_can_nf fora de ('S','1'), sem dt_cancelamento e sem dt_anul_nf. Notas canceladas somam apenas no status NOTA FISCAL CANCELADA." },
     { titulo: "Contagem única", texto: "Cada cliente é contado uma única vez por etapa; faturamento é somado separadamente." },
     { titulo: "Coorte", texto: "O cliente permanece no mês do cadastro, mesmo que converta meses depois. O mês corrente é sinalizado como MÊS EM ANDAMENTO." },
     { titulo: "Identificação global", texto: "Identificador composto por FONTE-ID (ex.: MATRIZ-15248) para evitar colisão entre bancos de filiais." },
@@ -46,14 +46,15 @@ WHERE p.dt_cad_pessoa >= @inicio AND p.dt_cad_pessoa < @fim`,
     ROW_NUMBER() OVER (PARTITION BY n.cd_pessoa ORDER BY n.dt_emi_nf, n.nr_nf_ini) AS rn
   FROM nf n WITH (NOLOCK)
   WHERE n.cd_pessoa IN (@coorte) AND n.dt_emi_nf IS NOT NULL
-    AND ISNULL(n.fl_can_nf,'N') <> 'S'
+    AND n.fl_ent_sai = 'S' AND ISNULL(CAST(n.fl_can_nf AS varchar(5)), 'N') NOT IN ('S', '1') AND n.dt_cancelamento IS NULL AND n.dt_anul_nf IS NULL
 ) x WHERE rn = 1`,
     },
     {
       nome: "Notas canceladas por cliente",
       sql: `SELECT n.cd_pessoa, COUNT(*) AS qtd
 FROM nf n WITH (NOLOCK)
-WHERE n.cd_pessoa IN (@coorte) AND n.fl_can_nf = 'S'
+WHERE n.cd_pessoa IN (@coorte) AND n.fl_ent_sai = 'S'
+  AND (ISNULL(CAST(n.fl_can_nf AS varchar(5)), 'N') IN ('S', '1') OR n.dt_cancelamento IS NOT NULL OR n.dt_anul_nf IS NOT NULL)
 GROUP BY n.cd_pessoa`,
     },
     {
@@ -64,7 +65,7 @@ GROUP BY n.cd_pessoa`,
   (SELECT COUNT(DISTINCT f.cd_pessoa) FROM fich_loc f WITH (NOLOCK)
      WHERE f.cd_pessoa IN (@coorte)) AS com_ficha,
   (SELECT COUNT(DISTINCT n.cd_pessoa) FROM nf n WITH (NOLOCK)
-     WHERE n.cd_pessoa IN (@coorte) AND ISNULL(n.fl_can_nf,'N') <> 'S') AS com_nota_fiscal`,
+     WHERE n.cd_pessoa IN (@coorte) AND n.fl_ent_sai = 'S' AND ISNULL(CAST(n.fl_can_nf AS varchar(5)), 'N') NOT IN ('S', '1') AND n.dt_cancelamento IS NULL AND n.dt_anul_nf IS NULL) AS com_nota_fiscal`,
     },
   ],
   limitacoes: [

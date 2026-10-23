@@ -31,7 +31,7 @@ export const DASHBOARD_QUERIES = [
 FROM nf
 WHERE dt_emi_nf >= DATEFROMPARTS(YEAR(GETDATE())-1,1,1)
   AND dt_emi_nf < DATEADD(year,1,DATEFROMPARTS(YEAR(GETDATE()),1,1))
-  AND fl_can_nf <> 'S'`,
+  AND fl_ent_sai = 'S' AND ISNULL(CAST(fl_can_nf AS varchar(5)), 'N') NOT IN ('S', '1') AND dt_cancelamento IS NULL AND dt_anul_nf IS NULL`,
   },
   {
     id: "clientes_fichloc_empresa",
@@ -70,7 +70,7 @@ WHERE dt_pedido >= DATEFROMPARTS(YEAR(GETDATE())-1,1,1)
 FROM nf
 WHERE dt_emi_nf >= DATEFROMPARTS(YEAR(GETDATE()),1,1)
   AND dt_emi_nf < DATEADD(year,1,DATEFROMPARTS(YEAR(GETDATE()),1,1))
-  AND fl_can_nf <> 'S'
+  AND fl_ent_sai = 'S' AND ISNULL(CAST(fl_can_nf AS varchar(5)), 'N') NOT IN ('S', '1') AND dt_cancelamento IS NULL AND dt_anul_nf IS NULL
 GROUP BY cd_pessoa
 ORDER BY ISNULL(SUM(vl_faturamento),0) DESC`,
   },
@@ -84,7 +84,7 @@ ORDER BY ISNULL(SUM(vl_faturamento),0) DESC`,
   FROM nf WITH (NOLOCK)
   WHERE dt_emi_nf >= DATEFROMPARTS(YEAR(GETDATE()),1,1)
     AND dt_emi_nf < DATEADD(year,1,DATEFROMPARTS(YEAR(GETDATE()),1,1))
-    AND fl_can_nf <> 'S'
+    AND fl_ent_sai = 'S' AND ISNULL(CAST(fl_can_nf AS varchar(5)), 'N') NOT IN ('S', '1') AND dt_cancelamento IS NULL AND dt_anul_nf IS NULL
   GROUP BY cd_empresa, cd_pessoa
 ) x WHERE rn <= 15 ORDER BY cd_empresa, rn`,
   },
@@ -101,7 +101,7 @@ JOIN nf n WITH (NOLOCK) ON n.cd_nf = c.cd_nf
 JOIN pessoa p WITH (NOLOCK) ON p.cd_pessoa = c.cd_pessoa
 WHERE n.dt_emi_nf >= DATEFROMPARTS(YEAR(GETDATE()),1,1)
   AND n.dt_emi_nf < DATEADD(year,1,DATEFROMPARTS(YEAR(GETDATE()),1,1))
-  AND n.fl_can_nf <> 'S'
+  AND n.fl_ent_sai = 'S' AND ISNULL(CAST(n.fl_can_nf AS varchar(5)), 'N') NOT IN ('S', '1') AND n.dt_cancelamento IS NULL AND n.dt_anul_nf IS NULL
   AND c.cd_pessoa IS NOT NULL
 GROUP BY c.cd_pessoa, p.nm_fan_pessoa, p.nm_pessoa
 ORDER BY ISNULL(SUM(c.vl_base_comissao),0) DESC`,
@@ -121,7 +121,7 @@ ORDER BY ISNULL(SUM(c.vl_base_comissao),0) DESC`,
   JOIN pessoa p WITH (NOLOCK) ON p.cd_pessoa = c.cd_pessoa
   WHERE n.dt_emi_nf >= DATEFROMPARTS(YEAR(GETDATE()),1,1)
     AND n.dt_emi_nf < DATEADD(year,1,DATEFROMPARTS(YEAR(GETDATE()),1,1))
-    AND n.fl_can_nf <> 'S'
+    AND n.fl_ent_sai = 'S' AND ISNULL(CAST(n.fl_can_nf AS varchar(5)), 'N') NOT IN ('S', '1') AND n.dt_cancelamento IS NULL AND n.dt_anul_nf IS NULL
     AND c.cd_pessoa IS NOT NULL
   GROUP BY n.cd_empresa, c.cd_pessoa, p.nm_fan_pessoa, p.nm_pessoa
 ) x WHERE rn <= 15 ORDER BY cd_empresa, rn`,
@@ -143,7 +143,7 @@ WHERE cd_pessoa IN ({cd_pessoa_lista})`,
 FROM nf
 WHERE dt_emi_nf >= DATEADD(month,-12,DATEFROMPARTS(YEAR(GETDATE()),MONTH(GETDATE()),1))
   AND dt_emi_nf < DATEADD(month,1,DATEFROMPARTS(YEAR(GETDATE()),MONTH(GETDATE()),1))
-  AND fl_can_nf <> 'S'
+  AND fl_ent_sai = 'S' AND ISNULL(CAST(fl_can_nf AS varchar(5)), 'N') NOT IN ('S', '1') AND dt_cancelamento IS NULL AND dt_anul_nf IS NULL
 GROUP BY cd_empresa, YEAR(dt_emi_nf), MONTH(dt_emi_nf)
 ORDER BY 1, 2, 3`,
   },
@@ -209,7 +209,7 @@ ORDER BY 1, 2`,
 FROM nf WITH (NOLOCK)
 WHERE dt_emi_nf >= DATEFROMPARTS(YEAR(GETDATE()),1,1)
   AND dt_emi_nf < DATEADD(year,1,DATEFROMPARTS(YEAR(GETDATE()),1,1))
-  AND fl_can_nf <> 'S'
+  AND fl_ent_sai = 'S' AND ISNULL(CAST(fl_can_nf AS varchar(5)), 'N') NOT IN ('S', '1') AND dt_cancelamento IS NULL AND dt_anul_nf IS NULL
   AND uf_destinatario IS NOT NULL AND uf_destinatario <> ''
 GROUP BY uf_destinatario
 ORDER BY ISNULL(SUM(vl_faturamento),0) DESC`,
@@ -232,7 +232,7 @@ ORDER BY ISNULL(SUM(vl_faturamento),0) DESC`,
 FROM nf WITH (NOLOCK)
 WHERE nf.dt_emi_nf >= DATEFROMPARTS(YEAR(GETDATE())-1,1,1)
   AND nf.dt_emi_nf < DATEADD(year,1,DATEFROMPARTS(YEAR(GETDATE()),1,1))
-  AND nf.fl_can_nf <> 'S'
+  AND nf.fl_ent_sai = 'S' AND ISNULL(CAST(nf.fl_can_nf AS varchar(5)), 'N') NOT IN ('S', '1') AND nf.dt_cancelamento IS NULL AND nf.dt_anul_nf IS NULL
 GROUP BY nf.cd_empresa`,
   },
   {
