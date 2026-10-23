@@ -204,7 +204,7 @@ export default function TabClientesPessoa() {
       <ClientesReceitaChart monthlyRevenue={snapshot.monthly_revenue} carMonthly={snapshot?.analytics?.car_monthly} selectedEmpresa={selectedEmpresa} period={period} onSelectMonth={setSelectedMonth} />
 
       {selectedMonth && (
-        <ClientesMesPanel ano={selectedMonth.ano} mes={selectedMonth.mes} onClose={() => setSelectedMonth(null)} />
+        <ClientesMesPanel ano={selectedMonth.ano} mes={selectedMonth.mes} onClose={() => setSelectedMonth(null)} onSelectClient={setSelectedClient} />
       )}
 
       <ClientesCorrecaoCnpj />

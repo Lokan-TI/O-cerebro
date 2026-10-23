@@ -23,12 +23,14 @@ const JOIN_EQ = `JOIN fl_remessa rem WITH (NOLOCK) ON rem.cd_controle = fl.cd_co
 
 function monthKey(d: Date) { return d.getFullYear() * 12 + d.getMonth(); }
 
-async function lista(src: any) {
-  const ativos = await q(src, `SELECT nf.cd_pessoa, MAX(pes.nm_pessoa) AS nm_pessoa, SUM(ISNULL(nf.vl_faturamento,0)) AS vl_faturamento_12m, COUNT(DISTINCT nf.cd_nf) AS qtd_nfs_12m FROM nf WITH (NOLOCK) JOIN pessoa pes WITH (NOLOCK) ON pes.cd_pessoa = nf.cd_pessoa WHERE ${NF_OK} AND nf.dt_emi_nf >= DATEADD(MONTH, -12, GETDATE()) GROUP BY nf.cd_pessoa`);
-  const meses = await q(src, `SELECT fl.cd_pessoa, YEAR(fl.dt_pedido) AS ano, MONTH(fl.dt_pedido) AS mes, COUNT(*) AS qtd_fichas FROM fich_loc fl WITH (NOLOCK) WHERE fl.dt_pedido >= DATEADD(MONTH, -36, GETDATE()) AND fl.cd_pessoa IS NOT NULL GROUP BY fl.cd_pessoa, YEAR(fl.dt_pedido), MONTH(fl.dt_pedido)`);
-  const ciclo = await q(src, `SELECT x.cd_pessoa, AVG(DATEDIFF(day, x.ficha_anterior, x.dt_pedido)) AS intervalo_medio_dias, COUNT(*) AS qtd_intervalos, MAX(x.dt_pedido) AS ultima_ficha FROM (SELECT fl.cd_pessoa, fl.dt_pedido, LAG(fl.dt_pedido) OVER (PARTITION BY fl.cd_pessoa ORDER BY fl.dt_pedido) AS ficha_anterior FROM fich_loc fl WITH (NOLOCK) WHERE fl.dt_pedido >= DATEADD(MONTH, -36, GETDATE()) AND fl.cd_pessoa IS NOT NULL) x WHERE x.ficha_anterior IS NOT NULL GROUP BY x.cd_pessoa`);
-  const equip = await q(src, `SELECT fl.cd_pessoa, SUM(CASE WHEN ISNULL(req.qt_remessa,0) - ISNULL(req.qt_devolucao,0) > 0 THEN ISNULL(req.qt_remessa,0) - ISNULL(req.qt_devolucao,0) ELSE 0 END) AS equipamentos_no_cliente, COUNT(DISTINCT CASE WHEN ISNULL(req.qt_remessa,0) - ISNULL(req.qt_devolucao,0) > 0 THEN req.cd_patrimonio END) AS patrimonios_distintos FROM fich_loc fl WITH (NOLOCK) JOIN fl_remessa rem WITH (NOLOCK) ON rem.cd_controle = fl.cd_controle JOIN fl_rem_equ req WITH (NOLOCK) ON req.cd_flremessa = rem.cd_flremessa WHERE fl.dt_enc_ficha IS NULL AND fl.cd_pessoa IS NOT NULL GROUP BY fl.cd_pessoa`);
-  const ult = await q(src, `SELECT fl.cd_pessoa, MAX(fl.dt_pedido) AS ultima_ficha, COUNT(*) AS fichas_total FROM fich_loc fl WITH (NOLOCK) WHERE fl.dt_pedido >= DATEADD(MONTH, -36, GETDATE()) AND fl.cd_pessoa IS NOT NULL GROUP BY fl.cd_pessoa`);
+async function lista(src: any, emp: number | null) {
+  const fE = emp != null ? ` AND fl.cd_empresa = ${emp}` : '';
+  const nE = emp != null ? ` AND nf.cd_empresa = ${emp}` : '';
+  const ativos = await q(src, `SELECT nf.cd_pessoa, MAX(pes.nm_pessoa) AS nm_pessoa, SUM(ISNULL(nf.vl_faturamento,0)) AS vl_faturamento_12m, COUNT(DISTINCT nf.cd_nf) AS qtd_nfs_12m FROM nf WITH (NOLOCK) JOIN pessoa pes WITH (NOLOCK) ON pes.cd_pessoa = nf.cd_pessoa WHERE ${NF_OK} AND nf.dt_emi_nf >= DATEADD(MONTH, -12, GETDATE())${nE} GROUP BY nf.cd_pessoa`);
+  const meses = await q(src, `SELECT fl.cd_pessoa, YEAR(fl.dt_pedido) AS ano, MONTH(fl.dt_pedido) AS mes, COUNT(*) AS qtd_fichas FROM fich_loc fl WITH (NOLOCK) WHERE fl.dt_pedido >= DATEADD(MONTH, -36, GETDATE()) AND fl.cd_pessoa IS NOT NULL${fE} GROUP BY fl.cd_pessoa, YEAR(fl.dt_pedido), MONTH(fl.dt_pedido)`);
+  const ciclo = await q(src, `SELECT x.cd_pessoa, AVG(DATEDIFF(day, x.ficha_anterior, x.dt_pedido)) AS intervalo_medio_dias, COUNT(*) AS qtd_intervalos, MAX(x.dt_pedido) AS ultima_ficha FROM (SELECT fl.cd_pessoa, fl.dt_pedido, LAG(fl.dt_pedido) OVER (PARTITION BY fl.cd_pessoa ORDER BY fl.dt_pedido) AS ficha_anterior FROM fich_loc fl WITH (NOLOCK) WHERE fl.dt_pedido >= DATEADD(MONTH, -36, GETDATE()) AND fl.cd_pessoa IS NOT NULL${fE}) x WHERE x.ficha_anterior IS NOT NULL GROUP BY x.cd_pessoa`);
+  const equip = await q(src, `SELECT fl.cd_pessoa, SUM(CASE WHEN ISNULL(req.qt_remessa,0) - ISNULL(req.qt_devolucao,0) > 0 THEN ISNULL(req.qt_remessa,0) - ISNULL(req.qt_devolucao,0) ELSE 0 END) AS equipamentos_no_cliente, COUNT(DISTINCT CASE WHEN ISNULL(req.qt_remessa,0) - ISNULL(req.qt_devolucao,0) > 0 THEN req.cd_patrimonio END) AS patrimonios_distintos FROM fich_loc fl WITH (NOLOCK) JOIN fl_remessa rem WITH (NOLOCK) ON rem.cd_controle = fl.cd_controle JOIN fl_rem_equ req WITH (NOLOCK) ON req.cd_flremessa = rem.cd_flremessa WHERE fl.dt_enc_ficha IS NULL AND fl.cd_pessoa IS NOT NULL${fE} GROUP BY fl.cd_pessoa`);
+  const ult = await q(src, `SELECT fl.cd_pessoa, MAX(fl.dt_pedido) AS ultima_ficha, COUNT(*) AS fichas_total FROM fich_loc fl WITH (NOLOCK) WHERE fl.dt_pedido >= DATEADD(MONTH, -36, GETDATE()) AND fl.cd_pessoa IS NOT NULL${fE} GROUP BY fl.cd_pessoa`);
   const ultBy = new Map(ult.map((u) => [String(u.cd_pessoa), u.ultima_ficha]));
 
   const now = new Date();
@@ -79,11 +81,12 @@ async function lista(src: any) {
   });
 }
 
-async function detalhe(src: any, cd: number) {
-  const fichas = await q(src, `SELECT TOP 200 fl.cd_controle, fl.numero AS numero_ficha, fl.dt_pedido, fl.dt_fai_ficha, fl.dt_faf_ficha, fl.dt_enc_ficha, fl.cd_tpcontrato, fl.cd_calcfat, fl.cd_pessoa_cap, MAX(pes.nm_pessoa) AS nm_captador, COUNT(DISTINCT req.cd_patrimonio) AS itens_remessados, SUM(ISNULL(req.qt_remessa,0) - ISNULL(req.qt_devolucao,0)) AS saldo_no_cliente FROM fich_loc fl WITH (NOLOCK) LEFT JOIN pessoa pes WITH (NOLOCK) ON pes.cd_pessoa = fl.cd_pessoa_cap LEFT JOIN fl_remessa rem WITH (NOLOCK) ON rem.cd_controle = fl.cd_controle LEFT JOIN fl_rem_equ req WITH (NOLOCK) ON req.cd_flremessa = rem.cd_flremessa WHERE fl.cd_pessoa = ${cd} AND fl.dt_pedido >= DATEADD(MONTH, -36, GETDATE()) GROUP BY fl.cd_controle, fl.numero, fl.dt_pedido, fl.dt_fai_ficha, fl.dt_faf_ficha, fl.dt_enc_ficha, fl.cd_tpcontrato, fl.cd_calcfat, fl.cd_pessoa_cap ORDER BY fl.dt_pedido DESC`);
-  const heatmap_mensal = await q(src, `SELECT YEAR(fl.dt_pedido) AS ano, MONTH(fl.dt_pedido) AS mes, COUNT(*) AS qtd_fichas FROM fich_loc fl WITH (NOLOCK) WHERE fl.cd_pessoa = ${cd} AND fl.dt_pedido >= DATEADD(MONTH, -36, GETDATE()) GROUP BY YEAR(fl.dt_pedido), MONTH(fl.dt_pedido) ORDER BY ano, mes`);
-  const grupos_mais_locados = await q(src, `SELECT grupo.cd_grupo, grupo.nm_grupo, SUM(ISNULL(req.qt_remessa,0)) AS itens_enviados, SUM(ISNULL(req.qt_remessa,0) - ISNULL(req.qt_devolucao,0)) AS saldo_atual FROM fich_loc fl WITH (NOLOCK) ${JOIN_EQ} WHERE fl.cd_pessoa = ${cd} GROUP BY grupo.cd_grupo, grupo.nm_grupo ORDER BY itens_enviados DESC`);
-  const equipamentos_ativos = await q(src, `SELECT TOP 300 fl.cd_controle, fl.numero AS numero_ficha, req.cd_patrimonio, grupo.nm_grupo, eq.ds_descricaocomercial, ISNULL(req.qt_remessa,0) - ISNULL(req.qt_devolucao,0) AS saldo FROM fich_loc fl WITH (NOLOCK) ${JOIN_EQ} WHERE fl.cd_pessoa = ${cd} AND fl.dt_enc_ficha IS NULL AND ISNULL(req.qt_remessa,0) - ISNULL(req.qt_devolucao,0) > 0 ORDER BY grupo.nm_grupo`);
+async function detalhe(src: any, cd: number, emp: number | null) {
+  const fE = emp != null ? ` AND fl.cd_empresa = ${emp}` : '';
+  const fichas = await q(src, `SELECT TOP 200 fl.cd_controle, fl.numero AS numero_ficha, fl.dt_pedido, fl.dt_fai_ficha, fl.dt_faf_ficha, fl.dt_enc_ficha, fl.cd_tpcontrato, fl.cd_calcfat, fl.cd_pessoa_cap, MAX(pes.nm_pessoa) AS nm_captador, COUNT(DISTINCT req.cd_patrimonio) AS itens_remessados, SUM(ISNULL(req.qt_remessa,0) - ISNULL(req.qt_devolucao,0)) AS saldo_no_cliente FROM fich_loc fl WITH (NOLOCK) LEFT JOIN pessoa pes WITH (NOLOCK) ON pes.cd_pessoa = fl.cd_pessoa_cap LEFT JOIN fl_remessa rem WITH (NOLOCK) ON rem.cd_controle = fl.cd_controle LEFT JOIN fl_rem_equ req WITH (NOLOCK) ON req.cd_flremessa = rem.cd_flremessa WHERE fl.cd_pessoa = ${cd}${fE} AND fl.dt_pedido >= DATEADD(MONTH, -36, GETDATE()) GROUP BY fl.cd_controle, fl.numero, fl.dt_pedido, fl.dt_fai_ficha, fl.dt_faf_ficha, fl.dt_enc_ficha, fl.cd_tpcontrato, fl.cd_calcfat, fl.cd_pessoa_cap ORDER BY fl.dt_pedido DESC`);
+  const heatmap_mensal = await q(src, `SELECT YEAR(fl.dt_pedido) AS ano, MONTH(fl.dt_pedido) AS mes, COUNT(*) AS qtd_fichas FROM fich_loc fl WITH (NOLOCK) WHERE fl.cd_pessoa = ${cd}${fE} AND fl.dt_pedido >= DATEADD(MONTH, -36, GETDATE()) GROUP BY YEAR(fl.dt_pedido), MONTH(fl.dt_pedido) ORDER BY ano, mes`);
+  const grupos_mais_locados = await q(src, `SELECT grupo.cd_grupo, grupo.nm_grupo, SUM(ISNULL(req.qt_remessa,0)) AS itens_enviados, SUM(ISNULL(req.qt_remessa,0) - ISNULL(req.qt_devolucao,0)) AS saldo_atual FROM fich_loc fl WITH (NOLOCK) ${JOIN_EQ} WHERE fl.cd_pessoa = ${cd}${fE} GROUP BY grupo.cd_grupo, grupo.nm_grupo ORDER BY itens_enviados DESC`);
+  const equipamentos_ativos = await q(src, `SELECT TOP 300 fl.cd_controle, fl.numero AS numero_ficha, req.cd_patrimonio, grupo.nm_grupo, eq.ds_descricaocomercial, ISNULL(req.qt_remessa,0) - ISNULL(req.qt_devolucao,0) AS saldo FROM fich_loc fl WITH (NOLOCK) ${JOIN_EQ} WHERE fl.cd_pessoa = ${cd}${fE} AND fl.dt_enc_ficha IS NULL AND ISNULL(req.qt_remessa,0) - ISNULL(req.qt_devolucao,0) > 0 ORDER BY grupo.nm_grupo`);
   return { fichas, heatmap_mensal, grupos_mais_locados, equipamentos_ativos };
 }
 
@@ -93,15 +96,17 @@ Deno.serve(async (req) => {
     const user = await base44.auth.me();
     if (!canView(user)) return Response.json({ error: 'Acesso restrito.' }, { status: 403 });
     const body = await req.json().catch(() => ({}));
+    const emp = body?.cd_empresa != null && body.cd_empresa !== '' ? Number(body.cd_empresa) : null;
+    if (emp != null && !Number.isInteger(emp)) return Response.json({ error: 'cd_empresa inválido.' }, { status: 400 });
     const [src] = await base44.asServiceRole.entities.ErpDataSource.filter({ name: 'Matriz' });
     if (!src || !buildConfig(src)) return Response.json({ error: 'Fonte "Matriz" não configurada.' }, { status: 400 });
 
     if (body?.cd_pessoa != null && body.cd_pessoa !== '') {
       const cd = Number(body.cd_pessoa);
       if (!Number.isInteger(cd)) return Response.json({ error: 'cd_pessoa inválido.' }, { status: 400 });
-      return Response.json(await detalhe(src, cd));
+      return Response.json(await detalhe(src, cd, emp));
     }
-    return Response.json({ rows: await lista(src) });
+    return Response.json({ rows: await lista(src, emp) });
   } catch (error) {
     return Response.json({ error: (error as Error).message || String(error) }, { status: 500 });
   }

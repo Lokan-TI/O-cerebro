@@ -28,7 +28,7 @@ export default function ClientesAtivosTable({ onSelectClient }) {
   const loadedRange = useRef(null);
   const [padrao, setPadrao] = useState(null);
 
-  useEffect(() => { fetchPadraoLista().then(setPadrao).catch(() => setPadrao(new Map())); }, []);
+  useEffect(() => { setPadrao(null); fetchPadraoLista(selectedEmpresa).then(setPadrao).catch(() => setPadrao(new Map())); }, [selectedEmpresa]);
 
   // O período do filtro global define a janela inicial; o usuário ainda pode
   // ajustar data a data aqui — a consulta é refeita automaticamente.
@@ -168,7 +168,7 @@ export default function ClientesAtivosTable({ onSelectClient }) {
                     <td className="py-2 px-3 text-gray-500">{i + 1}</td>
                     <td className="py-2 px-3 text-white">
                       <div className="truncate max-w-[260px]">{r.nm_pessoa}</div>
-                      <div className="text-xs text-gray-600">#{r.cd_pessoa}</div>
+                      <div className="text-xs text-gray-600">{r.cd_pessoa}</div>
                     </td>
                     <td className="py-2 px-3 text-gray-300 text-xs">
                       <div className="truncate max-w-[220px]">{r.nm_empresa}</div>

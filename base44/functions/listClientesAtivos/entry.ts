@@ -31,7 +31,7 @@ export default async function (req: Request): Promise<Response> {
       n.cd_empresa,
       COALESCE(NULLIF(LTRIM(RTRIM(e.nm_fan_empresa)), ''), CONCAT('Empresa ', n.cd_empresa)) AS nm_empresa,
       n.cd_pessoa,
-      COALESCE(NULLIF(LTRIM(RTRIM(p.nm_fan_pessoa)), ''), LTRIM(RTRIM(p.nm_pessoa)), CONCAT('Cliente ', n.cd_pessoa)) AS nm_pessoa,
+      COALESCE(NULLIF(LTRIM(RTRIM(p.nm_pessoa)), ''), NULLIF(LTRIM(RTRIM(p.nm_fan_pessoa)), ''), CONCAT('Cliente ', n.cd_pessoa)) AS nm_pessoa,
       ISNULL(SUM(n.vl_faturamento), 0) AS receita,
       COUNT(*) AS nfs,
       MAX(n.dt_emi_nf) AS ultima_nf,
