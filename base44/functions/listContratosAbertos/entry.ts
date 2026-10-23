@@ -1,6 +1,7 @@
 import { canView } from '../../shared/access.ts';
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.40';
 import { buildConfig, execRead } from '../../shared/erpConnection.ts';
+import { isAberta } from '../../shared/fichaLifecycle.ts';
 
 // Listagem bruta de contratos abertos (fich_loc sem encerramento), no grão ITEM do contrato
 // (fl_rem_equ). O front agrupa por contrato. Paginação keyset por cd_flremequ.
@@ -17,7 +18,7 @@ function rowsOf(res: any) {
 }
 
 // Mesmo critério do filtro "Aberta" da tela Ficha de Locação do Sisloc
-const ABERTA = `f.dt_enc_ficha IS NULL AND f.dt_suspensao IS NULL AND f.tp_ope_pedido <> 'O'`;
+const ABERTA = isAberta('f');
 
 const iso = (v: any) => {
   if (!v || !(v instanceof Date) && typeof v !== 'string') return v ?? null;

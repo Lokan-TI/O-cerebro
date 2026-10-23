@@ -1,6 +1,7 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.40';
 import { execRead } from '../../shared/erpConnection.ts';
 import { empFilter } from '../../shared/empresaScope.ts';
+import { isLocacao, isOrcamento } from '../../shared/fichaLifecycle.ts';
 
 // Orçamentos (mkt_orcamento.dt_orcamento) x Locações fechadas (fich_loc.dt_pedido)
 // por empresa × cliente, cada um com seu próprio período (fim exclusivo).
@@ -18,12 +19,14 @@ export default async function (req: Request): Promise<Response> {
     }
 
     // No Sisloc, orçamentos e locações vivem em fich_loc: tp_ope_pedido 'O' = orçamento, 'L' = locação.
-    const sqlFor = (tp: string, s: string, e: string) => `SELECT cd_empresa, cd_pessoa, COUNT(*) AS qtd, MAX(dt_pedido) AS ultimo
-      FROM fich_loc WITH (NOLOCK)
-      WHERE tp_ope_pedido = '${tp}' AND dt_pedido >= '${s}' AND dt_pedido < '${nextDay(e)}'
-        AND cd_pessoa IS NOT NULL
-        ${empFilter()}
-      GROUP BY cd_empresa, cd_pessoa`;
+    // Ciclo de vida centralizado: Orçamento = 'O'; Locação = 'L'/'C'/'E' aprovada.
+    // Contagens são o histórico do cliente até o fim da janela (início opcional via *_start).
+    const sqlFor = (tp: string, s: string, e: string) => `SELECT f.cd_empresa, f.cd_pessoa, COUNT(*) AS qtd, MAX(f.dt_pedido) AS ultimo
+      FROM fich_loc f WITH (NOLOCK)
+      WHERE ${tp === 'O' ? isOrcamento('f') : isLocacao('f')} AND f.dt_pedido >= '${s}' AND f.dt_pedido < '${nextDay(e)}'
+        AND f.cd_pessoa IS NOT NULL
+        ${empFilter('f')}
+      GROUP BY f.cd_empresa, f.cd_pessoa`;
     const orcSql = sqlFor('O', b.orc_start, b.orc_end);
     const locSql = sqlFor('L', b.loc_start, b.loc_end);
 

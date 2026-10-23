@@ -34,7 +34,8 @@ export default function TabClientesRfm() {
   const applyLimits = (l) => { saveLimits(l); setLimits(l); setSel(null); };
   const pick = (type, key) => setSel((s) => (s?.type === type && s.key === key ? null : { type, key }));
   const segSel = sel?.type === "seg" ? sel.key : null;
-  const orc = win, loc = win;
+  // Orçamentos/locações: histórico do cliente até o fim da janela (não só dentro dela).
+  const orc = useMemo(() => ({ start: "2000-01-01", end: win.end }), [win.end]), loc = orc;
   const srcId = selectedSource?.id && selectedSource.id !== ALL_SOURCES_ID ? selectedSource.id : null;
   const orcLoc = useOrcLoc(srcId, orc, loc, selectedEmpresa);
 

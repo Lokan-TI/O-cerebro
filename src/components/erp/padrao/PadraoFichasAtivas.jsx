@@ -1,7 +1,9 @@
 import { fmtData, fmtFicha } from "./padraoApi";
+import FichaMovimentacao from "./FichaMovimentacao";
 
 export default function PadraoFichasAtivas({ fichas, equipamentos }) {
-  const ativas = fichas.filter((f) => !f.dt_enc_ficha);
+  // "Aberta" = locação (não orçamento) sem encerramento — regra do ciclo de vida da ficha.
+  const ativas = fichas.filter((f) => !f.dt_enc_ficha && f.tp_ope_pedido !== "O");
   if (!ativas.length) return <div className="text-gray-500 text-sm">Nenhuma ficha ativa.</div>;
   return (
     <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-2">
@@ -14,6 +16,7 @@ export default function PadraoFichasAtivas({ fichas, equipamentos }) {
             <div className="text-gray-400">Período: {fmtData(f.dt_fai_ficha)} → {fmtData(f.dt_faf_ficha)}</div>
             <div className="text-purple-300">Saldo no cliente: {f.saldo_no_cliente ?? 0}</div>
             {eqs.length > 0 && <div className="text-gray-500 truncate" title={eqs.map((e) => e.ds_descricaocomercial || e.nm_grupo).join(", ")}>{eqs.map((e) => e.ds_descricaocomercial || e.nm_grupo).join(", ")}</div>}
+            <FichaMovimentacao cdControle={f.cd_controle} />
           </div>
         );
       })}
