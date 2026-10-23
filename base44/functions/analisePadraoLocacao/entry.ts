@@ -1,6 +1,10 @@
 import { canView } from '../../shared/access.ts';
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.40';
 import { buildConfig, execRead } from '../../shared/erpConnection.ts';
+import { isAberta, isExpedida, fichaStatus } from '../../shared/fichaLifecycle.ts';
+
+// Saldo real por linha de remessa: só remessas expedidas, nunca negativo.
+const SALDO = `CASE WHEN ISNULL(req.qt_remessa,0) - ISNULL(req.qt_devolucao,0) > 0 THEN ISNULL(req.qt_remessa,0) - ISNULL(req.qt_devolucao,0) ELSE 0 END`;
 
 // Padrão de locação por cliente (fonte Matriz): frequência, tendência e ciclo de fichas.
 // Sem cd_pessoa = lista de clientes ativos; com cd_pessoa = detalhe do cliente.
@@ -29,7 +33,7 @@ async function lista(src: any, emp: number | null) {
   const ativos = await q(src, `SELECT nf.cd_pessoa, MAX(pes.nm_pessoa) AS nm_pessoa, SUM(ISNULL(nf.vl_faturamento,0)) AS vl_faturamento_12m, COUNT(DISTINCT nf.cd_nf) AS qtd_nfs_12m FROM nf WITH (NOLOCK) JOIN pessoa pes WITH (NOLOCK) ON pes.cd_pessoa = nf.cd_pessoa WHERE ${NF_OK} AND nf.dt_emi_nf >= DATEADD(MONTH, -12, GETDATE())${nE} GROUP BY nf.cd_pessoa`);
   const meses = await q(src, `SELECT fl.cd_pessoa, YEAR(fl.dt_pedido) AS ano, MONTH(fl.dt_pedido) AS mes, COUNT(*) AS qtd_fichas FROM fich_loc fl WITH (NOLOCK) WHERE fl.dt_pedido >= DATEADD(MONTH, -36, GETDATE()) AND fl.cd_pessoa IS NOT NULL AND ${NOT_ORC}${fE} GROUP BY fl.cd_pessoa, YEAR(fl.dt_pedido), MONTH(fl.dt_pedido)`);
   const ciclo = await q(src, `SELECT x.cd_pessoa, AVG(DATEDIFF(day, x.ficha_anterior, x.dt_pedido)) AS intervalo_medio_dias, COUNT(*) AS qtd_intervalos, MAX(x.dt_pedido) AS ultima_ficha FROM (SELECT fl.cd_pessoa, fl.dt_pedido, LAG(fl.dt_pedido) OVER (PARTITION BY fl.cd_pessoa ORDER BY fl.dt_pedido) AS ficha_anterior FROM fich_loc fl WITH (NOLOCK) WHERE fl.dt_pedido >= DATEADD(MONTH, -36, GETDATE()) AND fl.cd_pessoa IS NOT NULL AND ${NOT_ORC}${fE}) x WHERE x.ficha_anterior IS NOT NULL GROUP BY x.cd_pessoa`);
-  const equip = await q(src, `SELECT fl.cd_pessoa, SUM(CASE WHEN ISNULL(req.qt_remessa,0) - ISNULL(req.qt_devolucao,0) > 0 THEN ISNULL(req.qt_remessa,0) - ISNULL(req.qt_devolucao,0) ELSE 0 END) AS equipamentos_no_cliente, COUNT(DISTINCT CASE WHEN ISNULL(req.qt_remessa,0) - ISNULL(req.qt_devolucao,0) > 0 THEN req.cd_patrimonio END) AS patrimonios_distintos FROM fich_loc fl WITH (NOLOCK) JOIN fl_remessa rem WITH (NOLOCK) ON rem.cd_controle = fl.cd_controle JOIN fl_rem_equ req WITH (NOLOCK) ON req.cd_flremessa = rem.cd_flremessa WHERE fl.dt_enc_ficha IS NULL AND fl.cd_pessoa IS NOT NULL AND ${NOT_ORC}${fE} GROUP BY fl.cd_pessoa`);
+  const equip = await q(src, `SELECT fl.cd_pessoa, SUM(CASE WHEN ISNULL(req.qt_remessa,0) - ISNULL(req.qt_devolucao,0) > 0 THEN ISNULL(req.qt_remessa,0) - ISNULL(req.qt_devolucao,0) ELSE 0 END) AS equipamentos_no_cliente, COUNT(DISTINCT CASE WHEN ISNULL(req.qt_remessa,0) - ISNULL(req.qt_devolucao,0) > 0 THEN req.cd_patrimonio END) AS patrimonios_distintos FROM fich_loc fl WITH (NOLOCK) JOIN fl_remessa rem WITH (NOLOCK) ON rem.cd_controle = fl.cd_controle AND ${isExpedida('rem')} JOIN fl_rem_equ req WITH (NOLOCK) ON req.cd_flremessa = rem.cd_flremessa WHERE ${isAberta('fl')} AND fl.cd_pessoa IS NOT NULL${fE} GROUP BY fl.cd_pessoa`);
   const ult = await q(src, `SELECT fl.cd_pessoa, MAX(fl.dt_pedido) AS ultima_ficha, COUNT(*) AS fichas_total FROM fich_loc fl WITH (NOLOCK) WHERE fl.dt_pedido >= DATEADD(MONTH, -36, GETDATE()) AND fl.cd_pessoa IS NOT NULL AND ${NOT_ORC}${fE} GROUP BY fl.cd_pessoa`);
   const ultBy = new Map(ult.map((u) => [String(u.cd_pessoa), u.ultima_ficha]));
 
@@ -86,11 +90,17 @@ const NOT_ORC = `ISNULL(fl.tp_ope_pedido,'') <> 'O'`;
 
 async function detalhe(src: any, cd: number, emp: number | null) {
   const fE = emp != null ? ` AND fl.cd_empresa = ${emp}` : '';
-  const fichas = await q(src, `SELECT TOP 200 fl.cd_controle, fl.numero AS numero_ficha, fl.dt_pedido, fl.dt_fai_ficha, fl.dt_faf_ficha, fl.dt_enc_ficha, fl.cd_tpcontrato, fl.cd_calcfat, fl.cd_pessoa_cap, MAX(fl.tp_ope_pedido) AS tp_ope_pedido, MAX(pes.nm_pessoa) AS nm_captador, COUNT(DISTINCT req.cd_patrimonio) AS itens_remessados, SUM(ISNULL(req.qt_remessa,0) - ISNULL(req.qt_devolucao,0)) AS saldo_no_cliente FROM fich_loc fl WITH (NOLOCK) LEFT JOIN pessoa pes WITH (NOLOCK) ON pes.cd_pessoa = fl.cd_pessoa_cap LEFT JOIN fl_remessa rem WITH (NOLOCK) ON rem.cd_controle = fl.cd_controle LEFT JOIN fl_rem_equ req WITH (NOLOCK) ON req.cd_flremessa = rem.cd_flremessa WHERE fl.cd_pessoa = ${cd}${fE} AND fl.dt_pedido >= DATEADD(MONTH, -36, GETDATE()) GROUP BY fl.cd_controle, fl.numero, fl.dt_pedido, fl.dt_fai_ficha, fl.dt_faf_ficha, fl.dt_enc_ficha, fl.cd_tpcontrato, fl.cd_calcfat, fl.cd_pessoa_cap ORDER BY fl.dt_pedido DESC`);
+  const fichas = await q(src, `SELECT TOP 200 fl.cd_controle, fl.numero AS numero_ficha, fl.dt_pedido, fl.dt_fai_ficha, fl.dt_faf_ficha, fl.dt_enc_ficha, fl.cd_tpcontrato, fl.cd_calcfat, fl.cd_pessoa_cap, MAX(fl.tp_ope_pedido) AS tp_ope_pedido, MAX(pes.nm_pessoa) AS nm_captador, COUNT(DISTINCT req.cd_patrimonio) AS itens_remessados, COUNT(DISTINCT rem.cd_flremessa) AS remessas_expedidas, SUM(${SALDO}) AS saldo_no_cliente FROM fich_loc fl WITH (NOLOCK) LEFT JOIN pessoa pes WITH (NOLOCK) ON pes.cd_pessoa = fl.cd_pessoa_cap LEFT JOIN fl_remessa rem WITH (NOLOCK) ON rem.cd_controle = fl.cd_controle AND ${isExpedida('rem')} LEFT JOIN fl_rem_equ req WITH (NOLOCK) ON req.cd_flremessa = rem.cd_flremessa WHERE fl.cd_pessoa = ${cd}${fE} AND fl.dt_pedido >= DATEADD(MONTH, -36, GETDATE()) GROUP BY fl.cd_controle, fl.numero, fl.dt_pedido, fl.dt_fai_ficha, fl.dt_faf_ficha, fl.dt_enc_ficha, fl.cd_tpcontrato, fl.cd_calcfat, fl.cd_pessoa_cap ORDER BY fl.dt_pedido DESC`);
   const heatmap_mensal = await q(src, `SELECT YEAR(fl.dt_pedido) AS ano, MONTH(fl.dt_pedido) AS mes, COUNT(*) AS qtd_fichas FROM fich_loc fl WITH (NOLOCK) WHERE fl.cd_pessoa = ${cd}${fE} AND ${NOT_ORC} AND fl.dt_pedido >= DATEADD(MONTH, -36, GETDATE()) GROUP BY YEAR(fl.dt_pedido), MONTH(fl.dt_pedido) ORDER BY ano, mes`);
-  const grupos_mais_locados = await q(src, `SELECT grupo.cd_grupo, grupo.nm_grupo, SUM(ISNULL(req.qt_remessa,0)) AS itens_enviados, SUM(ISNULL(req.qt_remessa,0) - ISNULL(req.qt_devolucao,0)) AS saldo_atual FROM fich_loc fl WITH (NOLOCK) ${JOIN_EQ} WHERE fl.cd_pessoa = ${cd}${fE} GROUP BY grupo.cd_grupo, grupo.nm_grupo ORDER BY itens_enviados DESC`);
-  const equipamentos_ativos = await q(src, `SELECT TOP 300 fl.cd_controle, fl.numero AS numero_ficha, req.cd_patrimonio, grupo.nm_grupo, eq.ds_descricaocomercial, ISNULL(req.qt_remessa,0) - ISNULL(req.qt_devolucao,0) AS saldo FROM fich_loc fl WITH (NOLOCK) ${JOIN_EQ} WHERE fl.cd_pessoa = ${cd}${fE} AND fl.dt_enc_ficha IS NULL AND ISNULL(req.qt_remessa,0) - ISNULL(req.qt_devolucao,0) > 0 ORDER BY grupo.nm_grupo`);
-  return { fichas, heatmap_mensal, grupos_mais_locados, equipamentos_ativos };
+  const grupos_mais_locados = await q(src, `SELECT grupo.cd_grupo, grupo.nm_grupo, SUM(ISNULL(req.qt_remessa,0)) AS itens_enviados, SUM(CASE WHEN ${isAberta('fl')} THEN ${SALDO} ELSE 0 END) AS saldo_atual FROM fich_loc fl WITH (NOLOCK) ${JOIN_EQ} WHERE fl.cd_pessoa = ${cd}${fE} AND ${isExpedida('rem')} GROUP BY grupo.cd_grupo, grupo.nm_grupo ORDER BY itens_enviados DESC`);
+  const equipamentos_ativos = await q(src, `SELECT TOP 300 fl.cd_controle, fl.numero AS numero_ficha, req.cd_patrimonio, grupo.nm_grupo, eq.ds_descricaocomercial, ISNULL(req.qt_remessa,0) - ISNULL(req.qt_devolucao,0) AS saldo FROM fich_loc fl WITH (NOLOCK) ${JOIN_EQ.replace(/\bJOIN (patrimon|equipto|grupo)\b/g, 'LEFT JOIN $1')} WHERE fl.cd_pessoa = ${cd}${fE} AND ${isAberta('fl')} AND ${isExpedida('rem')} AND ISNULL(req.qt_remessa,0) - ISNULL(req.qt_devolucao,0) > 0 ORDER BY grupo.nm_grupo`);
+  for (const f of fichas) {
+    Object.assign(f, fichaStatus(f.tp_ope_pedido, f.dt_enc_ficha, Number(f.remessas_expedidas) || 0));
+    // Orçamento e ficha encerrada não têm máquina no cliente.
+    f.saldo_no_cliente = f.ficha_status === 'Aberta' ? Number(f.saldo_no_cliente) || 0 : 0;
+  }
+  const equipamentos_no_cliente = fichas.reduce((s: number, f: any) => s + (f.ficha_status === 'Aberta' ? f.saldo_no_cliente : 0), 0);
+  return { fichas, equipamentos_no_cliente, heatmap_mensal, grupos_mais_locados, equipamentos_ativos };
 }
 
 Deno.serve(async (req) => {
