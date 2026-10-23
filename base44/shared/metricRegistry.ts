@@ -192,88 +192,87 @@ export const METRICS: MetricDef[] = [
   },
 ];
 
-// Universo canônico de recebíveis (mesmo usado no bloco analytics · CAR)
-function carWindowClause(ctx: AnalysisContext, start: string, end: string) {
+// RECEBIVEIS_ABERTO (QUERY_PATTERN validado): valor = vl_pre + vl_acr − vl_des, não baixado,
+// fl_status IN (5,10), sem empresas 5/6 (cd_empresa_gestora, mesmo campo do ClienteDimSnapshot).
+const CAR_OPEN_SUM = 'ISNULL(SUM(ISNULL(vl_pre_car,0)+ISNULL(vl_acr_car,0)-ISNULL(vl_des_car,0)),0)';
+function carOpenClause(ctx: AnalysisContext) {
   const emp = ctx.cd_empresa ? ` AND cd_empresa_gestora = '${String(ctx.cd_empresa).replace(/'/g, '')}'` : '';
-  return `dt_emi_car >= '${start}' AND dt_emi_car < '${end}' AND dt_cancelamento IS NULL ${empFilter('', 'cd_empresa_gestora')}${emp}`;
+  return `dt_bai_car IS NULL AND fl_status IN (5, 10) ${empFilter('', 'cd_empresa_gestora')}${emp}`;
 }
 
-function periodDays(ctx: AnalysisContext) {
-  const ms = new Date(ctx.period_end + 'T00:00:00Z').getTime() - new Date(ctx.period_start + 'T00:00:00Z').getTime();
-  return Math.max(1, Math.round(ms / 86400000));
+// DSO: janela rolling de 365 dias terminando no fim do período (limitado a hoje, fim exclusivo).
+function dsoWindow(ctx: AnalysisContext) {
+  const now = new Date();
+  const tomorrow = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1);
+  const endD = new Date(Math.min(new Date(ctx.period_end + 'T00:00:00Z').getTime(), tomorrow));
+  const startD = new Date(endD); startD.setUTCDate(startD.getUTCDate() - 365);
+  return { start: startD.toISOString().slice(0, 10), end: endD.toISOString().slice(0, 10) };
 }
 
 METRICS.push(
   {
     metric_id: 'MTR-020',
-    business_name: 'Recebíveis em aberto (emitidos no período)',
-    version: '0.1',
-    formula: 'Σ vl_pre_car de títulos emitidos no período, não baixados e não cancelados',
+    business_name: 'Recebíveis em aberto (RECEBIVEIS_ABERTO)',
+    version: '0.2',
+    formula: 'Σ (vl_pre_car + vl_acr_car − vl_des_car) de títulos não baixados com fl_status IN (5,10), sem empresas 5/6 — posição atual da carteira',
     grain: 'receivable',
     unit: 'BRL',
-    time_dimension: 'dt_emi_car',
+    time_dimension: 'posição atual (sem recorte de emissão)',
     business_owner: PENDING_OWNER,
     technical_owner: 'Data Platform',
-    source_of_truth: 'car.vl_pre_car (substituto do canônico Receivable)',
-    trusted: false,
-    blocking_questions: [
-      'Confirmar se o saldo em aberto deve incluir acréscimos/descontos (vl_acr_car / vl_des_car).',
-      'Recorte por emissão no período difere de posição de carteira (saldo em uma data).',
-    ],
+    source_of_truth: 'BusinessTerm RECEBIVEIS_ABERTO (QUERY_PATTERN validado)',
+    trusted: true,
+    blocking_questions: ['Posição na data corrente — muda a cada execução (por design).'],
     build: (ctx) => ({
-      queries: [
-        `SELECT ISNULL(SUM(vl_pre_car),0) AS v FROM car WHERE ${carWindowClause(ctx, ctx.period_start, ctx.period_end)} AND dt_bai_car IS NULL`,
-      ],
+      queries: [`SELECT ${CAR_OPEN_SUM} AS v FROM car WHERE ${carOpenClause(ctx)}`],
       reduce: ([r]) => Number(r?.[0]?.v || 0),
     }),
   },
   {
     metric_id: 'MTR-021',
-    business_name: 'Recebíveis vencidos (emitidos no período)',
-    version: '0.1',
-    formula: 'Σ vl_pre_car de títulos emitidos no período, em aberto e com vencimento anterior a hoje',
+    business_name: 'Recebíveis vencidos (RECEBIVEIS_VENCIDO)',
+    version: '0.2',
+    formula: 'RECEBIVEIS_ABERTO com dt_ven_car < GETDATE()',
     grain: 'receivable',
     unit: 'BRL',
-    time_dimension: 'dt_emi_car',
+    time_dimension: 'posição atual (dt_ven_car < hoje)',
     business_owner: PENDING_OWNER,
     technical_owner: 'Data Platform',
-    source_of_truth: 'car.vl_pre_car + dt_ven_car',
-    trusted: false,
-    blocking_questions: ['Vencido depende da data corrente — resultado muda a cada execução (documentado por design).'],
+    source_of_truth: 'BusinessTerm RECEBIVEIS_ABERTO + dt_ven_car',
+    trusted: true,
+    blocking_questions: ['Vencido depende da data corrente — resultado muda a cada execução (por design).'],
     build: (ctx) => ({
-      queries: [
-        `SELECT ISNULL(SUM(vl_pre_car),0) AS v FROM car WHERE ${carWindowClause(ctx, ctx.period_start, ctx.period_end)} AND dt_bai_car IS NULL AND dt_ven_car < GETDATE()`,
-      ],
+      queries: [`SELECT ${CAR_OPEN_SUM} AS v FROM car WHERE ${carOpenClause(ctx)} AND dt_ven_car < GETDATE()`],
       reduce: ([r]) => Number(r?.[0]?.v || 0),
     }),
   },
   {
     metric_id: 'MTR-022',
-    business_name: 'DSO (prazo médio de recebimento)',
-    version: '0.1',
-    formula: '(Recebíveis em aberto emitidos no período / Receita do período) × dias da janela',
+    business_name: 'DSO (dias) = Saldo total em aberto ÷ Receita faturada 12m × 365',
+    version: '0.2',
+    formula: 'DSO (dias) = RECEBIVEIS_ABERTO (todos os títulos em aberto, sem filtro de emissão) ÷ Receita faturada dos últimos 365 dias (filtro oficial de NF, sem empresas 5/6) × 365',
     grain: 'period',
     unit: 'days',
-    time_dimension: 'dt_emi_car / dt_emi_nf',
+    time_dimension: 'receita: 365 dias rolling até o fim do período (limitado a hoje) · saldo: posição atual',
     business_owner: PENDING_OWNER,
     technical_owner: 'Data Platform',
-    source_of_truth: 'derivada de MTR-020 e MTR-001',
-    trusted: false,
-    blocking_questions: [
-      ...REVENUE_BLOCKERS,
-      'Método simples (não countback); confirmar convenção oficial com o financeiro.',
-    ],
-    build: (ctx) => ({
-      queries: [
-        `SELECT ISNULL(SUM(vl_pre_car),0) AS v FROM car WHERE ${carWindowClause(ctx, ctx.period_start, ctx.period_end)} AND dt_bai_car IS NULL`,
-        `SELECT ${REVENUE_EXPR} AS v FROM nf WHERE ${windowClause(ctx, ctx.period_start, ctx.period_end)}`,
-      ],
-      reduce: ([open, rev]) => {
-        const receita = Number(rev?.[0]?.v || 0);
-        if (!receita) return null;
-        return Math.round((Number(open?.[0]?.v || 0) / receita) * periodDays(ctx) * 10) / 10;
-      },
-    }),
+    source_of_truth: 'MTR-020 ÷ receita oficial (padrão MTR-001) em janela rolling de 365 dias',
+    trusted: true,
+    blocking_questions: ['Método simples (não countback).'],
+    build: (ctx) => {
+      const w = dsoWindow(ctx);
+      return {
+        queries: [
+          `SELECT ${CAR_OPEN_SUM} AS v FROM car WHERE ${carOpenClause(ctx)}`,
+          `SELECT ${REVENUE_EXPR} AS v FROM nf WHERE ${windowClause(ctx, w.start, w.end)}`,
+        ],
+        reduce: ([open, rev]) => {
+          const receita = Number(rev?.[0]?.v || 0);
+          if (!receita) return null;
+          return Math.round((Number(open?.[0]?.v || 0) / receita) * 365 * 10) / 10;
+        },
+      };
+    },
   },
 );
 

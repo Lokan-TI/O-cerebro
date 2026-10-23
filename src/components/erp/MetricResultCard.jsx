@@ -5,6 +5,7 @@ function formatValue(value, unit) {
   if (value == null) return "—";
   if (unit === "BRL") return value.toLocaleString("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 });
   if (unit === "percent") return `${value.toFixed(1)}%`;
+  if (unit === "days") return `${value.toLocaleString("pt-BR", { maximumFractionDigits: 1 })} dias`;
   return value.toLocaleString("pt-BR");
 }
 

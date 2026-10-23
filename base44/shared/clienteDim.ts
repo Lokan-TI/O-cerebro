@@ -122,7 +122,8 @@ export function buildClienteDim(input: {
     r.car_liquidado += num(c.valor_liquidado);
     r.car_a_vencer += num(c.valor_a_vencer);
     r.car_vencido += num(c.valor_vencido);
-    r.car_aberto += num(c.valor_a_vencer) + num(c.valor_vencido);
+    // RECEBIVEIS_ABERTO validado: fl_status IN (5,10), não baixado (vl_pre + vl_acr − vl_des)
+    r.car_aberto += num(c.valor_aberto);
     r.car_provisorio += num(c.valor_provisorio);
     r.car_juros_multa += num(c.valor_juros_multa);
   }

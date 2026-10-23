@@ -86,7 +86,6 @@ Deno.serve(async (req) => {
           SUM(CASE WHEN NOT (c.fl_status = 5 AND c.dt_bai_car IS NULL AND c.dt_ven_car >= CAST(GETDATE() AS date)) THEN v.val ELSE 0 END) AS valor_total,
           SUM(CASE WHEN c.fl_status IN (25,30) OR c.dt_bai_car IS NOT NULL THEN v.val ELSE 0 END) AS valor_liquidado,
           SUM(CASE WHEN c.fl_status = 10 AND c.dt_bai_car IS NULL AND c.dt_ven_car >= CAST(GETDATE() AS date) THEN v.val ELSE 0 END) AS valor_a_vencer,
-          SUM(CASE WHEN c.fl_status IN (5,10) AND c.dt_bai_car IS NULL AND c.dt_ven_car < CAST(GETDATE() AS date) THEN v.val ELSE 0 END) AS valor_vencido,
           SUM(CASE WHEN c.fl_status = 5 AND c.dt_bai_car IS NULL AND c.dt_ven_car >= CAST(GETDATE() AS date) THEN v.val ELSE 0 END) AS valor_provisorio,
           SUM(ISNULL(c.vl_juros,0)+ISNULL(c.vl_multa,0)) AS valor_juros_multa
         FROM car c WITH (NOLOCK)
@@ -98,6 +97,21 @@ Deno.serve(async (req) => {
       queryCount++;
     } catch (e: any) {
       warnings.push('Falha ao agregar contas a receber: ' + (e.message || String(e)).slice(0, 120));
+    }
+
+    // 3b) RECEBIVEIS_ABERTO / RECEBIVEIS_VENCIDO (QUERY_PATTERN validado) — posição atual da carteira,
+    // sem filtro de emissão: Σ(vl_pre + vl_acr − vl_des) · dt_bai_car IS NULL · fl_status IN (5,10) · sem empresas 5/6
+    try {
+      const sql = `SELECT c.cd_pessoa_cli AS cd_pessoa,
+          SUM(ISNULL(c.vl_pre_car,0)+ISNULL(c.vl_acr_car,0)-ISNULL(c.vl_des_car,0)) AS valor_aberto,
+          SUM(CASE WHEN c.dt_ven_car < GETDATE() THEN ISNULL(c.vl_pre_car,0)+ISNULL(c.vl_acr_car,0)-ISNULL(c.vl_des_car,0) ELSE 0 END) AS valor_vencido
+        FROM car c WITH (NOLOCK)
+        WHERE c.dt_bai_car IS NULL AND c.fl_status IN (5, 10) AND c.cd_pessoa_cli IS NOT NULL ${empFilter('c', 'cd_empresa_gestora')}
+        GROUP BY c.cd_pessoa_cli`;
+      cars.push(...getRows(await runQuery(source, wrap(sql), 60000)));
+      queryCount++;
+    } catch (e: any) {
+      warnings.push('Falha ao agregar recebíveis em aberto: ' + (e.message || String(e)).slice(0, 120));
     }
 
     // 4) Cadastro (pessoa) — resolvido em lotes apenas para os clientes com atividade

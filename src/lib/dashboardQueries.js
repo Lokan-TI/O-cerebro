@@ -248,9 +248,9 @@ GROUP BY nf.cd_empresa`,
     label: "CAR (Contas a Receber) por empresa gestora",
     sql: `SELECT cd_empresa_gestora, COUNT(*) AS qtd,
   ISNULL(SUM(vl_pre_car),0) AS vl_total,
-  ISNULL(SUM(CASE WHEN dt_bai_car IS NULL AND dt_cancelamento IS NULL THEN vl_pre_car ELSE 0 END),0) AS vl_aberto,
+  ISNULL(SUM(CASE WHEN dt_bai_car IS NULL AND fl_status IN (5,10) THEN ISNULL(vl_pre_car,0)+ISNULL(vl_acr_car,0)-ISNULL(vl_des_car,0) ELSE 0 END),0) AS vl_aberto,
   ISNULL(SUM(CASE WHEN dt_bai_car IS NOT NULL THEN vl_pre_car ELSE 0 END),0) AS vl_baixado,
-  ISNULL(SUM(CASE WHEN dt_ven_car < GETDATE() AND dt_bai_car IS NULL AND dt_cancelamento IS NULL THEN vl_pre_car ELSE 0 END),0) AS vl_vencido
+  ISNULL(SUM(CASE WHEN dt_ven_car < GETDATE() AND dt_bai_car IS NULL AND fl_status IN (5,10) THEN ISNULL(vl_pre_car,0)+ISNULL(vl_acr_car,0)-ISNULL(vl_des_car,0) ELSE 0 END),0) AS vl_vencido
 FROM car WITH (NOLOCK)
 WHERE dt_emi_car >= '{start}' AND dt_emi_car < '{end}' AND dt_cancelamento IS NULL
 GROUP BY cd_empresa_gestora
@@ -276,7 +276,7 @@ ORDER BY ISNULL(SUM(vl_pre_cap),0) DESC`,
     label: "CAR mensal (últimos ~24 meses)",
     sql: `SELECT YEAR(dt_emi_car) AS ano, MONTH(dt_emi_car) AS mes,
   ISNULL(SUM(vl_pre_car),0) AS vl_total,
-  ISNULL(SUM(CASE WHEN dt_bai_car IS NULL AND dt_cancelamento IS NULL THEN vl_pre_car ELSE 0 END),0) AS vl_aberto,
+  ISNULL(SUM(CASE WHEN dt_bai_car IS NULL AND fl_status IN (5,10) THEN ISNULL(vl_pre_car,0)+ISNULL(vl_acr_car,0)-ISNULL(vl_des_car,0) ELSE 0 END),0) AS vl_aberto,
   ISNULL(SUM(CASE WHEN dt_bai_car IS NOT NULL THEN vl_pre_car ELSE 0 END),0) AS vl_baixado,
   COUNT(*) AS qtd
 FROM car WITH (NOLOCK)
