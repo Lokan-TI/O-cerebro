@@ -62,6 +62,7 @@ function aggregateGroups(branchRows: Record<string, any[]>) {
   const map = new Map<string, any>();
   const branchFields: Record<string, string> = {
     locacao: 'vl_locacao',
+    medidor: 'vl_medidor',
     venda: 'vl_venda',
     manutencao: 'vl_manutencao',
     servico: 'vl_servico',
@@ -80,6 +81,7 @@ function aggregateGroups(branchRows: Record<string, any[]>) {
           nm_grupo: r.nm_grupo,
           nm_pessoa: r.nm_pessoa,
           vl_locacao: 0,
+          vl_medidor: 0,
           vl_venda: 0,
           vl_manutencao: 0,
           vl_servico: 0,
@@ -95,7 +97,7 @@ function aggregateGroups(branchRows: Record<string, any[]>) {
   return [...map.values()]
     .map((r) => ({
       ...r,
-      vl_total: r.vl_locacao + r.vl_venda + r.vl_manutencao + r.vl_servico + r.vl_indenizacao,
+      vl_total: r.vl_locacao + r.vl_medidor + r.vl_venda + r.vl_manutencao + r.vl_servico + r.vl_indenizacao,
     }))
     .sort((a, b) => b.vl_total - a.vl_total || a.cd_grupo - b.cd_grupo);
 }
@@ -145,6 +147,7 @@ export default async function (req: Request): Promise<Response> {
     const queries = buildSislocRevenueQueries(filters);
     const branchRows: Record<string, any[]> = {
       locacao: [],
+      medidor: [],
       venda: [],
       manutencao: [],
       servico: [],
@@ -154,7 +157,7 @@ export default async function (req: Request): Promise<Response> {
 
     // Execução sequencial: o ERP/Sisloc compartilha recursos de conexão e historicamente
     // responde melhor quando essas consultas pesadas não são disparadas em paralelo.
-    for (const branch of ['locacao', 'venda', 'manutencao', 'servico', 'indenizacao']) {
+    for (const branch of ['locacao', 'medidor', 'venda', 'manutencao', 'servico', 'indenizacao']) {
       try {
         branchRows[branch] = rowsOf(await execRead(source, queries[branch], 120000));
       } catch (e) {

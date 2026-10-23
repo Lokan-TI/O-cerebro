@@ -120,34 +120,6 @@ export function locacaoSql(f: RateioFilters): string {
 
       UNION
 
-      /* 1C · Patrimônio / medidor */
-      SELECT grupo.cd_grupo, grupo.nm_grupo, 'P' AS TIPO,
-        patrimon.nr_patrimonio AS nm_equipto, patrimon.cd_patrimonio AS cd_equipto,
-        equipto.cd_equipto AS cd_eq_pat, equipto.nm_equipto AS nm_eq_pat,
-        SUM((fl_fat_medidor.vl_total / nf1.vl_faturamento) * nffatur.vl_nffatur) AS VALOR,
-        pes.nm_pessoa, nf1.cd_nftotal AS Categoria
-      FROM fl_fatura WITH (NOLOCK)
-      INNER JOIN fl_fat_medidor WITH (NOLOCK) ON fl_fatura.cd_flfatura = fl_fat_medidor.cd_flfatura
-      INNER JOIN patrimon WITH (NOLOCK) ON fl_fat_medidor.cd_patrimonio = patrimon.cd_patrimonio
-      INNER JOIN equipto WITH (NOLOCK) ON patrimon.cd_equipto = equipto.cd_equipto
-      INNER JOIN grupo WITH (NOLOCK) ON equipto.cd_grupo = grupo.cd_grupo
-      INNER JOIN nf nf1 WITH (NOLOCK) ON fl_fatura.cd_nf = nf1.cd_nf
-      INNER JOIN v_nf_emissao V WITH (NOLOCK) ON nf1.cd_nf = V.cd_nf
-      INNER JOIN fich_loc e WITH (NOLOCK) ON fl_fatura.cd_controle = e.cd_controle
-      LEFT OUTER JOIN nffatur WITH (NOLOCK) ON nffatur.cd_nf = nf1.cd_nf
-      LEFT OUTER JOIN pessoa pes WITH (NOLOCK) ON pes.cd_pessoa = nf1.cd_pessoa_fun
-      WHERE nf1.vl_faturamento > 0
-        ${emissionWindow('V', f)}
-        ${reportCompanyFilter('e')}
-        ${gfEquip}
-        ${pf}
-        ${ffEquip}
-      GROUP BY grupo.cd_grupo, grupo.nm_grupo, patrimon.nr_patrimonio,
-        patrimon.cd_patrimonio, equipto.nm_equipto, equipto.cd_equipto,
-        pes.nm_pessoa, nf1.cd_nftotal
-
-      UNION
-
       /* 1D · Apontamento faturado proporcionalmente */
       SELECT grupo.cd_grupo, grupo.nm_grupo, 'E' AS TIPO,
         equipto.nm_equipto, equipto.cd_equipto,
@@ -399,9 +371,39 @@ export function indenizacaoSql(f: RateioFilters): string {
     ORDER BY X.cd_grupo`;
 }
 
+// 1C) METERED_ASSET — medição por patrimônio (fl_fat_medidor), antes absorvida no
+// bloco de locação; agora branch próprio para reconciliação por componente.
+export function medidorSql(f: RateioFilters): string {
+  return `SELECT grupo.cd_grupo, grupo.nm_grupo, 'P' AS TIPO,
+      patrimon.nr_patrimonio AS nm_tipo, patrimon.cd_patrimonio AS cd_tipo,
+      equipto.cd_equipto AS cd_eq_pat, equipto.nm_equipto AS nm_eq_pat,
+      SUM((fl_fat_medidor.vl_total / nf1.vl_faturamento) * nffatur.vl_nffatur) AS VALOR,
+      pes.nm_pessoa, nf1.cd_nftotal AS Categoria
+    FROM fl_fatura WITH (NOLOCK)
+    INNER JOIN fl_fat_medidor WITH (NOLOCK) ON fl_fatura.cd_flfatura = fl_fat_medidor.cd_flfatura
+    INNER JOIN patrimon WITH (NOLOCK) ON fl_fat_medidor.cd_patrimonio = patrimon.cd_patrimonio
+    INNER JOIN equipto WITH (NOLOCK) ON patrimon.cd_equipto = equipto.cd_equipto
+    INNER JOIN grupo WITH (NOLOCK) ON equipto.cd_grupo = grupo.cd_grupo
+    INNER JOIN nf nf1 WITH (NOLOCK) ON fl_fatura.cd_nf = nf1.cd_nf
+    INNER JOIN v_nf_emissao V WITH (NOLOCK) ON nf1.cd_nf = V.cd_nf
+    INNER JOIN fich_loc e WITH (NOLOCK) ON fl_fatura.cd_controle = e.cd_controle
+    LEFT OUTER JOIN nffatur WITH (NOLOCK) ON nffatur.cd_nf = nf1.cd_nf
+    LEFT OUTER JOIN pessoa pes WITH (NOLOCK) ON pes.cd_pessoa = nf1.cd_pessoa_fun
+    WHERE nf1.vl_faturamento > 0
+      ${emissionWindow('V', f)}
+      ${reportCompanyFilter('e')}
+      ${groupFilter('grupo.cd_grupo', f.groupId)}
+      ${personFilter('pes', f.personId)}
+      ${familyFilter('equipto.cd_equfamilia', f.familyId)}
+    GROUP BY grupo.cd_grupo, grupo.nm_grupo, patrimon.nr_patrimonio,
+      patrimon.cd_patrimonio, equipto.nm_equipto, equipto.cd_equipto,
+      pes.nm_pessoa, nf1.cd_nftotal`;
+}
+
 export function buildSislocRevenueQueries(f: RateioFilters) {
   return {
     locacao: locacaoSql(f),
+    medidor: medidorSql(f),
     venda: vendaSql(f),
     manutencao: manutencaoSql(f),
     servico: servicoSql(f),
