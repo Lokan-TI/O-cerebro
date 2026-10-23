@@ -1,6 +1,6 @@
 // Consolida vários snapshots ERP (multi-base) em um único snapshot "Todas as bases".
 const SUM_KPIS = [
-  "fat_ano", "fat_ano_ant", "fat_mes", "nfs_ano", "nfs_mes", "clientes_ano", "clientes_mes",
+  "fat_ano", "fat_ano_ant", "fat_mes", "fat_mes_ant", "fat_mes_ant_full", "nfs_mes_ant", "clientes_mes_ant", "nfs_ano", "nfs_mes", "clientes_ano", "clientes_mes",
   "new_clients", "new_client_revenue", "retained_revenue", "retained_clients",
   "clients_last_year", "churned_clients",
 ];
@@ -29,6 +29,9 @@ export function mergeSnapshots(snapshots) {
   k.ticket_ano = k.nfs_ano ? k.fat_ano / k.nfs_ano : 0;
   k.ticket_mes = k.nfs_mes ? k.fat_mes / k.nfs_mes : 0;
   k.crescimento_ano = k.fat_ano_ant ? ((k.fat_ano - k.fat_ano_ant) / k.fat_ano_ant) * 100 : 0;
+  k.crescimento_mes = k.fat_mes_ant ? ((k.fat_mes - k.fat_mes_ant) / k.fat_mes_ant) * 100 : null;
+  k.mes_parcial = rows.some((r) => r.kpis?.mes_parcial);
+  k.mtd_dia = rows[0].kpis?.mtd_dia ?? null;
   k.retention_rate = k.clients_last_year ? (k.retained_clients / k.clients_last_year) * 100 : 0;
   k.churn_rate = k.clients_last_year ? (k.churned_clients / k.clients_last_year) * 100 : 0;
   k.receita_por_cliente = k.clientes_ano ? k.fat_ano / k.clientes_ano : 0;

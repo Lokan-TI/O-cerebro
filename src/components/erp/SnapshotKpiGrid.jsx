@@ -48,9 +48,20 @@ export default function SnapshotKpiGrid() {
     );
   }
 
+  const parcial = !!kpis.mes_parcial;
+  const config = KPI_CONFIG.map((kpi) => {
+    if (kpi.key !== "fat_mes" || !parcial) return kpi;
+    const g = kpis.crescimento_mes;
+    return {
+      ...kpi,
+      label: "Faturamento do mês (MTD)",
+      sub: g == null ? `Até dia ${kpis.mtd_dia}` : `${g >= 0 ? "+" : ""}${g.toFixed(1)}% vs. mesmo período do mês anterior`,
+    };
+  });
+
   return (
     <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
-      {KPI_CONFIG.map(kpi => (
+      {config.map(kpi => (
         <div key={kpi.key} className={`bg-gray-900 border-l-4 ${kpi.accent} rounded-lg p-4`}>
           <p className="text-gray-400 text-xs uppercase tracking-wider mb-1">{kpi.label}</p>
           <p className="text-2xl font-bold text-white">{fmtValue(kpis[kpi.key], kpi.format)}</p>

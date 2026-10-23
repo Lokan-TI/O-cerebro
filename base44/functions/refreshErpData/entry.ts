@@ -49,8 +49,10 @@ function generateAlerts(kpis, topClients) {
   if (kpis.crescimento_mes != null && kpis.crescimento_mes < -10) {
     alerts.push({
       type: 'attention', severity: 'warning',
-      title: 'Queda na receita mensal',
-      message: `A receita do mês atual caiu ${Math.abs(kpis.crescimento_mes).toFixed(1)}% vs. mês anterior.`,
+      title: kpis.mes_parcial ? 'Queda na receita mensal (mês parcial)' : 'Queda na receita mensal',
+      message: kpis.mes_parcial
+        ? `Mês parcial (até dia ${kpis.mtd_dia}): a receita MTD caiu ${Math.abs(kpis.crescimento_mes).toFixed(1)}% vs. o mesmo período do mês anterior.`
+        : `A receita do mês caiu ${Math.abs(kpis.crescimento_mes).toFixed(1)}% vs. mês anterior.`,
       impact: kpis.fat_mes_ant - kpis.fat_mes,
     });
   }
@@ -293,8 +295,18 @@ async function processRefresh(base44, source, run, version, previousVersion, sta
     const prevMonthStart = 'DATEADD(month,-1,DATEFROMPARTS(YEAR(GETDATE()),MONTH(GETDATE()),1))';
     // Comparação anual: mesma janela deslocada em 1 ano quando há período explícito.
     const lastYearEnd = requestedEnd ? `DATEADD(year,-1,CAST('${requestedEnd}' AS date))` : 'DATEADD(year,-1,GETDATE())';
-    const lastMonthStart = 'DATEFROMPARTS(YEAR(GETDATE())-1,MONTH(GETDATE()),1)';
-    const lastMonthEnd = 'DATEADD(month,1,DATEFROMPARTS(YEAR(GETDATE())-1,MONTH(GETDATE()),1))';
+    // Comparação mensal apples-to-apples (Pente Fino 5/8): MTD atual vs MTD do mês anterior
+    // (mesma janela de dias, DATEADD(month,-1,...)). Mês anterior cheio exposto à parte (fat_mes_ant_full).
+    const mtdEnd = 'DATEADD(day,1,CAST(GETDATE() AS date))';
+    const lastMonthStart = `DATEADD(month,-1,${monthStart})`;
+    const lastMonthEnd = `DATEADD(month,-1,${mtdEnd})`;
+    const lastMonthFullEnd = monthStart;
+    const mtdExtra = `
+        ISNULL(SUM(CASE WHEN dt_emi_nf >= ${lastMonthStart} AND dt_emi_nf < ${lastMonthFullEnd} THEN vl_faturamento ELSE 0 END),0) AS fat_mes_ant_full,
+        COUNT(CASE WHEN dt_emi_nf >= ${lastMonthStart} AND dt_emi_nf < ${lastMonthEnd} THEN 1 END) AS nfs_mes_ant,
+        COUNT(DISTINCT CASE WHEN dt_emi_nf >= ${lastMonthStart} AND dt_emi_nf < ${lastMonthEnd} THEN cd_pessoa END) AS clientes_mes_ant,
+        CASE WHEN ${mtdEnd} < ${monthEnd} THEN 1 ELSE 0 END AS mes_parcial,
+        DAY(GETDATE()) AS mtd_dia,`;
 
     // Etapa 3: KPIs combinados (único scan da tabela nf) — timeout estendido (ETL fire-and-forget)
     await updateStep(3, 20);
@@ -304,7 +316,7 @@ async function processRefresh(base44, source, run, version, previousVersion, sta
         ISNULL(SUM(CASE WHEN dt_emi_nf >= ${yearStart} AND dt_emi_nf < ${yearEnd} THEN vl_faturamento ELSE 0 END),0) AS fat_ano,
         ISNULL(SUM(CASE WHEN dt_emi_nf >= ${lastYearStart} AND dt_emi_nf < ${lastYearEnd} THEN vl_faturamento ELSE 0 END),0) AS fat_ano_ant,
         ISNULL(SUM(CASE WHEN dt_emi_nf >= ${monthStart} AND dt_emi_nf < ${monthEnd} THEN vl_faturamento ELSE 0 END),0) AS fat_mes,
-        ISNULL(SUM(CASE WHEN dt_emi_nf >= ${lastMonthStart} AND dt_emi_nf < ${lastMonthEnd} THEN vl_faturamento ELSE 0 END),0) AS fat_mes_ant,
+        ISNULL(SUM(CASE WHEN dt_emi_nf >= ${lastMonthStart} AND dt_emi_nf < ${lastMonthEnd} THEN vl_faturamento ELSE 0 END),0) AS fat_mes_ant,${mtdExtra}
         COUNT(CASE WHEN dt_emi_nf >= ${monthStart} AND dt_emi_nf < ${monthEnd} THEN 1 END) AS nfs_mes,
         COUNT(CASE WHEN dt_emi_nf >= ${yearStart} AND dt_emi_nf < ${yearEnd} THEN 1 END) AS nfs_ano,
         COUNT(DISTINCT CASE WHEN dt_emi_nf >= ${monthStart} AND dt_emi_nf < ${monthEnd} THEN cd_pessoa END) AS clientes_mes,
@@ -740,7 +752,7 @@ async function processRefresh(base44, source, run, version, previousVersion, sta
         ISNULL(SUM(CASE WHEN nf.dt_emi_nf >= ${yearStart} AND nf.dt_emi_nf < ${yearEnd} THEN nf.vl_faturamento ELSE 0 END),0) AS fat_ano,
         ISNULL(SUM(CASE WHEN nf.dt_emi_nf >= ${lastYearStart} AND nf.dt_emi_nf < ${lastYearEnd} THEN nf.vl_faturamento ELSE 0 END),0) AS fat_ano_ant,
         ISNULL(SUM(CASE WHEN nf.dt_emi_nf >= ${monthStart} AND nf.dt_emi_nf < ${monthEnd} THEN nf.vl_faturamento ELSE 0 END),0) AS fat_mes,
-        ISNULL(SUM(CASE WHEN nf.dt_emi_nf >= ${lastMonthStart} AND nf.dt_emi_nf < ${lastMonthEnd} THEN nf.vl_faturamento ELSE 0 END),0) AS fat_mes_ant,
+        ISNULL(SUM(CASE WHEN nf.dt_emi_nf >= ${lastMonthStart} AND nf.dt_emi_nf < ${lastMonthEnd} THEN nf.vl_faturamento ELSE 0 END),0) AS fat_mes_ant,${mtdExtra.replace(/dt_emi_nf/g, 'nf.dt_emi_nf').replace(/vl_faturamento/g, 'nf.vl_faturamento').replace(/cd_pessoa/g, 'nf.cd_pessoa').replace(/CASE WHEN DATEADD\(day[^\n]*mes_parcial,/, '').replace(/DAY\(GETDATE\(\)\) AS mtd_dia,/, '')}
         COUNT(CASE WHEN nf.dt_emi_nf >= ${yearStart} AND nf.dt_emi_nf < ${yearEnd} THEN 1 END) AS nfs_ano,
         COUNT(CASE WHEN nf.dt_emi_nf >= ${monthStart} AND nf.dt_emi_nf < ${monthEnd} THEN 1 END) AS nfs_mes,
         COUNT(DISTINCT CASE WHEN nf.dt_emi_nf >= ${yearStart} AND nf.dt_emi_nf < ${yearEnd} THEN nf.cd_pessoa END) AS clientes_ano,
@@ -779,6 +791,9 @@ async function processRefresh(base44, source, run, version, previousVersion, sta
           fat_ano_ant: fatAnoAnt,
           fat_mes: fatMes,
           fat_mes_ant: fatMesAnt,
+          fat_mes_ant_full: Number(r.fat_mes_ant_full) || 0,
+          nfs_mes_ant: Number(r.nfs_mes_ant) || 0,
+          clientes_mes_ant: Number(r.clientes_mes_ant) || 0,
           nfs_ano: nfsAno,
           nfs_mes: nfsMes,
           clientes_ano: clientesAno,
@@ -901,6 +916,11 @@ async function processRefresh(base44, source, run, version, previousVersion, sta
       fat_ano_ant: Number(kpiRow.fat_ano_ant) || 0,
       fat_mes: Number(kpiRow.fat_mes) || 0,
       fat_mes_ant: Number(kpiRow.fat_mes_ant) || 0,
+      fat_mes_ant_full: Number(kpiRow.fat_mes_ant_full) || 0,
+      nfs_mes_ant: Number(kpiRow.nfs_mes_ant) || 0,
+      clientes_mes_ant: Number(kpiRow.clientes_mes_ant) || 0,
+      mes_parcial: Number(kpiRow.mes_parcial) === 1,
+      mtd_dia: Number(kpiRow.mtd_dia) || null,
       nfs_mes: Number(kpiRow.nfs_mes) || 0,
       nfs_ano: Number(kpiRow.nfs_ano) || 0,
       clientes_mes: Number(kpiRow.clientes_mes) || 0,

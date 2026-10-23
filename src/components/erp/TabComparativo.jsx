@@ -15,7 +15,7 @@ const DETAIL_FINANCIAL = [
   { key: "fat_ano", label: "Faturamento NF Anual (YTD)", format: "currency", accent: "purple" },
   { key: "fat_mes", label: "Faturamento NF Mensal", format: "currency", accent: "blue" },
   { key: "crescimento_ano", label: "Crescimento Anual (YTD)", format: "percent", accent: "green" },
-  { key: "crescimento_mes", label: "Crescimento Mensal (YoY)", format: "percent", accent: "cyan" },
+  { key: "crescimento_mes", label: "Crescimento Mensal (vs. mesmo período do mês anterior)", format: "percent", accent: "cyan" },
   { key: "ticket_ano", label: "Ticket Médio Anual", format: "currency", accent: "indigo" },
   { key: "ticket_mes", label: "Ticket Médio Mensal", format: "currency", accent: "orange" },
   { key: "nfs_ano", label: "NFs Emitidas (Ano)", format: "number", accent: "yellow" },

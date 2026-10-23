@@ -6,7 +6,7 @@ const FINANCIAL_ROWS = [
   { key: "fat_ano_ant", label: "Faturamento NF Ano Ant. (YTD)", fmt: "currency", best: "max" },
   { key: "crescimento_ano", label: "Crescimento Anual (YTD)", fmt: "percent", best: "max" },
   { key: "fat_mes", label: "Faturamento NF Mensal", fmt: "currency", best: "max" },
-  { key: "crescimento_mes", label: "Crescimento Mensal (YoY)", fmt: "percent", best: "max" },
+  { key: "crescimento_mes", label: "Crescimento Mensal (vs. mesmo período do mês anterior)", fmt: "percent", best: "max" },
   { key: "ticket_ano", label: "Ticket Médio Anual", fmt: "currency", best: "max" },
   { key: "nfs_ano", label: "NFs Emitidas (Ano)", fmt: "number", best: "max" },
   { key: "nfs_mes", label: "NFs Emitidas (Mês)", fmt: "number", best: "max" },
