@@ -3,21 +3,87 @@
     "document": {
       "dsl": "1.0.0",
       "name": "atualizacao_diaria_erp",
-      "version": "1.0",
+      "version": "1.1",
       "namespace": "base44"
     },
     "do": [
       {
-        "refresh_all": {
+        "fonte_1": {
           "call": "invoke_backend_function",
           "with": {
             "function_name": "refreshAllErpSources",
-            "args": {}
+            "args": {
+              "index": 0
+            }
+          },
+          "then": "fonte_2",
+          "x-base44": {
+            "title": "Fonte 1",
+            "description": "Jundia\u00ed"
+          }
+        }
+      },
+      {
+        "fonte_2": {
+          "call": "invoke_backend_function",
+          "with": {
+            "function_name": "refreshAllErpSources",
+            "args": {
+              "index": 1
+            }
+          },
+          "then": "fonte_3",
+          "x-base44": {
+            "title": "Fonte 2",
+            "description": "Matriz"
+          }
+        }
+      },
+      {
+        "fonte_3": {
+          "call": "invoke_backend_function",
+          "with": {
+            "function_name": "refreshAllErpSources",
+            "args": {
+              "index": 2
+            }
+          },
+          "then": "fonte_4",
+          "x-base44": {
+            "title": "Fonte 3",
+            "description": "Piracicaba"
+          }
+        }
+      },
+      {
+        "fonte_4": {
+          "call": "invoke_backend_function",
+          "with": {
+            "function_name": "refreshAllErpSources",
+            "args": {
+              "index": 3
+            }
+          },
+          "then": "fonte_5",
+          "x-base44": {
+            "title": "Fonte 4",
+            "description": "Reserva para nova fonte"
+          }
+        }
+      },
+      {
+        "fonte_5": {
+          "call": "invoke_backend_function",
+          "with": {
+            "function_name": "refreshAllErpSources",
+            "args": {
+              "index": 4
+            }
           },
           "then": "end",
           "x-base44": {
-            "title": "Atualizar todas as fontes",
-            "description": "Matriz, Piracicaba, Jundia\u00ed"
+            "title": "Fonte 5",
+            "description": "Reserva para nova fonte"
           }
         }
       }
@@ -41,5 +107,5 @@
     }
   },
   "name": "Atualiza\u00e7\u00e3o di\u00e1ria ERP (todas as fontes)",
-  "description": "Todo dia \u00e0s 06:00 atualiza o snapshot ERP de todas as fontes ativas, isolando falhas por fonte."
+  "description": "Todo dia \u00e0s 06:00 atualiza o snapshot ERP de cada fonte ativa, uma por vez; falha de uma fonte n\u00e3o interrompe as demais."
 }

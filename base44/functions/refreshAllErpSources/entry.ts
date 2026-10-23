@@ -1,7 +1,11 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.54';
 
-// Rotina diária: atualiza TODAS as fontes ERP ativas. Cada fonte roda isolada
-// (falha de uma não interrompe as outras) e o resultado por fonte é registrado.
+// Rotina diária (F2): atualiza UMA fonte ERP ativa por chamada (índice na lista ordenada
+// por nome). O workflow chama índices 0..N em sequência, então falha/timeout de uma fonte
+// nunca interrompe as demais e as fontes não disputam o banco em paralelo.
+// Resultado por fonte registrado no GovernanceLog.
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
 export default async function (req: Request): Promise<Response> {
   try {
     const base44 = createClientFromRequest(req);
@@ -9,32 +13,49 @@ export default async function (req: Request): Promise<Response> {
     if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 });
     if (user.role !== 'admin') return Response.json({ error: 'Forbidden' }, { status: 403 });
 
-    const year = new Date().getUTCFullYear();
-    const period = { start_date: `${year}-01-01`, end_date_exclusive: `${year + 1}-01-01` };
-    const sources = (await base44.asServiceRole.entities.ErpDataSource.list()).filter((s: any) => s.is_active !== false);
+    const body = await req.json().catch(() => ({}));
+    const index = Number(body?.index) || 0;
+    const sources = (await base44.asServiceRole.entities.ErpDataSource.list())
+      .filter((s: any) => s.is_active !== false)
+      .sort((a: any, b: any) => String(a.name).localeCompare(String(b.name)));
+    const s = sources[index];
+    if (!s) return Response.json({ success: true, skipped: true, index, total: sources.length });
 
-    const results = await Promise.allSettled(sources.map(async (s: any) => {
-      const t0 = Date.now();
-      const res = await base44.asServiceRole.functions.invoke('refreshErpData', { source_id: s.id, ...period });
-      const data = res?.data ?? res;
-      return { source: s.name, source_id: s.id, status: data?.status || (data?.success ? 'success' : 'failed'), version: data?.version || null, message: data?.message || data?.error || null, duration_ms: Date.now() - t0 };
-    }));
-    const perSource = results.map((r, i) => r.status === 'fulfilled'
-      ? r.value
-      : { source: sources[i].name, source_id: sources[i].id, status: 'failed', message: String((r as any).reason?.message || (r as any).reason).slice(0, 300) });
+    const year = new Date().getUTCFullYear();
+    const startedAt = new Date().toISOString();
+    let dispatchError: string | null = null;
+    try {
+      await base44.asServiceRole.functions.invoke('refreshErpData', {
+        source_id: s.id, start_date: `${year}-01-01`, end_date_exclusive: `${year + 1}-01-01`,
+      });
+    } catch (e) {
+      // 524 = gateway encerrou a espera HTTP; o refresh segue no servidor. Acompanha pelo ErpSyncRun.
+      dispatchError = String((e as any)?.message || e).slice(0, 200);
+    }
+
+    let run: any = null;
+    for (let i = 0; i < 40; i++) {
+      const runs = await base44.asServiceRole.entities.ErpSyncRun.filter({ source_id: s.id, started_at: { $gte: startedAt } }, '-started_at', 1);
+      run = runs?.[0] || null;
+      if (run && run.status !== 'running') break;
+      if (!run && dispatchError && !/524/.test(dispatchError)) break;
+      await sleep(5000);
+    }
+    const status = run?.status || 'failed';
+    const message = run?.error_message || (run ? null : dispatchError) || (status === 'running' ? 'Ainda em execução ao fim da espera.' : null);
 
     await base44.asServiceRole.entities.GovernanceLog.create({
-      governance_id: `GOV-REFRESH-ALL-${new Date().toISOString().slice(0, 16)}`,
+      governance_id: `GOV-REFRESH-${String(s.name).toUpperCase()}-${startedAt.slice(0, 16)}`,
       action_type: 'VALIDATE',
       entity_type: 'ErpSnapshot',
-      entity_id: 'all_sources',
-      description: perSource.map((p: any) => `${p.source}: ${p.status}${p.version ? ` (${p.version})` : ''}${p.message && p.status !== 'success' ? ` — ${p.message}` : ''}`).join(' | '),
+      entity_id: s.id,
+      description: `Refresh diário ${s.name}: ${status}${run?.max_date ? ` (dados até ${run.max_date})` : ''}${message ? ` — ${message}` : ''}`,
       performed_by: 'refreshAllErpSources',
       performed_at: new Date().toISOString(),
-      validation_status: perSource.every((p: any) => p.status === 'success' || p.status === 'partial') ? 'VERIFIED' : 'PENDING',
-      impact_level: 'LOW',
+      validation_status: status === 'success' || status === 'partial' ? 'VERIFIED' : 'PENDING',
+      impact_level: status === 'success' || status === 'partial' ? 'LOW' : 'HIGH',
     });
-    return Response.json({ success: true, sources: perSource });
+    return Response.json({ success: true, index, source: s.name, status, message });
   } catch (error) {
     return Response.json({ error: (error as any)?.message || String(error) }, { status: 500 });
   }
