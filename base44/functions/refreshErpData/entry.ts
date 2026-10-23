@@ -6,6 +6,7 @@ import { empFilter } from '../../shared/empresaScope.ts';
 import { invoiceUniverse } from '../../shared/invoiceUniverse.ts';
 import { assertIsoDate } from '../../shared/periodContract.ts';
 import { canView } from '../../shared/access.ts';
+import { buildAnnualWindow } from '../../shared/annualWindow.ts';
 
 const STEPS = [
   { id: 'conectando', label: 'Conectando ao banco' },
@@ -291,28 +292,12 @@ async function processRefresh(base44, source, run, version, previousVersion, sta
     if (requestedStart && requestedEnd && requestedEnd <= requestedStart) {
       throw new Error('Período de atualização inválido: fim deve ser posterior ao início.');
     }
-    const yearStart = requestedStart ? `'${requestedStart}'` : 'DATEFROMPARTS(YEAR(GETDATE()),1,1)';
-    const yearEnd = requestedEnd ? `'${requestedEnd}'` : 'DATEADD(year,1,DATEFROMPARTS(YEAR(GETDATE()),1,1))';
-    const lastYearStart = requestedStart ? `DATEADD(year,-1,CAST('${requestedStart}' AS date))` : 'DATEFROMPARTS(YEAR(GETDATE())-1,1,1)';
+    // Janela anual compartilhada (F1): mesma regra para refresh padrão e período explícito.
+    const { yearStart, yearEnd, lastYearStart, lastYearEnd, lastYearFullEnd, ytdExtra } = buildAnnualWindow(requestedStart, requestedEnd);
     const monthStart = 'DATEFROMPARTS(YEAR(GETDATE()),MONTH(GETDATE()),1)';
     const monthEnd = 'DATEADD(month,1,DATEFROMPARTS(YEAR(GETDATE()),MONTH(GETDATE()),1))';
     const prevMonthStart = 'DATEADD(month,-1,DATEFROMPARTS(YEAR(GETDATE()),MONTH(GETDATE()),1))';
     const mtdEnd = 'DATEADD(day,1,CAST(GETDATE() AS date))';
-    // Comparação anual apples-to-apples (Pente Fino 8/8): YTD vs YTD. O fim efetivo do
-    // período atual é limitado a hoje (inclusive); o ano anterior usa a mesma janela de dias.
-    // Ano anterior completo (mesmo início, fim do período deslocado) exposto em *_ant_full.
-    const effEnd = requestedEnd
-      ? `(CASE WHEN CAST('${requestedEnd}' AS date) < ${mtdEnd} THEN CAST('${requestedEnd}' AS date) ELSE ${mtdEnd} END)`
-      : mtdEnd;
-    const lastYearEnd = `DATEADD(year,-1,${effEnd})`;
-    const lastYearFullEnd = `DATEADD(year,-1,${yearEnd})`;
-    const ytdExtra = `
-        ISNULL(SUM(CASE WHEN dt_emi_nf >= ${lastYearStart} AND dt_emi_nf < ${lastYearFullEnd} THEN vl_faturamento ELSE 0 END),0) AS fat_ano_ant_full,
-        COUNT(CASE WHEN dt_emi_nf >= ${lastYearStart} AND dt_emi_nf < ${lastYearEnd} THEN 1 END) AS nfs_ano_ant,
-        COUNT(DISTINCT CASE WHEN dt_emi_nf >= ${lastYearStart} AND dt_emi_nf < ${lastYearEnd} THEN cd_pessoa END) AS clientes_ano_ant,
-        CASE WHEN ${effEnd} < CAST(${yearEnd} AS date) THEN 1 ELSE 0 END AS ano_parcial,
-        DAY(GETDATE()) AS ano_ytd_dia,
-        CONVERT(varchar(10), DATEADD(day,-1,${effEnd}), 23) AS ano_ytd_ate,`;
     // Comparação mensal apples-to-apples (Pente Fino 5/8): MTD atual vs MTD do mês anterior
     // (mesma janela de dias, DATEADD(month,-1,...)). Mês anterior cheio exposto à parte (fat_mes_ant_full).
     const lastMonthStart = `DATEADD(month,-1,${monthStart})`;
