@@ -75,6 +75,22 @@ function movCols(its, remCtrl) {
   return o;
 }
 
+// Um bloco de colunas por item da ficha: nome do produto (não o código), patrimônio e quantidades separados.
+function itemCols(its) {
+  const o = {};
+  its.slice(0, MAX_MOV).forEach((e, i) => {
+    const p = `Item ${i + 1} - `;
+    o[p + "Produto"] = prod(e);
+    o[p + "Cód. equipamento"] = s(e.cd_equipto);
+    o[p + "Patrimônio"] = pat(e);
+    o[p + "Qtd. enviada"] = num(e.qt_remessa);
+    o[p + "Qtd. devolvida"] = num(e.qt_devolvida_calc);
+    o[p + "Qtd. em posse"] = Math.max(0, num(e.qt_remessa) - num(e.qt_devolvida_calc));
+    o[p + "Vl. unit."] = e.vl_uni_locacao == null ? "" : num(e.vl_uni_locacao);
+  });
+  return o;
+}
+
 export async function exportMigracao(sourceId, empresa, onMsg) {
   onMsg("Buscando fichas abertas...");
   const fichas = await fetchContratos(sourceId, empresa, (n) => onMsg(`${n} fichas...`), "fichas");
@@ -113,9 +129,8 @@ export async function exportMigracao(sourceId, empresa, onMsg) {
       "Vl. faturas complementares": compl.reduce((t, x) => t + num(x.vl_fatura), 0),
       "Qtd. itens na ficha": its.length,
       "Qtd. itens em posse": emPosse.length,
-      "Itens (equipamento · patrimônio · qtd enviada/devolvida · vl unit.)": cell(its.map((e) =>
-        `${s(e.ds_equipto) || s(e.cd_equipto)} · Pat ${s(e.cd_patrimonio) || "-"} · ${num(e.qt_remessa)}/${num(e.qt_devolvida_calc)} · ${num(e.vl_uni_locacao).toFixed(2)}`).join(" | ")),
-      "Patrimônios em posse": cell(emPosse.map((e) => s(e.cd_patrimonio)).filter(Boolean).join(", ")),
+      "Patrimônios em posse": cell(emPosse.map(pat).filter(Boolean).join(", ")),
+      ...itemCols(its),
       ...movCols(its, remCtrl),
     };
   }).sort((a, b) => a["Empresa (filial)"].localeCompare(b["Empresa (filial)"]) || a["Razão social / Nome"].localeCompare(b["Razão social / Nome"]));
@@ -124,8 +139,8 @@ export async function exportMigracao(sourceId, empresa, onMsg) {
   const wb = XLSX.utils.book_new();
   const add = (name, data) => {
     const all = [...new Set(data.flatMap((r) => Object.keys(r)))];
-    const slot = (h) => h.match(/^(Entrega|Retirada) (\d+) - /);
-    const order = ["Data", "Produto", "Patrimônio", "Qtd", "Vl. unit."];
+    const slot = (h) => h.match(/^(Item|Entrega|Retirada) (\d+) - /);
+    const order = ["Data", "Produto", "Cód. equipamento", "Patrimônio", "Qtd", "Qtd. enviada", "Qtd. devolvida", "Qtd. em posse", "Vl. unit."];
     const header = [...all.filter((h) => !slot(h)), ...all.filter(slot).sort((a, b) => {
       const x = slot(a), y = slot(b);
       return x[1].localeCompare(y[1]) || x[2] - y[2] || order.indexOf(a.split(" - ")[1]) - order.indexOf(b.split(" - ")[1]);
