@@ -3,12 +3,15 @@ import { base44 } from "@/api/base44Client";
 import { useErpSource, ALL_SOURCES_ID } from "@/lib/ErpSourceContext";
 import { fmtCur, fmtNum } from "@/lib/erpFormat";
 import { FileSignature, Wallet } from "lucide-react";
+import SemFaturaDialog from "./SemFaturaDialog";
 
 // Contratos abertos são estado atual (não dependem do período); respeitam fonte e empresa.
 export default function ContratosAbertosCards({ selectedEmpresa }) {
   const { selectedSource } = useErpSource();
   const [data, setData] = useState(null);
   const [error, setError] = useState(null);
+  const [open, setOpen] = useState(false);
+  const [ids, setIds] = useState([]);
 
   useEffect(() => {
     let alive = true;
@@ -17,6 +20,7 @@ export default function ContratosAbertosCards({ selectedEmpresa }) {
       const ids = selectedSource?.id && selectedSource.id !== ALL_SOURCES_ID
         ? [selectedSource.id]
         : (await base44.entities.ErpDataSource.filter({ is_active: true })).map((s) => s.id);
+      if (alive) setIds(ids);
       const acc = { fichas: 0, clientes: 0, valor: 0, sem_fatura: 0 };
       for (const id of ids) {
         const res = await base44.functions.invoke("listContratosAbertos", { source_id: id, mode: "resumo", cd_empresa: selectedEmpresa ?? undefined });
@@ -36,11 +40,13 @@ export default function ContratosAbertosCards({ selectedEmpresa }) {
         <div className="text-2xl font-bold text-white">{val(fmtNum(data?.fichas))}</div>
         <div className="text-xs text-gray-500 mt-1">{error ? `Erro: ${error}` : data ? `Fichas de locação abertas · ${fmtNum(data.clientes)} clientes` : "Carregando contratos…"}</div>
       </div>
-      <div className="rounded-xl border border-violet-700/40 bg-violet-950/30 p-4">
+      <button type="button" onClick={() => setOpen(true)} className="text-left rounded-xl border border-violet-700/40 bg-violet-950/30 p-4 hover:border-violet-500 transition-colors">
         <div className="flex items-center gap-2 mb-2"><Wallet className="w-4 h-4 text-violet-400" /><span className="text-xs text-gray-400 uppercase">Valor total contratos abertos</span></div>
         <div className="text-2xl font-bold text-white">{val(fmtCur(data?.valor))}</div>
         <div className="text-xs text-gray-500 mt-1">Faturamento mensal: última fatura de locação de cada contrato aberto{data?.sem_fatura ? ` · ${fmtNum(data.sem_fatura)} ainda sem fatura` : ""}</div>
-      </div>
+        <div className="text-xs text-violet-300 mt-2">Analisar contratos sem fatura →</div>
+      </button>
+      <SemFaturaDialog open={open} onOpenChange={setOpen} sourceIds={ids} selectedEmpresa={selectedEmpresa} />
     </div>
   );
 }

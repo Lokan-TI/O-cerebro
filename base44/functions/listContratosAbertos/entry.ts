@@ -148,6 +148,24 @@ Deno.serve(async (req) => {
       const r = rowsOf(await execRead(source, sqlRes, 90000))[0] || {};
       return Response.json({ fichas: Number(r.fichas) || 0, clientes: Number(r.clientes) || 0, valor: Number(r.valor) || 0, sem_fatura: Number(r.sem_fatura) || 0 });
     }
+    if (body.mode === 'sem_fatura') {
+      // Mesmo critério do resumo: ficha aberta sem nenhuma fatura de locação não complementar.
+      const sqlSem = `SELECT TOP 2000 f.cd_controle, f.numero_prefixo, f.numero, f.numero_sufixo, f.cd_empresa,
+          f.cd_pessoa, p.nm_pessoa, f.dt_pedido, f.dt_aprovacao, f.dt_fai_ficha, f.dt_faf_ficha,
+          f.vl_minimo_locacao, f.vl_preco_dia, f.ci_entrega, f.uf_entrega, f.contato, f.telefone,
+          (SELECT MIN(r.dt_saida) FROM fl_remessa r WITH (NOLOCK) WHERE r.cd_controle = f.cd_controle AND r.fl_rem_cancelada = 'N') AS dt_primeira_saida
+        FROM fich_loc f WITH (NOLOCK)
+        LEFT JOIN pessoa p WITH (NOLOCK) ON p.cd_pessoa = f.cd_pessoa
+        WHERE ${ABERTA}${emp} AND NOT EXISTS (SELECT 1 FROM fl_fatura ft WITH (NOLOCK)
+          WHERE ft.cd_controle = f.cd_controle AND ISNULL(ft.fatura_complementar,'N') <> 'S')
+        ORDER BY f.dt_fai_ficha`;
+      const rows = rowsOf(await execRead(source, sqlSem, 90000)).map((r: any) => {
+        const o: any = {};
+        for (const [k, v] of Object.entries(r)) o[k] = v instanceof Date ? iso(v) : (v != null && typeof v === 'object' ? null : v);
+        return o;
+      });
+      return Response.json({ rows });
+    }
     const renov = body.mode === 'renovacoes';
     const raw = RAW[body.mode];
     const key = raw ? raw[1] : renov ? 'cd_flfatura' : 'cd_flremequ';
