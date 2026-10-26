@@ -128,6 +128,10 @@ export async function exportMigracao(sourceId, empresa, onMsg) {
     || s(a["Nº ficha"]).localeCompare(s(b["Nº ficha"])) || num(a["Seq. remessa"]) - num(b["Seq. remessa"]));
 
   if (!linhas.length) return 0;
+  // Datas no padrão BR (DD/MM/AAAA), inclusive dentro de textos compostos
+  const br = (v) => typeof v === "string"
+    ? v.replace(/(\d{4})-(\d{2})-(\d{2})(?:[T ]\d{2}:\d{2}(?::\d{2}(?:\.\d+)?)?(?:Z|[+-]\d{2}:?\d{2})?)?/g, "$3/$2/$1") : v;
+  for (const l of linhas) for (const k in l) l[k] = br(l[k]);
   const wb = XLSX.utils.book_new();
   const add = (name, data) => {
     const header = [...new Set(data.flatMap((r) => Object.keys(r)))];
