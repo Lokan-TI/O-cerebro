@@ -23,11 +23,21 @@ async function fetchPage(payload) {
   }
 }
 
-export async function fetchContratos(sourceId, cdEmpresa, onProgress, mode) {
+// Busca por lotes de fichas (cd_controle) — consulta indexada, sem varrer a tabela de itens inteira.
+export async function fetchByFichas(sourceId, cdEmpresa, controles, onProgress, mode) {
+  const all = [];
+  for (let i = 0; i < controles.length; i += 300) {
+    const part = await fetchContratos(sourceId, cdEmpresa, (n) => onProgress?.(all.length + n), mode, controles.slice(i, i + 300));
+    all.push(...part);
+  }
+  return all;
+}
+
+export async function fetchContratos(sourceId, cdEmpresa, onProgress, mode, controles) {
   const rows = [];
   let after = 0;
   for (;;) {
-    const res = await fetchPage({ source_id: sourceId, cd_empresa: cdEmpresa, after, limit: 1000, mode });
+    const res = await fetchPage({ source_id: sourceId, cd_empresa: cdEmpresa, after, limit: 1000, mode, controles });
     rows.push(...res.data.rows);
     onProgress?.(rows.length);
     if (!res.data.has_more) return rows;

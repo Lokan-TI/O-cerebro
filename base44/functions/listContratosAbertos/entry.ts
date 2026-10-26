@@ -83,12 +83,15 @@ Deno.serve(async (req) => {
       ORDER BY ft.cd_flfatura`;
     // Modos brutos: todas as colunas originais de cada tabela, sem simplificação
     const openF = `FROM fich_loc f WITH (NOLOCK) WHERE ${ABERTA}${emp}`;
+    // Lista explícita de fichas: busca indexada por cd_controle, evita varrer fl_rem_equ inteira (timeout).
+    const ctrls = Array.isArray(body.controles) ? body.controles.map(Number).filter(Number.isInteger).slice(0, 500) : [];
+    const inCtrl = ctrls.length ? `r.cd_controle IN (${ctrls.join(',')})` : null;
     const RAW: Record<string, [string, string]> = {
       raw_fichas: [`SELECT TOP ${limit} f.* ${openF} AND f.cd_controle > ${after} ORDER BY f.cd_controle`, 'cd_controle'],
       raw_pessoas: [`SELECT TOP ${limit} p.* FROM pessoa p WITH (NOLOCK) WHERE p.cd_pessoa > ${after}
         AND EXISTS (SELECT 1 ${openF} AND f.cd_pessoa = p.cd_pessoa) ORDER BY p.cd_pessoa`, 'cd_pessoa'],
       raw_remessas: [`SELECT TOP ${limit} r.* FROM fl_remessa r WITH (NOLOCK) WHERE r.fl_rem_cancelada = 'N' AND r.cd_flremessa > ${after}
-        AND EXISTS (SELECT 1 ${openF} AND f.cd_controle = r.cd_controle) ORDER BY r.cd_flremessa`, 'cd_flremessa'],
+        AND ${inCtrl || `EXISTS (SELECT 1 ${openF} AND f.cd_controle = r.cd_controle)`} ORDER BY r.cd_flremessa`, 'cd_flremessa'],
       raw_itens: [`SELECT TOP ${limit} e.*,
           ISNULL((SELECT SUM(d.qt_devolucao) FROM fl_dev_equ d WITH (NOLOCK) WHERE d.cd_flremequ = e.cd_flremequ),0) AS qt_devolvida_calc,
           (SELECT MAX(COALESCE(dv.dt_devolucao, dv.dt_entrada)) FROM fl_dev_equ d WITH (NOLOCK)
@@ -97,7 +100,7 @@ Deno.serve(async (req) => {
         FROM fl_rem_equ e WITH (NOLOCK) JOIN fl_remessa r WITH (NOLOCK) ON r.cd_flremessa = e.cd_flremessa
         LEFT JOIN equipto q WITH (NOLOCK) ON q.cd_equipto = e.cd_equipto
         WHERE r.fl_rem_cancelada = 'N' AND e.cd_flremequ > ${after}
-          AND EXISTS (SELECT 1 ${openF} AND f.cd_controle = r.cd_controle) ORDER BY e.cd_flremequ`, 'cd_flremequ'],
+          AND ${inCtrl || `EXISTS (SELECT 1 ${openF} AND f.cd_controle = r.cd_controle)`} ORDER BY e.cd_flremequ`, 'cd_flremequ'],
       raw_faturas: [`SELECT TOP ${limit} ft.* FROM fl_fatura ft WITH (NOLOCK) WHERE ft.cd_flfatura > ${after}
         AND EXISTS (SELECT 1 ${openF} AND f.cd_controle = ft.cd_controle) ORDER BY ft.cd_flfatura`, 'cd_flfatura'],
     };

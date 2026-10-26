@@ -2,7 +2,7 @@ import * as XLSX from "xlsx";
 import { base44 } from "@/api/base44Client";
 import { getEmpresaLabel } from "@/lib/empresaLabels";
 import { merge } from "@/components/erp/fornecedores/useSupplierCache";
-import { fetchContratos, contratoCols } from "./contratosAbertosExport";
+import { fetchContratos, fetchByFichas, contratoCols } from "./contratosAbertosExport";
 
 const num = (v) => Number(v) || 0;
 const s = (v) => String(v ?? "").trim();
@@ -95,8 +95,9 @@ export async function exportMigracao(sourceId, empresa, onMsg) {
   onMsg("Buscando fichas abertas...");
   const fichas = await fetchContratos(sourceId, empresa, (n) => onMsg(`${n} fichas...`), "fichas");
   onMsg("Buscando itens...");
-  const itens = await fetchContratos(sourceId, empresa, (n) => onMsg(`${n} itens...`), "raw_itens");
-  const remessas = await fetchContratos(sourceId, empresa, (n) => onMsg(`${n} remessas...`), "raw_remessas");
+  const ids = fichas.map((f) => Number(f.cd_controle)).filter(Number.isInteger);
+  const itens = await fetchByFichas(sourceId, empresa, ids, (n) => onMsg(`${n} itens...`), "raw_itens");
+  const remessas = await fetchByFichas(sourceId, empresa, ids, (n) => onMsg(`${n} remessas...`), "raw_remessas");
   const faturas = await fetchContratos(sourceId, empresa, (n) => onMsg(`${n} movimentações...`), "renovacoes");
   const pessoas = await fetchContratos(sourceId, empresa, (n) => onMsg(`${n} clientes...`), "raw_pessoas");
   onMsg("Lendo correção cadastral...");
