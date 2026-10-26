@@ -1,10 +1,13 @@
 import { useAnalyticsView } from "@/lib/analyticsView";
 import { fmtNum } from "@/lib/erpFormat";
 import { Package, ArrowRightLeft, Calendar } from "lucide-react";
+import { useEmpresaFilter } from "@/lib/EmpresaFilterContext";
+import ContratosAbertosCards from "@/components/erp/ContratosAbertosCards";
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip } from "recharts";
 
 export default function TabOperacional() {
   const { analytics, view, loading, dateRange } = useAnalyticsView();
+  const { selectedEmpresa } = useEmpresaFilter();
 
   if (loading && !analytics) return <div className="text-gray-500 p-8 text-center">Carregando operacional…</div>;
   if (!analytics || !view) return <div className="text-gray-500 p-8 text-center">Sem dados. Clique em "Atualizar dados" para carregar.</div>;
@@ -21,6 +24,9 @@ export default function TabOperacional() {
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div className="text-sm text-gray-400">Movimentações de Estoque × DATA · período {dateRange?.start} → {dateRange?.end}</div>
       </div>
+
+      {/* Contratos abertos e valor mensal: mesma regra da aba Clientes */}
+      <ContratosAbertosCards selectedEmpresa={selectedEmpresa} />
 
       {/* KPI */}
       <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
