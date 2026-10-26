@@ -8,6 +8,9 @@ const num = (v) => Number(v) || 0;
 const s = (v) => String(v ?? "").trim();
 const dt = (v) => (!v || String(v).startsWith("9999") ? "" : v);
 const digits = (v) => s(v).replace(/\D/g, "");
+const brl = (v) => "R$ " + num(v).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const MOEDA_FMT = '"R$" #,##0.00';
+const isMoeda = (h) => h === "Valor da remessa" || /^Vl\./.test(h);
 const cell = (t) => (t.length > 32000 ? t.slice(0, 32000) + " …(cortado)" : t);
 
 async function loadCadastro(sourceId) {
@@ -75,7 +78,7 @@ function remessaRows(its, remCtrl) {
     "Qtd. itens na remessa": r.itens.length,
     "Qtd. total": r.itens.reduce((t, x) => t + x.qtd, 0),
     "Equipamentos (produto · patrimônio · qtd · vl. unit.)": cell(r.itens.map(({ e, qtd }) =>
-      `${prod(e)} · ${pat(e) || "sem patrimônio"} · ${qtd} · ${num(e.vl_uni_locacao).toFixed(2)}`).join(" | ")),
+      `${prod(e)} · ${pat(e) || "sem patrimônio"} · ${qtd} · ${brl(e.vl_uni_locacao)}`).join(" | ")),
     "Patrimônios": cell(r.itens.map(({ e }) => pat(e)).filter(Boolean).join(", ")),
     [VALOR]: r.itens.reduce((t, { e, qtd }) => t + qtd * num(e.vl_uni_locacao), 0),
   }));
@@ -113,10 +116,10 @@ export async function exportMigracao(sourceId, empresa, onMsg) {
       "Data final contratada (último período)": dt(normais.at(-1)?.dt_fim) || dt(f.dt_faf_ficha),
       "Qtd. períodos faturados": normais.length,
       "Qtd. renovações": Math.max(0, normais.length - 1),
-      "Períodos / renovações (início→fim: valor)": cell(normais.map((x, i) => `${i === 0 ? "Inicial" : `Ren.${i}`} ${dt(x.dt_inicio)}→${dt(x.dt_fim)}: ${num(x.vl_fatura).toFixed(2)}`).join(" | ")),
+      "Períodos / renovações (início→fim: valor)": cell(normais.map((x, i) => `${i === 0 ? "Inicial" : `Ren.${i}`} ${dt(x.dt_inicio)}→${dt(x.dt_fim)}: ${brl(x.vl_fatura)}`).join(" | ")),
       "Vl. períodos faturados": normais.reduce((t, x) => t + num(x.vl_fatura), 0),
       "Qtd. faturas complementares": compl.length,
-      "Faturas complementares (data: valor)": cell(compl.map((x) => `${dt(x.dt_geracao)}: ${num(x.vl_fatura).toFixed(2)}`).join(" | ")),
+      "Faturas complementares (data: valor)": cell(compl.map((x) => `${dt(x.dt_geracao)}: ${brl(x.vl_fatura)}`).join(" | ")),
       "Vl. faturas complementares": compl.reduce((t, x) => t + num(x.vl_fatura), 0),
       "Qtd. itens na ficha": its.length,
       "Qtd. itens em posse": emPosse.length,
@@ -142,8 +145,14 @@ export async function exportMigracao(sourceId, empresa, onMsg) {
       const ref = XLSX.utils.encode_cell({ r, c });
       if (!ws[ref]) continue;
       ws[ref].s = { font: { bold: true, color: { rgb: "4C1D95" } }, fill: { fgColor: { rgb: r ? "EDE9FE" : "C4B5FD" } } };
-      if (r && header[c] === VALOR) ws[ref].z = "#,##0.00";
     }
+    header.forEach((h, c) => {
+      if (!isMoeda(h)) return;
+      for (let r = 1; r <= data.length; r++) {
+        const ref = XLSX.utils.encode_cell({ r, c });
+        if (ws[ref] && ws[ref].t === "n") ws[ref].z = MOEDA_FMT;
+      }
+    });
     if (ws["!ref"]) ws["!autofilter"] = { ref: ws["!ref"] };
     ws["!cols"] = header.map((h) => ({ wch: Math.min(Math.max(h.length + 2, 14), 60) }));
     XLSX.utils.book_append_sheet(wb, ws, name.replace(/[\\/?*[\]:]/g, " ").slice(0, 31));
