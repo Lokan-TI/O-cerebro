@@ -17,6 +17,7 @@ import FaturasLocacaoCard from "@/components/erp/FaturasLocacaoCard";
 import useFaturasLocacao from "@/components/erp/useFaturasLocacao";
 import ClientesMesPanel from "@/components/erp/ClientesMesPanel";
 import ClientePatrimoniosModal from "@/components/erp/ClientePatrimoniosModal";
+import useClientesPeriodo from "@/lib/useClientesPeriodo";
 import { Users, TrendingUp, Search, Crown, FileText, Repeat, Percent } from "lucide-react";
 
 export default function TabClientesPessoa() {
@@ -26,6 +27,7 @@ export default function TabClientesPessoa() {
   const { period } = useGlobalFilter();
   const { selectedSource } = useErpSource();
   const faturas = useFaturasLocacao(selectedSource?.id, period);
+  const { live: periodo } = useClientesPeriodo(useEmpresaFilter().selectedEmpresa);
   const [search, setSearch] = useState("");
   const [selectedClient, setSelectedClient] = useState(null);
   const [selectedMonth, setSelectedMonth] = useState(null);
@@ -157,8 +159,9 @@ export default function TabClientesPessoa() {
   const concentracao = receitaAtribuidaClientes > 0 ? (top10Receita / receitaAtribuidaClientes) * 100 : 0;
   const ticketMedio = clientesAtivos > 0 ? receitaAtribuidaClientes / clientesAtivos : 0;
   // Comparativo com a janela anterior de mesma duração (série mensal do snapshot)
-  const crescimento = ps.hasData ? ps.crescimento : null;
-  const receitaAnterior = ps.hasData ? ps.receitaAnt : null;
+  const prevLive = periodo?.faturamento_fiscal_ant != null;
+  const crescimento = prevLive ? periodo.crescimento : ps.hasData ? ps.crescimento : null;
+  const receitaAnterior = prevLive ? periodo.faturamento_fiscal_ant : ps.hasData ? ps.receitaAnt : null;
 
   return (
     <div className="space-y-6">
