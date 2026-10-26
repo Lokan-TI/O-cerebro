@@ -146,7 +146,7 @@ Deno.serve(async (req) => {
     } catch { warnings.push('Falha ao resolver nomes de empresas.'); }
 
     if (queryCount === 0) {
-      return Response.json({ success: false, error: 'Não foi possível consultar o ERP (sem conexão). A versão atual foi mantida. ' + (warnings[0] || '') }, { status: 503 });
+      return Response.json({ success: false, error: 'Não foi possível consultar o ERP (sem conexão). A versão atual foi mantida. ' + (warnings[0] || '') });
     }
 
     const sourceSlug = (source.name || 'ERP').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 12);
