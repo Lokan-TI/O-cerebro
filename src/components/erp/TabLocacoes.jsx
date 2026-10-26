@@ -1,4 +1,6 @@
 import { useAnalyticsView } from "@/lib/analyticsView";
+import { useEmpresaFilter } from "@/lib/EmpresaFilterContext";
+import ContratosAbertosCards from "@/components/erp/ContratosAbertosCards";
 import { getEmpresaLabel } from "@/lib/empresaLabels";
 import { fmtCur, fmtNum } from "@/lib/erpFormat";
 import { FileText, CalendarClock, CheckCircle2, Package, Users } from "lucide-react";
@@ -6,6 +8,7 @@ import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Toolti
 
 export default function TabLocacoes() {
   const { analytics, view, loading, dateRange } = useAnalyticsView();
+  const { selectedEmpresa } = useEmpresaFilter();
 
   if (loading && !analytics) return <div className="text-gray-500 p-8 text-center">Carregando locações…</div>;
   if (!analytics || !view) return <div className="text-gray-500 p-8 text-center">Sem dados. Clique em "Atualizar dados" para carregar.</div>;
@@ -27,6 +30,9 @@ export default function TabLocacoes() {
         <div className="text-sm text-gray-400">Ficha de Locação × PESSOA × DATA · período {dateRange?.start} → {dateRange?.end}</div>
       </div>
 
+      {/* Contratos abertos e valor mensal: mesma fonte da aba Clientes */}
+      <ContratosAbertosCards selectedEmpresa={selectedEmpresa} />
+
       {/* KPIs */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <div className="rounded-xl border border-purple-700/40 bg-purple-950/30 p-4">
@@ -34,7 +40,7 @@ export default function TabLocacoes() {
           <div className="text-2xl font-bold text-white">{fmtNum(k.fichloc_total)}</div>
         </div>
         <div className="rounded-xl border border-green-700/40 bg-green-950/30 p-4">
-          <div className="flex items-center gap-2 mb-2"><CalendarClock className="w-4 h-4 text-green-400" /><span className="text-xs text-gray-400 uppercase">Ativas</span></div>
+          <div className="flex items-center gap-2 mb-2"><CalendarClock className="w-4 h-4 text-green-400" /><span className="text-xs text-gray-400 uppercase">Ativas no período</span></div>
           <div className="text-2xl font-bold text-white">{fmtNum(k.fichloc_ativas)}</div>
         </div>
         <div className="rounded-xl border border-gray-700/40 bg-gray-900/40 p-4">
