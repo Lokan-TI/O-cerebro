@@ -1,4 +1,4 @@
-import * as XLSX from "xlsx";
+import * as XLSX from "xlsx-js-style";
 import { base44 } from "@/api/base44Client";
 import { getEmpresaLabel } from "@/lib/empresaLabels";
 import { merge } from "@/components/erp/fornecedores/useSupplierCache";
@@ -47,48 +47,38 @@ function clienteCols(p = {}, c) {
   };
 }
 
-const MAX_MOV = 40;
 const pat = (e) => (num(e.cd_patrimonio) > 0 ? s(e.nr_patrimonio_calc).trim() || s(e.cd_patrimonio) : "");
 const prod = (e) => s(e.nm_equipto_calc) || s(e.ds_equipto) || s(e.cd_equipto);
+const VALOR = "Valor da remessa";
+const EMP = "Empresa (filial)", CLI = "Razão social / Nome";
 
-// Entregas (remessas) e retiradas (devoluções) em colunas numeradas por ficha; patrimônio vazio = produto sem vínculo (ex.: andaimes).
-function movCols(its, remCtrl) {
-  const ent = its.map((e) => ({ e, d: dt(remCtrl.get(e.cd_flremessa)?.dt_entrega) || dt(remCtrl.get(e.cd_flremessa)?.dt_saida) }))
-    .sort((a, b) => s(a.d).localeCompare(s(b.d)));
-  const ret = its.filter((e) => num(e.qt_devolvida_calc) > 0).map((e) => ({ e, d: dt(e.dt_retirada_calc) }))
-    .sort((a, b) => s(a.d).localeCompare(s(b.d)));
-  const o = {
-    "Qtd. entregas": ent.length, "Qtd. retiradas": ret.length,
-    "Itens sem patrimônio": its.filter((e) => !pat(e)).length,
-    "Itens com patrimônio": its.filter((e) => pat(e)).length,
+// Uma linha por remessa: entregas agrupadas por remessa, retiradas agrupadas por data de devolução.
+function remessaRows(its, remCtrl) {
+  const ev = new Map();
+  const add = (key, base, e, qtd) => {
+    const r = ev.get(key) || ev.set(key, { ...base, itens: [] }).get(key);
+    r.itens.push({ e, qtd });
   };
-  const put = (label, list, qty) => list.slice(0, MAX_MOV).forEach(({ e, d }, i) => {
-    const p = `${label} ${i + 1} - `;
-    o[p + "Data"] = s(d).slice(0, 10);
-    o[p + "Produto"] = prod(e);
-    o[p + "Patrimônio"] = pat(e);
-    o[p + "Qtd"] = qty(e);
-    o[p + "Vl. unit."] = e.vl_uni_locacao == null ? "" : num(e.vl_uni_locacao);
-  });
-  put("Entrega", ent, (e) => num(e.qt_remessa));
-  put("Retirada", ret, (e) => num(e.qt_devolvida_calc));
-  return o;
-}
-
-// Um bloco de colunas por item da ficha: nome do produto (não o código), patrimônio e quantidades separados.
-function itemCols(its) {
-  const o = {};
-  its.slice(0, MAX_MOV).forEach((e, i) => {
-    const p = `Item ${i + 1} - `;
-    o[p + "Produto"] = prod(e);
-    o[p + "Cód. equipamento"] = s(e.cd_equipto);
-    o[p + "Patrimônio"] = pat(e);
-    o[p + "Qtd. enviada"] = num(e.qt_remessa);
-    o[p + "Qtd. devolvida"] = num(e.qt_devolvida_calc);
-    o[p + "Qtd. em posse"] = Math.max(0, num(e.qt_remessa) - num(e.qt_devolvida_calc));
-    o[p + "Vl. unit."] = e.vl_uni_locacao == null ? "" : num(e.vl_uni_locacao);
-  });
-  return o;
+  for (const e of its) {
+    const rm = remCtrl.get(e.cd_flremessa) || {};
+    add(`E${e.cd_flremessa}`, { tipo: "Entrega", nr: s(rm.nr_contrato) || s(e.cd_flremessa), data: dt(rm.dt_entrega) || dt(rm.dt_saida) }, e, num(e.qt_remessa));
+    if (num(e.qt_devolvida_calc) > 0) {
+      const d = s(dt(e.dt_retirada_calc)).slice(0, 10);
+      add(`R${d}`, { tipo: "Retirada", nr: "", data: d }, e, num(e.qt_devolvida_calc));
+    }
+  }
+  return [...ev.values()].sort((a, b) => s(a.data).localeCompare(s(b.data)) || a.tipo.localeCompare(b.tipo)).map((r, i) => ({
+    "Seq. remessa": i + 1,
+    "Tipo de remessa": r.tipo,
+    "Nº remessa": r.nr,
+    "Data da remessa": s(r.data).slice(0, 10),
+    "Qtd. itens na remessa": r.itens.length,
+    "Qtd. total": r.itens.reduce((t, x) => t + x.qtd, 0),
+    "Equipamentos (produto · patrimônio · qtd · vl. unit.)": cell(r.itens.map(({ e, qtd }) =>
+      `${prod(e)} · ${pat(e) || "sem patrimônio"} · ${qtd} · ${num(e.vl_uni_locacao).toFixed(2)}`).join(" | ")),
+    "Patrimônios": cell(r.itens.map(({ e }) => pat(e)).filter(Boolean).join(", ")),
+    [VALOR]: r.itens.reduce((t, { e, qtd }) => t + qtd * num(e.vl_uni_locacao), 0),
+  }));
 }
 
 export async function exportMigracao(sourceId, empresa, onMsg) {
@@ -109,14 +99,14 @@ export async function exportMigracao(sourceId, empresa, onMsg) {
   const itensBy = group(itens, (e) => remCtrl.get(e.cd_flremessa)?.cd_controle);
   const fatBy = group(faturas, (f) => f.cd_controle);
 
-  const linhas = fichas.map((f) => {
+  const linhas = fichas.flatMap((f) => {
     const its = itensBy.get(f.cd_controle) || [];
     const fts = (fatBy.get(f.cd_controle) || []).sort((a, b) => s(a.dt_inicio).localeCompare(s(b.dt_inicio)));
     const normais = fts.filter((x) => s(x.fatura_complementar) !== "S");
     const compl = fts.filter((x) => s(x.fatura_complementar) === "S");
     const emPosse = its.filter((e) => num(e.qt_remessa) - num(e.qt_devolvida_calc) > 0);
-    return {
-      "Empresa (filial)": getEmpresaLabel(f.cd_empresa),
+    const base = {
+      [EMP]: getEmpresaLabel(f.cd_empresa),
       ...clienteCols(pes.get(String(f.cd_pessoa)), cad.get(String(f.cd_pessoa))),
       ...contratoCols(f),
       "Data inicial contratada": dt(normais[0]?.dt_inicio) || dt(f.dt_fai_ficha),
@@ -131,28 +121,31 @@ export async function exportMigracao(sourceId, empresa, onMsg) {
       "Qtd. itens na ficha": its.length,
       "Qtd. itens em posse": emPosse.length,
       "Patrimônios em posse": cell(emPosse.map(pat).filter(Boolean).join(", ")),
-      ...itemCols(its),
-      ...movCols(its, remCtrl),
     };
-  }).sort((a, b) => a["Empresa (filial)"].localeCompare(b["Empresa (filial)"]) || a["Razão social / Nome"].localeCompare(b["Razão social / Nome"]));
+    const rems = remessaRows(its, remCtrl);
+    return rems.length ? rems.map((r) => ({ ...base, ...r })) : [base];
+  }).sort((a, b) => a[EMP].localeCompare(b[EMP]) || a[CLI].localeCompare(b[CLI])
+    || s(a["Nº ficha"]).localeCompare(s(b["Nº ficha"])) || num(a["Seq. remessa"]) - num(b["Seq. remessa"]));
 
   if (!linhas.length) return 0;
   const wb = XLSX.utils.book_new();
   const add = (name, data) => {
-    const all = [...new Set(data.flatMap((r) => Object.keys(r)))];
-    const slot = (h) => h.match(/^(Item|Entrega|Retirada) (\d+) - /);
-    const order = ["Data", "Produto", "Cód. equipamento", "Patrimônio", "Qtd", "Qtd. enviada", "Qtd. devolvida", "Qtd. em posse", "Vl. unit."];
-    const header = [...all.filter((h) => !slot(h)), ...all.filter(slot).sort((a, b) => {
-      const x = slot(a), y = slot(b);
-      return x[1].localeCompare(y[1]) || x[2] - y[2] || order.indexOf(a.split(" - ")[1]) - order.indexOf(b.split(" - ")[1]);
-    })];
+    const header = [...new Set(data.flatMap((r) => Object.keys(r)))];
     const ws = XLSX.utils.json_to_sheet(data, { header });
+    // Destaque: nome da empresa/cliente e valor da remessa
+    const hl = [EMP, CLI, VALOR].map((h) => header.indexOf(h)).filter((i) => i >= 0);
+    for (let r = 0; r <= data.length; r++) for (const c of hl) {
+      const ref = XLSX.utils.encode_cell({ r, c });
+      if (!ws[ref]) continue;
+      ws[ref].s = { font: { bold: true, color: { rgb: "4C1D95" } }, fill: { fgColor: { rgb: r ? "EDE9FE" : "C4B5FD" } } };
+      if (r && header[c] === VALOR) ws[ref].z = "#,##0.00";
+    }
     if (ws["!ref"]) ws["!autofilter"] = { ref: ws["!ref"] };
     ws["!cols"] = header.map((h) => ({ wch: Math.min(Math.max(h.length + 2, 14), 60) }));
     XLSX.utils.book_append_sheet(wb, ws, name.replace(/[\\/?*[\]:]/g, " ").slice(0, 31));
   };
   add("Todas as fichas", linhas);
-  for (const [emp, rows] of group(linhas, (l) => l["Empresa (filial)"])) add(emp, rows);
+  for (const [emp, rows] of group(linhas, (l) => l[EMP])) add(emp, rows);
   XLSX.writeFile(wb, `migracao_fichas_abertas_${new Date().toISOString().slice(0, 10)}.xlsx`);
   return linhas.length;
 }
