@@ -74,7 +74,7 @@ export function exportContratosXlsx(fichas, rows, renovs = []) {
     ren.set(f.cd_controle, r);
   }
   const byContrato = new Map();
-  for (const f of fichas) byContrato.set(f.cd_controle, { base: f, itens: 0, emPosse: 0, qtPosse: 0, vlLocPosse: 0, bens: new Set() });
+  for (const f of fichas) byContrato.set(f.cd_controle, { base: f, itens: 0, emPosse: 0, qtPosse: 0, vlLocPosse: 0, bens: new Set(), pats: new Set() });
   for (const r of rows) {
     const c = byContrato.get(r.cd_controle);
     if (!c) continue;
@@ -83,6 +83,7 @@ export function exportContratosXlsx(fichas, rows, renovs = []) {
     if (s > 0) {
       c.emPosse++; c.qtPosse += s; c.vlLocPosse += s * num(r.vl_uni_locacao);
       c.bens.add(r.nm_equipto || r.ds_equipto || txt(r.cd_equipto));
+      if (r.cd_patrimonio) c.pats.add(txt(r.cd_patrimonio));
     }
   }
   const contratos = [...byContrato.values()].map((c) => ({
@@ -93,6 +94,7 @@ export function exportContratosXlsx(fichas, rows, renovs = []) {
     "Qtd. bens em posse": c.qtPosse,
     "Vl. locação em posse (qtd × unit.)": c.vlLocPosse,
     "Bens em posse": [...c.bens].join(" | "),
+    "Patrimônios em posse": [...c.pats].join(" | "),
     "Renovações (períodos faturados)": ren.get(c.base.cd_controle)?.n || 0,
     "1º período início": dt(ren.get(c.base.cd_controle)?.ini),
     "Último período fim": dt(ren.get(c.base.cd_controle)?.fim),
