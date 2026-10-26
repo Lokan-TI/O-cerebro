@@ -48,7 +48,7 @@ function clienteCols(p = {}, c) {
 }
 
 const MAX_MOV = 40;
-const pat = (e) => (num(e.cd_patrimonio) > 0 ? s(e.cd_patrimonio) : "");
+const pat = (e) => (num(e.cd_patrimonio) > 0 ? s(e.nr_patrimonio_calc).trim() || s(e.cd_patrimonio) : "");
 const prod = (e) => s(e.nm_equipto_calc) || s(e.ds_equipto) || s(e.cd_equipto);
 
 // Entregas (remessas) e retiradas (devoluções) em colunas numeradas por ficha; patrimônio vazio = produto sem vínculo (ex.: andaimes).

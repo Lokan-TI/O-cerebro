@@ -53,7 +53,7 @@ Deno.serve(async (req) => {
         r.cd_flremessa, r.nr_contrato, r.dt_saida, r.dt_entrega, r.dt_cobranca,
         r.dt_ini_contrato, r.dt_fim_contrato, r.dt_encerramento AS dt_prev_retorno,
         e.cd_flremequ, e.cd_equipto, q.codigo AS cd_equipto_codigo, q.nm_equipto, e.ds_equipto,
-        e.cd_patrimonio, q.cd_grupo, e.qt_remessa,
+        e.cd_patrimonio, pt.nr_patrimonio, q.cd_grupo, e.qt_remessa,
         ISNULL(dv.qt,0) AS qt_devolvida,
         e.vl_uni_locacao, e.vl_uni_diaria, e.vl_uni_tabela, e.vl_uni_indenizacao, e.vl_nf,
         e.ds_latitude, e.ds_longitude
@@ -62,6 +62,7 @@ Deno.serve(async (req) => {
       JOIN fl_rem_equ e WITH (NOLOCK) ON e.cd_flremessa = r.cd_flremessa
       LEFT JOIN pessoa p WITH (NOLOCK) ON p.cd_pessoa = f.cd_pessoa
       LEFT JOIN equipto q WITH (NOLOCK) ON q.cd_equipto = e.cd_equipto
+      LEFT JOIN patrimon pt WITH (NOLOCK) ON pt.cd_patrimonio = e.cd_patrimonio
       LEFT JOIN atividade a WITH (NOLOCK) ON a.cd_atividade = f.cd_atividade
       LEFT JOIN regiao rg WITH (NOLOCK) ON rg.cd_regiao = f.cd_regiao
       LEFT JOIN calcfat cf WITH (NOLOCK) ON cf.cd_calcfat = f.cd_calcfat
@@ -96,9 +97,10 @@ Deno.serve(async (req) => {
           ISNULL((SELECT SUM(d.qt_devolucao) FROM fl_dev_equ d WITH (NOLOCK) WHERE d.cd_flremequ = e.cd_flremequ),0) AS qt_devolvida_calc,
           (SELECT MAX(COALESCE(dv.dt_devolucao, dv.dt_entrada)) FROM fl_dev_equ d WITH (NOLOCK)
             JOIN fl_devolucao dv WITH (NOLOCK) ON dv.cd_fldevolucao = d.cd_fldevolucao WHERE d.cd_flremequ = e.cd_flremequ) AS dt_retirada_calc,
-          q.nm_equipto AS nm_equipto_calc
+          q.nm_equipto AS nm_equipto_calc, pt.nr_patrimonio AS nr_patrimonio_calc
         FROM fl_rem_equ e WITH (NOLOCK) JOIN fl_remessa r WITH (NOLOCK) ON r.cd_flremessa = e.cd_flremessa
         LEFT JOIN equipto q WITH (NOLOCK) ON q.cd_equipto = e.cd_equipto
+        LEFT JOIN patrimon pt WITH (NOLOCK) ON pt.cd_patrimonio = e.cd_patrimonio
         WHERE r.fl_rem_cancelada = 'N' AND e.cd_flremequ > ${after}
           AND ${inCtrl || `EXISTS (SELECT 1 ${openF} AND f.cd_controle = r.cd_controle)`} ORDER BY e.cd_flremequ`, 'cd_flremequ'],
       raw_faturas: [`SELECT TOP ${limit} ft.* FROM fl_fatura ft WITH (NOLOCK) WHERE ft.cd_flfatura > ${after}

@@ -107,7 +107,7 @@ export function exportContratosXlsx(fichas, rows, renovs = []) {
     if (s > 0) {
       c.emPosse++; c.qtPosse += s; c.vlLocPosse += s * num(r.vl_uni_locacao);
       c.bens.add(r.nm_equipto || r.ds_equipto || txt(r.cd_equipto));
-      if (r.cd_patrimonio) c.pats.add(txt(r.cd_patrimonio));
+      if (r.cd_patrimonio) c.pats.add(txt(r.nr_patrimonio || r.cd_patrimonio).trim());
     }
   }
   const contratos = [...byContrato.values()].map((c) => ({
@@ -158,7 +158,7 @@ export function exportContratosXlsx(fichas, rows, renovs = []) {
     "Cód. equipamento": txt(r.cd_equipto_codigo),
     "Equipamento": r.nm_equipto || "",
     "Complemento": r.ds_equipto || "",
-    "Patrimônio": txt(r.cd_patrimonio),
+    "Patrimônio": txt(r.nr_patrimonio || r.cd_patrimonio).trim(),
     "Grupo": txt(r.cd_grupo),
     "Qtd. enviada": num(r.qt_remessa),
     "Qtd. devolvida": num(r.qt_devolvida),
