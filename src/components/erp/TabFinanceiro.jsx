@@ -11,6 +11,7 @@ import { useEmpresaFilter } from "@/lib/EmpresaFilterContext";
 import { getEmpresaLabel } from "@/lib/empresaLabels";
 import { fmtCur, fmtNum, fmtMonthLabel } from "@/lib/erpFormat";
 import { sortMonthly } from "@/lib/finMonthParse";
+import useClientesPeriodo from "@/lib/useClientesPeriodo";
 import FinKpiStrip from "@/components/financeiro/FinKpiStrip";
 import FinYoYAccumulated from "@/components/financeiro/FinYoYAccumulated";
 import FinRankBars from "@/components/financeiro/FinRankBars";
@@ -31,6 +32,7 @@ export default function TabFinanceiro() {
   const { selectedEmpresa } = useEmpresaFilter();
   const [sub, setSub] = useState("resumo"); // resumo | car_empresa | cap_conta | balancete
   const [resumoView, setResumoView] = useState("mensal"); // mensal | anual
+  const { live } = useClientesPeriodo(selectedEmpresa);
 
   if (loading && !analytics) return <div className="text-gray-500 p-8 text-center">Carregando financeiro…</div>;
   if (!analytics || !aView) return <div className="text-gray-500 p-8 text-center">Sem dados. Clique em "Atualizar dados" para carregar.</div>;
@@ -41,9 +43,11 @@ export default function TabFinanceiro() {
   // Faturamento NF vem do snapshot (por empresa quando filtrada)
   const byEmp = snapshot?.by_empresa || [];
   const empRow = !isAll ? byEmp.find((e) => e.cd_empresa === selectedEmpresa) : null;
-  const receita = isAll ? snapshot?.kpis?.fat_ano : empRow?.fat_ano || 0;
-  const receitaAnt = isAll ? snapshot?.kpis?.fat_ano_ant : empRow?.fat_ano_ant || 0;
-  const crescimento = isAll ? snapshot?.kpis?.crescimento_ano : empRow?.crescimento_ano ?? null;
+  // Com a consulta do período disponível, usa a mesma fonte da aba Clientes.
+  const prevLive = live?.faturamento_fiscal_ant != null;
+  const receita = live ? live.faturamento_fiscal : isAll ? snapshot?.kpis?.fat_ano : empRow?.fat_ano || 0;
+  const receitaAnt = prevLive ? live.faturamento_fiscal_ant : isAll ? snapshot?.kpis?.fat_ano_ant : empRow?.fat_ano_ant || 0;
+  const crescimento = prevLive ? live.crescimento : isAll ? snapshot?.kpis?.crescimento_ano : empRow?.crescimento_ano ?? null;
   const gerada = k.receita_gerada;
   const diff = gerada != null ? receita - gerada : null;
   const pct = gerada != null && gerada > 0 ? (diff / gerada * 100) : null;
@@ -86,7 +90,7 @@ export default function TabFinanceiro() {
       {/* Faixa de KPIs — leitura executiva em uma linha */}
       <FinKpiStrip
         items={[
-          { label: "Faturamento NF", value: receita, delta: crescimento ?? undefined, sub: `Ano anterior: ${fmtCur(receitaAnt)}` },
+          { label: "Faturamento NF", value: receita, delta: crescimento ?? undefined, sub: `${prevLive ? "Período anterior" : "Ano anterior"}: ${fmtCur(receitaAnt)}` },
           { label: "Pré-faturamento (fl_fatura)", value: gerada ?? 0, sub: pct != null ? `${pct >= 0 ? "+" : ""}${pct.toFixed(1)}% NF vs pré` : "—" },
           { label: "Contas a Receber", value: k.car_total, sub: `Aberto ${fmtCur(k.car_aberto)} · Vencido ${fmtCur(k.car_vencido)}` },
           { label: "Contas a Pagar (despesa real)", value: k.cap_total, sub: `Aberto ${fmtCur(k.cap_aberto)} · Vencido ${fmtCur(k.cap_vencido)}` },

@@ -1,3 +1,5 @@
+import useClientesPeriodo from "@/lib/useClientesPeriodo";
+import { useEmpresaFilter } from "@/lib/EmpresaFilterContext";
 import { Users, UserCheck, UserX, DollarSign, Percent, Clock, Wallet, AlertTriangle } from "lucide-react";
 
 const brl = (v) => (Number(v) || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 });
@@ -16,8 +18,12 @@ function Card({ icon: Icon, label, value, tone = "text-white" }) {
   );
 }
 
-export default function Cliente360Kpis({ k }) {
-  if (!k) return null;
+export default function Cliente360Kpis({ k: base }) {
+  // Faturamento NF e clientes com faturamento: mesma fonte da aba Clientes.
+  const { live } = useClientesPeriodo(useEmpresaFilter().selectedEmpresa);
+  if (!base) return null;
+  const k = live ? { ...base, faturamento_total: live.faturamento_fiscal, clientes_com_faturamento: live.clientes,
+    ticket_medio_cliente: live.clientes > 0 ? live.receita_clientes / live.clientes : 0 } : base;
   return (
     <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
       <Card icon={Users} label="Clientes na base" value={int(k.clientes_total)} />
