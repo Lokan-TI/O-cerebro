@@ -8,6 +8,7 @@ import ChurnEmpresaRanking from "@/components/erp/ChurnEmpresaRanking";
 import { useEmpresaFilter } from "@/lib/EmpresaFilterContext";
 import { useGlobalFilter } from "@/lib/GlobalFilterContext";
 import { scopeByPeriod } from "@/lib/periodScope";
+import useClientesPeriodo from "@/lib/useClientesPeriodo";
 import { getEmpresaLabel, compareEmpresa } from "@/lib/empresaLabels";
 import { fmtCur, fmtNum } from "@/lib/erpFormat";
 import {
@@ -46,6 +47,7 @@ export default function TabExecutiva() {
   const { selectedEmpresa, empresaList, setSelectedEmpresa } = useEmpresaFilter();
   const { period } = useGlobalFilter();
   const pdfRef = useRef(null);
+  const { live } = useClientesPeriodo(selectedEmpresa);
 
   if (loading) return <div className="text-gray-500 p-8 text-center">Carregando visão executiva…</div>;
   if (!snapshot) return (
@@ -63,13 +65,15 @@ export default function TabExecutiva() {
   // (com a janela anterior de mesma duração como comparação). Sem série mensal
   // no período, cai para os valores do ano civil do snapshot.
   const ps = scopeByPeriod(snapshot, period, selectedEmpresa);
-  const receita = ps.hasData ? ps.receita : isAll ? k.fat_ano : empRow?.fat_ano || 0;
+  // Faturamento NF e clientes ativos: mesma fonte da aba Cliente (consulta ao vivo do período).
+  const receita = live ? live.faturamento_fiscal : ps.hasData ? ps.receita : isAll ? k.fat_ano : empRow?.fat_ano || 0;
   const receitaAnt = ps.hasData ? ps.receitaAnt : isAll ? k.fat_ano_ant : empRow?.fat_ano_ant || 0;
-  const crescimento = ps.hasData ? ps.crescimento : isAll ? k.crescimento_ano : empRow?.crescimento_ano ?? null;
-  const ticket = ps.hasData ? ps.ticket : isAll ? k.ticket_ano : empRow?.ticket_ano || 0;
-  const clientes = isAll ? k.clientes_ano : empRow?.clientes_ano || 0;
+  const crescimento = live && receitaAnt > 0 ? ((receita - receitaAnt) / receitaAnt) * 100
+    : ps.hasData ? ps.crescimento : isAll ? k.crescimento_ano : empRow?.crescimento_ano ?? null;
+  const ticket = live && live.nfs > 0 ? live.receita_clientes / live.nfs : ps.hasData ? ps.ticket : isAll ? k.ticket_ano : empRow?.ticket_ano || 0;
+  const clientes = live ? live.clientes : isAll ? k.clientes_ano : empRow?.clientes_ano || 0;
   const clientesMes = isAll ? k.clientes_mes : empRow?.clientes_mes || 0;
-  const receitaPorCliente = isAll ? k.receita_por_cliente : empRow?.receita_por_cliente || 0;
+  const receitaPorCliente = live && live.clientes > 0 ? live.receita_clientes / live.clientes : isAll ? k.receita_por_cliente : empRow?.receita_por_cliente || 0;
 
   // Churn 12 meses: consolidado do grupo ou da filial selecionada
   const churn12Scoped = isAll
@@ -158,7 +162,7 @@ export default function TabExecutiva() {
       <div>
         <h3 className="text-purple-300 text-xs font-semibold uppercase tracking-wider mb-3">Clientes</h3>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <KpiCard icon={Users} label="Clientes ativos (ano)" value={fmtNum(clientes)} sub={`${fmtNum(clientesMes)} no mês`} color="purple" />
+          <KpiCard icon={Users} label={live ? "Clientes ativos (período)" : "Clientes ativos (ano)"} value={fmtNum(clientes)} sub={`${fmtNum(clientesMes)} no mês`} color="purple" />
           <KpiCard icon={UserPlus} label="Novos clientes" value={fmtNum(newClients)} sub="Primeira compra no ano" color="green" />
           <KpiCard icon={Repeat} label="Recorrentes" value={fmtNum(retainedClients)} sub="Compraram ano anterior e atual" color="blue" />
           <KpiCard icon={UserMinus} label="Churn12 rolling (sem NF 12m)" value={churn12Scoped ? fmtNum(churn12Scoped.churned_clients) : "—"} sub={isAll ? "Benchmark legado; churn oficial está em Retenção & Churn" : "Benchmark legado da filial"} color="red" />
@@ -234,7 +238,8 @@ export default function TabExecutiva() {
               {byEmp.map((e) => {
                 const active = e.cd_empresa === selectedEmpresa;
                 const pe = ps.hasData ? ps.byEmpresa.get(Number(e.cd_empresa)) : null;
-                const fat = pe ? pe.receita : e.fat_ano;
+                const le = live?.fiscalByEmpresa.find((r) => Number(r.cd_empresa) === Number(e.cd_empresa));
+                const fat = le ? Number(le.faturamento_fiscal) || 0 : pe ? pe.receita : e.fat_ano;
                 const cres = pe ? pe.crescimento : e.crescimento_ano;
                 const tkt = pe ? pe.ticket : e.ticket_ano;
                 const c12 = churn12Map.get(e.cd_empresa);
