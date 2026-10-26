@@ -8,12 +8,26 @@ const txt = (v) => (v == null ? "" : String(v));
 const dt = (v) => (!v || String(v).startsWith("9999") ? "" : v);
 const saldo = (r) => num(r.qt_remessa) - num(r.qt_devolvida);
 
+// Falhas passageiras do ERP (timeout/conexão) não devem abortar a exportação inteira: até 3 tentativas por página.
+async function fetchPage(payload) {
+  for (let i = 1; ; i++) {
+    try {
+      const res = await base44.functions.invoke("listContratosAbertos", payload);
+      if (res.data?.error) throw new Error(res.data.error);
+      return res;
+    } catch (e) {
+      const msg = e.response?.data?.error || e.message;
+      if (i >= 3) throw new Error(`${msg} (página após ${payload.after}, ${i} tentativas)`);
+      await new Promise((r) => setTimeout(r, 3000 * i));
+    }
+  }
+}
+
 export async function fetchContratos(sourceId, cdEmpresa, onProgress, mode) {
   const rows = [];
   let after = 0;
   for (;;) {
-    const res = await base44.functions.invoke("listContratosAbertos", { source_id: sourceId, cd_empresa: cdEmpresa, after, limit: 1000, mode });
-    if (res.data?.error) throw new Error(res.data.error);
+    const res = await fetchPage({ source_id: sourceId, cd_empresa: cdEmpresa, after, limit: 1000, mode });
     rows.push(...res.data.rows);
     onProgress?.(rows.length);
     if (!res.data.has_more) return rows;
