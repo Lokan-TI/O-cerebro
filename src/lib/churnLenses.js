@@ -3,7 +3,7 @@
 export const CHURN_LENSES = {
   v4: {
     tag: "Ótica V4 · episódios",
-    definition: "Clientes elegíveis com episódios encerrados por gap, metodologia episódios (VALIDAÇÃO PENDENTE).",
+    definition: "Clientes elegíveis com episódios encerrados por inatividade acima de 13 meses (regra oficial de churn).",
   },
   churn12: {
     tag: "Ótica churn12 · rolling",

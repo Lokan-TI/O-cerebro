@@ -16,6 +16,12 @@ export default function TabClientesCar() {
   const [onlyOpen, setOnlyOpen] = useState(false);
   const [summary, setSummary] = useState({ total_clients: 0, total_value: 0, total_open: 0, total_vencido: 0, total_provisorio: 0, total_juros_multa: 0 });
   const [queries, setQueries] = useState(null);
+  // Cliente ativo = movimento nos últimos 13 meses até o fim do período (acima disso é churn)
+  const activeStart = (() => {
+    const d = new Date(`${period.endExclusive}T00:00:00Z`);
+    d.setUTCMonth(d.getUTCMonth() - 13);
+    return d.toISOString().slice(0, 10);
+  })();
 
   const fetchClients = useCallback(async () => {
     if (!selectedSource) return;
@@ -24,7 +30,7 @@ export default function TabClientesCar() {
     try {
       const res = await base44.functions.invoke("listActiveCarClients", {
         source_id: selectedSource.id,
-        start_date: period.start,
+        start_date: activeStart,
         end_date_exclusive: period.endExclusive,
         only_open: onlyOpen,
       });
@@ -48,12 +54,12 @@ export default function TabClientesCar() {
     } finally {
       setLoading(false);
     }
-  }, [selectedSource, period.start, period.endExclusive, onlyOpen]);
+  }, [selectedSource, activeStart, period.endExclusive, onlyOpen]);
 
   useEffect(() => {
     fetchClients();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedSource?.id, period.start, period.endExclusive, onlyOpen]);
+  }, [selectedSource?.id, activeStart, period.endExclusive, onlyOpen]);
 
   const filtered = (clients || []).filter(c => {
     if (!search) return true;
@@ -139,7 +145,7 @@ export default function TabClientesCar() {
       {/* Controles */}
       <div className="bg-gray-900 border border-gray-800 rounded-xl p-4 flex flex-wrap items-center gap-3">
         <div className="text-xs text-gray-400">
-          Período do filtro global: <span className="text-white font-medium">{period.start}</span> →{" "}
+          Ativos (13 meses até o fim do período): <span className="text-white font-medium">{activeStart}</span> →{" "}
           <span className="text-white font-medium">{period.end}</span>
         </div>
 
