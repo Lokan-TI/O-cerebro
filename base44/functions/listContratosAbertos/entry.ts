@@ -123,6 +123,18 @@ Deno.serve(async (req) => {
       LEFT JOIN calcfat cf WITH (NOLOCK) ON cf.cd_calcfat = f.cd_calcfat
       WHERE ${ABERTA}${emp} AND f.cd_controle > ${after}
       ORDER BY f.cd_controle`, 'cd_controle'];
+    if (body.mode === 'resumo') {
+      // Totais dos contratos abertos: fichas, clientes e valor mensal de locação dos bens em posse.
+      const sqlRes = `SELECT COUNT(*) AS fichas, COUNT(DISTINCT f.cd_pessoa) AS clientes, SUM(ISNULL(v.vl,0)) AS valor
+        FROM fich_loc f WITH (NOLOCK)
+        OUTER APPLY (SELECT SUM((e.qt_remessa - ISNULL(dv.qt,0)) * ISNULL(e.vl_uni_locacao,0)) AS vl
+          FROM fl_remessa r WITH (NOLOCK) JOIN fl_rem_equ e WITH (NOLOCK) ON e.cd_flremessa = r.cd_flremessa
+          OUTER APPLY (SELECT SUM(d.qt_devolucao) AS qt FROM fl_dev_equ d WITH (NOLOCK) WHERE d.cd_flremequ = e.cd_flremequ) dv
+          WHERE r.cd_controle = f.cd_controle AND r.fl_rem_cancelada = 'N' AND e.qt_remessa > ISNULL(dv.qt,0)) v
+        WHERE ${ABERTA}${emp}`;
+      const r = rowsOf(await execRead(source, sqlRes, 90000))[0] || {};
+      return Response.json({ fichas: Number(r.fichas) || 0, clientes: Number(r.clientes) || 0, valor: Number(r.valor) || 0 });
+    }
     const renov = body.mode === 'renovacoes';
     const raw = RAW[body.mode];
     const key = raw ? raw[1] : renov ? 'cd_flfatura' : 'cd_flremequ';

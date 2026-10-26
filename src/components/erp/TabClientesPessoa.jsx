@@ -12,6 +12,7 @@ import ClientesReceitaChart from "@/components/erp/ClientesReceitaChart";
 import ClientesAtivosTable from "@/components/erp/ClientesAtivosTable";
 import PadraoLocacaoModal from "@/components/erp/padrao/PadraoLocacaoModal";
 import ClientesCorrecaoCnpj from "@/components/erp/clientesCnpj/ClientesCorrecaoCnpj";
+import ContratosAbertosCards from "@/components/erp/ContratosAbertosCards";
 import ClientesMesPanel from "@/components/erp/ClientesMesPanel";
 import ClientePatrimoniosModal from "@/components/erp/ClientePatrimoniosModal";
 import { Users, TrendingUp, Search, Crown, FileText, Repeat, Percent } from "lucide-react";
@@ -199,6 +200,8 @@ export default function TabClientesPessoa() {
           <div className="text-xs text-gray-500 mt-1">Faturamento atribuído a clientes ÷ clientes ativos{live ? " · período do filtro" : ""}</div>
         </div>
       </div>
+
+      <ContratosAbertosCards selectedEmpresa={selectedEmpresa} />
 
       {/* Evolução mensal da receita da base ativa */}
       <ClientesReceitaChart monthlyRevenue={snapshot.monthly_revenue} carMonthly={snapshot?.analytics?.car_monthly} selectedEmpresa={selectedEmpresa} period={period} onSelectMonth={setSelectedMonth} />
