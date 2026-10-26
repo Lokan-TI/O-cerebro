@@ -1,9 +1,9 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
 import { fmtCur, fmtNum, fmtMonthLabel } from "@/lib/erpFormat";
 import { periodMonths } from "@/lib/periodScope";
 
-export default function ClientesReceitaChart({ monthlyRevenue, carMonthly, selectedEmpresa, period, onSelectMonth }) {
+export default function ClientesReceitaChart({ monthlyRevenue, carMonthly, selectedEmpresa, period, onSelectMonth, faturasRows }) {
   const data = useMemo(() => {
     const win = periodMonths(period);
     const rows = (monthlyRevenue || []).filter((r) => {
@@ -26,10 +26,17 @@ export default function ClientesReceitaChart({ monthlyRevenue, carMonthly, selec
       if (!map[key]) continue;
       map[key].inadimplencia = (map[key].inadimplencia || 0) + (Number(r.vl_vencido) || 0);
     }
+    for (const r of faturasRows || []) {
+      if (selectedEmpresa != null && Number(r.cd_empresa) !== selectedEmpresa) continue;
+      const key = `${r.ano}-${String(r.mes).padStart(2, "0")}`;
+      if (!map[key]) map[key] = { key, ano: r.ano, mes: r.mes, receita: 0, clientes: 0 };
+      map[key].faturas = (map[key].faturas || 0) + (Number(r.valor) || 0);
+    }
     return Object.values(map)
       .sort((a, b) => a.key.localeCompare(b.key))
       .map((m) => ({ ...m, label: fmtMonthLabel(m.mes, m.ano) }));
-  }, [monthlyRevenue, carMonthly, selectedEmpresa, period]);
+  }, [monthlyRevenue, carMonthly, selectedEmpresa, period, faturasRows]);
+  const [serie, setSerie] = useState("ambas");
 
   const hasInadimplencia = data.some((m) => m.inadimplencia != null);
 
@@ -37,7 +44,15 @@ export default function ClientesReceitaChart({ monthlyRevenue, carMonthly, selec
 
   return (
     <div className="bg-gray-900 border border-gray-800 rounded-xl p-5">
-      <h3 className="text-white font-semibold text-sm mb-1">Evolução do faturamento bruto (NF) — clientes ativos</h3>
+      <div className="flex flex-wrap items-center justify-between gap-2 mb-1">
+        <h3 className="text-white font-semibold text-sm">Evolução do faturamento bruto (NF) — clientes ativos</h3>
+        <div className="flex rounded-lg border border-gray-700 overflow-hidden text-xs">
+          {[["nf", "Emissão de NF"], ["faturas", "Geração de faturas"], ["ambas", "Ambas"]].map(([k, l]) => (
+            <button key={k} onClick={() => setSerie(k)}
+              className={`px-3 py-1 transition-colors ${serie === k ? "bg-violet-600 text-white" : "text-gray-400 hover:bg-gray-800"}`}>{l}</button>
+          ))}
+        </div>
+      </div>
       <p className="text-xs text-gray-500 mb-4">
         Faturamento bruto de NF (nf.vl_faturamento) da base ativa e nº de clientes faturados no mês · não é receita por grupo Sisloc
         {hasInadimplencia ? " · inadimplência = títulos vencidos em aberto (consolidado, por mês de emissão)" : ""}
@@ -79,6 +94,7 @@ export default function ClientesReceitaChart({ monthlyRevenue, carMonthly, selec
             />
             <Legend wrapperStyle={{ fontSize: 12 }} />
             <Line
+              hide={serie === "faturas"}
               yAxisId="receita"
               type="monotone"
               dataKey="receita"
@@ -102,6 +118,10 @@ export default function ClientesReceitaChart({ monthlyRevenue, carMonthly, selec
               strokeDasharray="4 3"
               dot={false}
             />
+            {serie !== "nf" && (
+              <Line yAxisId="receita" type="monotone" dataKey="faturas" name="Geração de faturas (locação)"
+                stroke="#f59e0b" strokeWidth={2} dot={{ r: 3, fill: "#f59e0b" }} />
+            )}
             {hasInadimplencia && (
               <Line
                 yAxisId="receita"

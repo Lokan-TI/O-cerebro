@@ -123,6 +123,18 @@ Deno.serve(async (req) => {
       LEFT JOIN calcfat cf WITH (NOLOCK) ON cf.cd_calcfat = f.cd_calcfat
       WHERE ${ABERTA}${emp} AND f.cd_controle > ${after}
       ORDER BY f.cd_controle`, 'cd_controle'];
+    if (body.mode === 'faturas_mensal') {
+      // Faturamento por geração de faturas (Sisloc): fl_fatura por dt_geracao, todas as fichas, uma linha por fatura.
+      const ds = String(body.start || '').match(/^\d{4}-\d{2}-\d{2}$/)?.[0];
+      const de = String(body.end || '').match(/^\d{4}-\d{2}-\d{2}$/)?.[0];
+      if (!ds || !de) return Response.json({ error: 'start/end obrigatórios' }, { status: 400 });
+      const sqlFat = `SELECT YEAR(ft.dt_geracao) AS ano, MONTH(ft.dt_geracao) AS mes, f.cd_empresa,
+          SUM(ISNULL(ft.vl_fatura,0)) AS valor, COUNT(*) AS faturas
+        FROM fl_fatura ft WITH (NOLOCK) JOIN fich_loc f WITH (NOLOCK) ON f.cd_controle = ft.cd_controle
+        WHERE ft.dt_geracao >= '${ds}' AND ft.dt_geracao < DATEADD(day, 1, '${de}')${emp}
+        GROUP BY YEAR(ft.dt_geracao), MONTH(ft.dt_geracao), f.cd_empresa`;
+      return Response.json({ rows: rowsOf(await execRead(source, sqlFat, 90000)) });
+    }
     if (body.mode === 'resumo') {
       // Totais dos contratos abertos: fichas, clientes e valor mensal de locação dos bens em posse.
       const sqlRes = `SELECT COUNT(*) AS fichas, COUNT(DISTINCT f.cd_pessoa) AS clientes, SUM(ISNULL(v.vl,0)) AS valor

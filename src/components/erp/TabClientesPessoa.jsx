@@ -13,6 +13,8 @@ import ClientesAtivosTable from "@/components/erp/ClientesAtivosTable";
 import PadraoLocacaoModal from "@/components/erp/padrao/PadraoLocacaoModal";
 import ClientesCorrecaoCnpj from "@/components/erp/clientesCnpj/ClientesCorrecaoCnpj";
 import ContratosAbertosCards from "@/components/erp/ContratosAbertosCards";
+import FaturasLocacaoCard from "@/components/erp/FaturasLocacaoCard";
+import useFaturasLocacao from "@/components/erp/useFaturasLocacao";
 import ClientesMesPanel from "@/components/erp/ClientesMesPanel";
 import ClientePatrimoniosModal from "@/components/erp/ClientePatrimoniosModal";
 import { Users, TrendingUp, Search, Crown, FileText, Repeat, Percent } from "lucide-react";
@@ -23,6 +25,7 @@ export default function TabClientesPessoa() {
   const { analytics } = useAnalyticsView();
   const { period } = useGlobalFilter();
   const { selectedSource } = useErpSource();
+  const faturas = useFaturasLocacao(selectedSource?.id, period);
   const [search, setSearch] = useState("");
   const [selectedClient, setSelectedClient] = useState(null);
   const [selectedMonth, setSelectedMonth] = useState(null);
@@ -202,9 +205,10 @@ export default function TabClientesPessoa() {
       </div>
 
       <ContratosAbertosCards selectedEmpresa={selectedEmpresa} />
+      <FaturasLocacaoCard rows={faturas.rows} error={faturas.error} selectedEmpresa={selectedEmpresa} />
 
       {/* Evolução mensal da receita da base ativa */}
-      <ClientesReceitaChart monthlyRevenue={snapshot.monthly_revenue} carMonthly={snapshot?.analytics?.car_monthly} selectedEmpresa={selectedEmpresa} period={period} onSelectMonth={setSelectedMonth} />
+      <ClientesReceitaChart monthlyRevenue={snapshot.monthly_revenue} carMonthly={snapshot?.analytics?.car_monthly} selectedEmpresa={selectedEmpresa} period={period} onSelectMonth={setSelectedMonth} faturasRows={faturas.rows} />
 
       {selectedMonth && (
         <ClientesMesPanel ano={selectedMonth.ano} mes={selectedMonth.mes} onClose={() => setSelectedMonth(null)} onSelectClient={setSelectedClient} />
