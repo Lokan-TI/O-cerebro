@@ -15,7 +15,7 @@ export default function MigracaoExportButton() {
   const [empresa, setEmpresa] = useState("");
   const [loading, setLoading] = useState(false);
   const [msg, setMsg] = useState(null);
-  const [filtro, setFiltro] = useState("posse");
+  const [filtro, setFiltro] = useState("atual");
 
   useEffect(() => { if (open) { setEmpresa(selectedEmpresa == null ? "" : String(selectedEmpresa)); setMsg(null); } }, [open, selectedEmpresa]);
 
@@ -23,7 +23,7 @@ export default function MigracaoExportButton() {
     setLoading(true);
     try {
       const r = await exportMigracao(sourceId, empresa, setMsg, filtro);
-      setMsg(r.fichas ? `${r.fichas} fichas únicas exportadas (de ${r.total} abertas) · ${r.linhas} linhas.` : `Nenhuma ficha encontrada para este filtro (${r.total} abertas no total).`);
+      setMsg(r.fichas ? `${r.fichas} fichas únicas exportadas (de ${r.total} abertas) · ${r.equipamentos} equipamentos atuais · ${r.semPosse} fichas sem equipamento · ${r.linhas} linhas.` : `Nenhuma ficha encontrada para este filtro (${r.total} abertas no total).`);
     } catch (e) {
       setMsg(`Erro: ${e.message}`);
     }

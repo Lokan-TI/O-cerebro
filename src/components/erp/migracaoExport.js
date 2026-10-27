@@ -54,6 +54,7 @@ function clienteCols(p = {}, c) {
 const pat = (e) => (num(e.cd_patrimonio) > 0 ? s(e.nr_patrimonio_calc).trim() || s(e.cd_patrimonio) : "");
 const prod = (e) => s(e.nm_equipto_calc) || s(e.ds_equipto) || s(e.cd_equipto);
 const VALOR = "Valor da remessa";
+const POSSE = "Qtd. itens em posse";
 const EMP = "Empresa (filial)", CLI = "Razão social / Nome";
 
 // Uma linha por remessa: entregas agrupadas por remessa, retiradas agrupadas por data de devolução.
@@ -111,6 +112,7 @@ export async function exportMigracao(sourceId, empresa, onMsg, filtro = "posse")
   const itensBy = group(itens, (e) => remCtrl.get(e.cd_flremessa)?.cd_controle);
   const fatBy = group(faturas, (f) => f.cd_controle);
 
+  let equipamentos = 0, semPosse = 0;
   const linhas = fichas.flatMap((f) => {
     const its = itensBy.get(f.cd_controle) || [];
     const fts = (fatBy.get(f.cd_controle) || []).sort((a, b) => s(a.dt_inicio).localeCompare(s(b.dt_inicio)));
@@ -126,6 +128,8 @@ export async function exportMigracao(sourceId, empresa, onMsg, filtro = "posse")
     const patPosse = [...saldoPat].filter(([, q]) => q > 0).map(([p]) => p);
     const semPat = its.filter((e) => !pat(e) && dt(remCtrl.get(e.cd_flremessa)?.dt_saida) && num(e.qt_remessa) - num(e.qt_devolvida_calc) > 0);
     const emPosse = { length: patPosse.length + semPat.length };
+    equipamentos += emPosse.length;
+    if (!emPosse.length) semPosse++;
     const base = {
       [EMP]: getEmpresaLabel(f.cd_empresa),
       ...clienteCols(pes.get(String(f.cd_pessoa)), cad.get(String(f.cd_pessoa))),
@@ -167,6 +171,12 @@ export async function exportMigracao(sourceId, empresa, onMsg, filtro = "posse")
       if (!ws[ref]) continue;
       ws[ref].s = { font: { bold: true, color: { rgb: "4C1D95" } }, fill: { fgColor: { rgb: r ? "EDE9FE" : "C4B5FD" } } };
     }
+    // Fichas abertas sem equipamento atual na obra: célula "Qtd. itens em posse" em vermelho
+    const cp = header.indexOf(POSSE);
+    if (cp >= 0) for (let r = 1; r <= data.length; r++) {
+      const ref = XLSX.utils.encode_cell({ r, c: cp });
+      if (ws[ref] && num(ws[ref].v) === 0) ws[ref].s = { font: { bold: true, color: { rgb: "FFFFFF" } }, fill: { fgColor: { rgb: "DC2626" } } };
+    }
     header.forEach((h, c) => {
       if (!isMoeda(h)) return;
       for (let r = 1; r <= data.length; r++) {
@@ -181,5 +191,5 @@ export async function exportMigracao(sourceId, empresa, onMsg, filtro = "posse")
   add("Todas as fichas", linhas);
   for (const [emp, rows] of group(linhas, (l) => l[EMP])) add(emp, rows);
   XLSX.writeFile(wb, `migracao_fichas_abertas_${new Date().toISOString().slice(0, 10)}.xlsx`);
-  return { fichas: fichas.length, linhas: linhas.length, total: todas.length };
+  return { fichas: fichas.length, linhas: linhas.length, total: todas.length, equipamentos, semPosse };
 }

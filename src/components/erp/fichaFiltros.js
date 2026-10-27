@@ -1,5 +1,6 @@
 // Classifica cada ficha aberta pelas movimentações: saldo em posse = soma (remessado − devolvido) por item.
 export const FILTROS = [
+  { id: "atual", label: "Todas fichas abertas — somente equipamentos atuais na obra", historico: false },
   { id: "posse", label: "Com patrimônio em posse", historico: false },
   { id: "so_cliente", label: "Sem histórico de movimentações, somente com equipamentos no cliente", historico: false },
   { id: "rem_dev", label: "Com remessas e devoluções", historico: true },
