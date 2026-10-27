@@ -1,6 +1,7 @@
 // Classifica cada ficha aberta pelas movimentações: saldo em posse = soma (remessado − devolvido) por item.
 export const FILTROS = [
   { id: "posse", label: "Com patrimônio em posse", historico: false },
+  { id: "so_cliente", label: "Sem histórico de movimentações, somente com equipamentos no cliente", historico: false },
   { id: "rem_dev", label: "Com remessas e devoluções", historico: true },
   { id: "so_remessa", label: "Só remessas (sem devolução)", historico: true },
   { id: "devolvidas", label: "Tudo devolvido (sem posse)", historico: true },
@@ -22,6 +23,7 @@ export function aplicarFiltro(filtro, fichas, rows) {
     const s = st.get(f.cd_controle);
     switch (filtro) {
       case "posse": return s?.posse > 0;
+      case "so_cliente": return s?.posse > 0 && s.dev === 0;
       case "rem_dev": return s?.rem > 0 && s.dev > 0;
       case "so_remessa": return s?.rem > 0 && s.dev === 0;
       case "devolvidas": return s?.rem > 0 && s.posse === 0;
@@ -31,6 +33,6 @@ export function aplicarFiltro(filtro, fichas, rows) {
   };
   const sel = fichas.filter(ok);
   const ids = new Set(sel.map((f) => f.cd_controle));
-  const itens = rows.filter((r) => ids.has(r.cd_controle) && (filtro !== "posse" || n(r.qt_remessa) > n(r.qt_devolvida)));
+  const itens = rows.filter((r) => ids.has(r.cd_controle) && (FILTROS.find((x) => x.id === filtro)?.historico !== false || n(r.qt_remessa) > n(r.qt_devolvida)));
   return { fichas: sel, rows: itens };
 }

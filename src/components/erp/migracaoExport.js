@@ -3,7 +3,7 @@ import { base44 } from "@/api/base44Client";
 import { getEmpresaLabel } from "@/lib/empresaLabels";
 import { merge } from "@/components/erp/fornecedores/useSupplierCache";
 import { fetchContratos, fetchByFichas, contratoCols } from "./contratosAbertosExport";
-import { aplicarFiltro } from "./fichaFiltros";
+import { aplicarFiltro, FILTROS } from "./fichaFiltros";
 
 const num = (v) => Number(v) || 0;
 const s = (v) => String(v ?? "").trim();
@@ -98,7 +98,7 @@ export async function exportMigracao(sourceId, empresa, onMsg, filtro = "posse")
     .map((e) => ({ cd_controle: remById.get(e.cd_flremessa).cd_controle, qt_remessa: e.qt_remessa, qt_devolvida: e.qt_devolvida_calc }));
   const fichas = aplicarFiltro(filtro, todas, mov).fichas;
   const ids = fichas.map((f) => Number(f.cd_controle));
-  const historico = filtro !== "posse";
+  const historico = FILTROS.find((x) => x.id === filtro)?.historico !== false;
   if (!ids.length) return { fichas: 0, linhas: 0, total: todas.length };
   const faturas = await fetchByFichas(sourceId, empresa, ids, (n) => onMsg(`${n} movimentações...`), "renovacoes");
   const pessoas = await fetchByFichas(sourceId, empresa, ids, (n) => onMsg(`${n} clientes...`), "raw_pessoas");
