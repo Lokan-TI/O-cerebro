@@ -107,7 +107,16 @@ export async function exportMigracao(sourceId, empresa, onMsg) {
     const fts = (fatBy.get(f.cd_controle) || []).sort((a, b) => s(a.dt_inicio).localeCompare(s(b.dt_inicio)));
     const normais = fts.filter((x) => s(x.fatura_complementar) !== "S");
     const compl = fts.filter((x) => s(x.fatura_complementar) === "S");
-    const emPosse = its.filter((e) => num(e.qt_remessa) - num(e.qt_devolvida_calc) > 0);
+    // Mapa por patrimônio dentro da ficha: remessas efetivadas (com saída) − devoluções registradas
+    const saldoPat = new Map();
+    for (const e of its) {
+      const p = pat(e);
+      if (!p || !dt(remCtrl.get(e.cd_flremessa)?.dt_saida)) continue;
+      saldoPat.set(p, (saldoPat.get(p) || 0) + num(e.qt_remessa) - num(e.qt_devolvida_calc));
+    }
+    const patPosse = [...saldoPat].filter(([, q]) => q > 0).map(([p]) => p);
+    const semPat = its.filter((e) => !pat(e) && dt(remCtrl.get(e.cd_flremessa)?.dt_saida) && num(e.qt_remessa) - num(e.qt_devolvida_calc) > 0);
+    const emPosse = { length: patPosse.length + semPat.length };
     const base = {
       [EMP]: getEmpresaLabel(f.cd_empresa),
       ...clienteCols(pes.get(String(f.cd_pessoa)), cad.get(String(f.cd_pessoa))),
@@ -123,7 +132,7 @@ export async function exportMigracao(sourceId, empresa, onMsg) {
       "Vl. faturas complementares": compl.reduce((t, x) => t + num(x.vl_fatura), 0),
       "Qtd. itens na ficha": its.length,
       "Qtd. itens em posse": emPosse.length,
-      "Patrimônios em posse": cell(emPosse.map(pat).filter(Boolean).join(", ")),
+      "Patrimônios em posse": cell(patPosse.join(", ")),
     };
     const rems = remessaRows(its, remCtrl);
     return rems.length ? rems.map((r) => ({ ...base, ...r })) : [base];
