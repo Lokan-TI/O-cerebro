@@ -54,6 +54,7 @@ export const contratoCols = (r) => ({
   "Cód. cliente": txt(r.cd_pessoa),
   "Cliente": r.nm_pessoa || "",
   "Nome fantasia": r.nm_fan_pessoa || "",
+  "Atendente responsável": (r.nm_atendente || "").trim() || txt(r.cd_pessoa_fun),
   "Abertura": dt(r.dt_pedido),
   "Aprovação": dt(r.dt_aprovacao),
   "Vigência - período atual início": dt(r.dt_fai_ficha),

@@ -42,7 +42,7 @@ Deno.serve(async (req) => {
 
     const sql = `SELECT TOP ${limit}
         f.cd_controle, f.numero_prefixo, f.numero, f.numero_sufixo, f.cd_empresa, f.cd_empresa_mov,
-        f.cd_pessoa, p.nm_pessoa, p.nm_fan_pessoa,
+        f.cd_pessoa, p.nm_pessoa, p.nm_fan_pessoa, f.cd_pessoa_fun, pfun.nm_pessoa AS nm_atendente,
         f.dt_pedido, f.dt_aprovacao, f.dt_fai_ficha, f.dt_faf_ficha, f.dt_prevista_devolucao,
         f.dt_min_devolucao, f.dt_fau_ficha, f.dt_fat_ficha, f.dt_prox_reajuste, f.dt_validade,
         f.cd_calcfat, cf.ds_calcfat, f.cd_atividade, a.ds_atividade, f.cd_regiao, rg.nm_regiao,
@@ -61,6 +61,7 @@ Deno.serve(async (req) => {
       JOIN fl_remessa r WITH (NOLOCK) ON r.cd_controle = f.cd_controle
       JOIN fl_rem_equ e WITH (NOLOCK) ON e.cd_flremessa = r.cd_flremessa
       LEFT JOIN pessoa p WITH (NOLOCK) ON p.cd_pessoa = f.cd_pessoa
+      LEFT JOIN pessoa pfun WITH (NOLOCK) ON pfun.cd_pessoa = f.cd_pessoa_fun
       LEFT JOIN equipto q WITH (NOLOCK) ON q.cd_equipto = e.cd_equipto
       LEFT JOIN patrimon pt WITH (NOLOCK) ON pt.cd_patrimonio = e.cd_patrimonio
       LEFT JOIN atividade a WITH (NOLOCK) ON a.cd_atividade = f.cd_atividade
@@ -112,7 +113,7 @@ Deno.serve(async (req) => {
     };
     RAW.fichas = [`SELECT TOP ${limit}
         f.cd_controle, f.numero_prefixo, f.numero, f.numero_sufixo, f.cd_empresa, f.cd_empresa_mov,
-        f.cd_pessoa, p.nm_pessoa, p.nm_fan_pessoa,
+        f.cd_pessoa, p.nm_pessoa, p.nm_fan_pessoa, f.cd_pessoa_fun, pfun.nm_pessoa AS nm_atendente,
         f.dt_pedido, f.dt_aprovacao, f.dt_fai_ficha, f.dt_faf_ficha, f.dt_prevista_devolucao,
         f.dt_min_devolucao, f.dt_fau_ficha, f.dt_fat_ficha, f.dt_prox_reajuste,
         f.cd_calcfat, cf.ds_calcfat, f.cd_atividade, a.ds_atividade, f.cd_regiao, rg.nm_regiao,
@@ -122,6 +123,7 @@ Deno.serve(async (req) => {
         f.uf_entrega, f.cp_entrega, f.cnpj_entrega, f.contato, f.telefone, f.observacao
       FROM fich_loc f WITH (NOLOCK)
       LEFT JOIN pessoa p WITH (NOLOCK) ON p.cd_pessoa = f.cd_pessoa
+      LEFT JOIN pessoa pfun WITH (NOLOCK) ON pfun.cd_pessoa = f.cd_pessoa_fun
       LEFT JOIN atividade a WITH (NOLOCK) ON a.cd_atividade = f.cd_atividade
       LEFT JOIN regiao rg WITH (NOLOCK) ON rg.cd_regiao = f.cd_regiao
       LEFT JOIN calcfat cf WITH (NOLOCK) ON cf.cd_calcfat = f.cd_calcfat
