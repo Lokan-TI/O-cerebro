@@ -37,7 +37,7 @@ export async function fetchContratos(sourceId, cdEmpresa, onProgress, mode, cont
   const rows = [];
   let after = 0;
   for (;;) {
-    const res = await fetchPage({ source_id: sourceId, cd_empresa: cdEmpresa, after, limit: 1000, mode, controles });
+    const res = await fetchPage({ source_id: sourceId, cd_empresa: cdEmpresa, after, limit: mode === "fichas" ? 300 : 1000, mode, controles });
     rows.push(...res.data.rows);
     onProgress?.(rows.length);
     if (!res.data.has_more) return rows;

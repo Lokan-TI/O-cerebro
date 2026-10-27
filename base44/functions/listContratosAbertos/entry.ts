@@ -121,13 +121,13 @@ Deno.serve(async (req) => {
         f.vl_minimo_locacao, f.vl_preco_dia, f.vl_projeto, f.nr_periodos,
         f.nm_entrega, f.en_entrega, f.num_entrega, f.comp_entrega, f.br_entrega, f.ci_entrega,
         f.uf_entrega, f.cp_entrega, f.cnpj_entrega, f.contato, f.telefone, f.observacao
-      FROM fich_loc f WITH (NOLOCK)
+      FROM (SELECT TOP ${limit} f.* FROM fich_loc f WITH (NOLOCK)
+        WHERE ${ABERTA}${emp} AND f.cd_controle > ${after} ORDER BY f.cd_controle) f
       LEFT JOIN pessoa p WITH (NOLOCK) ON p.cd_pessoa = f.cd_pessoa
       LEFT JOIN pessoa pfun WITH (NOLOCK) ON pfun.cd_pessoa = f.cd_pessoa_fun
       LEFT JOIN atividade a WITH (NOLOCK) ON a.cd_atividade = f.cd_atividade
       LEFT JOIN regiao rg WITH (NOLOCK) ON rg.cd_regiao = f.cd_regiao
       LEFT JOIN calcfat cf WITH (NOLOCK) ON cf.cd_calcfat = f.cd_calcfat
-      WHERE ${ABERTA}${emp} AND f.cd_controle > ${after}
       ORDER BY f.cd_controle`, 'cd_controle'];
     if (body.mode === 'faturas_mensal') {
       // Faturamento por geração de faturas (Sisloc): fl_fatura por dt_geracao, todas as fichas, uma linha por fatura.
