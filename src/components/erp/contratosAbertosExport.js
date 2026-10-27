@@ -26,8 +26,9 @@ async function fetchPage(payload) {
 // Busca por lotes de fichas (cd_controle) — consulta indexada, sem varrer a tabela de itens inteira.
 export async function fetchByFichas(sourceId, cdEmpresa, controles, onProgress, mode) {
   const all = [];
-  for (let i = 0; i < controles.length; i += 500) {
-    const part = await fetchContratos(sourceId, cdEmpresa, (n) => onProgress?.(all.length + n), mode, controles.slice(i, i + 500));
+  // 100 fichas por lote: o Sisloc limita a consulta a 8.000 caracteres (lista de remessas no IN)
+  for (let i = 0; i < controles.length; i += 100) {
+    const part = await fetchContratos(sourceId, cdEmpresa, (n) => onProgress?.(all.length + n), mode, controles.slice(i, i + 100));
     all.push(...part);
   }
   return all;
