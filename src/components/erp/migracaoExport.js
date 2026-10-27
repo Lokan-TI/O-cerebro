@@ -88,8 +88,8 @@ export async function exportMigracao(sourceId, empresa, onMsg) {
   const ids = fichas.map((f) => Number(f.cd_controle)).filter(Number.isInteger);
   const itens = await fetchByFichas(sourceId, empresa, ids, (n) => onMsg(`${n} itens...`), "raw_itens");
   const remessas = await fetchByFichas(sourceId, empresa, ids, (n) => onMsg(`${n} remessas...`), "raw_remessas");
-  const faturas = await fetchContratos(sourceId, empresa, (n) => onMsg(`${n} movimentações...`), "renovacoes");
-  const pessoas = await fetchContratos(sourceId, empresa, (n) => onMsg(`${n} clientes...`), "raw_pessoas");
+  const faturas = await fetchByFichas(sourceId, empresa, ids, (n) => onMsg(`${n} movimentações...`), "renovacoes");
+  const pessoas = await fetchByFichas(sourceId, empresa, ids, (n) => onMsg(`${n} clientes...`), "raw_pessoas");
   onMsg("Lendo correção cadastral...");
   const cad = await loadCadastro(sourceId);
 

@@ -80,17 +80,21 @@ Deno.serve(async (req) => {
       FROM fl_fatura ft WITH (NOLOCK)
       JOIN fich_loc f WITH (NOLOCK) ON f.cd_controle = ft.cd_controle
       LEFT JOIN pessoa p WITH (NOLOCK) ON p.cd_pessoa = f.cd_pessoa
-      WHERE ${ABERTA} AND ft.cd_flfatura > ${after}${emp}
+      WHERE ${ABERTA} AND ft.cd_flfatura > ${after}${emp}__CTRLFT__
       ORDER BY ft.cd_flfatura`;
     // Modos brutos: todas as colunas originais de cada tabela, sem simplificação
     const openF = `FROM fich_loc f WITH (NOLOCK) WHERE ${ABERTA}${emp}`;
     // Lista explícita de fichas: busca indexada por cd_controle, evita varrer fl_rem_equ inteira (timeout).
     const ctrls = Array.isArray(body.controles) ? body.controles.map(Number).filter(Number.isInteger).slice(0, 500) : [];
     const inCtrl = ctrls.length ? `r.cd_controle IN (${ctrls.join(',')})` : null;
+    const sqlRenovF = sqlRenov.replace('__CTRLFT__', ctrls.length ? ` AND ft.cd_controle IN (${ctrls.join(',')})` : '');
+    const pesFilter = ctrls.length
+      ? `p.cd_pessoa IN (SELECT f.cd_pessoa FROM fich_loc f WITH (NOLOCK) WHERE f.cd_controle IN (${ctrls.join(',')}))`
+      : `EXISTS (SELECT 1 ${openF} AND f.cd_pessoa = p.cd_pessoa)`;
     const RAW: Record<string, [string, string]> = {
       raw_fichas: [`SELECT TOP ${limit} f.* ${openF} AND f.cd_controle > ${after} ORDER BY f.cd_controle`, 'cd_controle'],
       raw_pessoas: [`SELECT TOP ${limit} p.* FROM pessoa p WITH (NOLOCK) WHERE p.cd_pessoa > ${after}
-        AND EXISTS (SELECT 1 ${openF} AND f.cd_pessoa = p.cd_pessoa) ORDER BY p.cd_pessoa`, 'cd_pessoa'],
+        AND ${pesFilter} ORDER BY p.cd_pessoa`, 'cd_pessoa'],
       raw_remessas: [`SELECT TOP ${limit} r.* FROM fl_remessa r WITH (NOLOCK) WHERE r.fl_rem_cancelada = 'N' AND r.cd_flremessa > ${after}
         AND ${inCtrl || `EXISTS (SELECT 1 ${openF} AND f.cd_controle = r.cd_controle)`} ORDER BY r.cd_flremessa`, 'cd_flremessa'],
       raw_itens: [`SELECT TOP ${limit} e.*,
@@ -170,7 +174,7 @@ Deno.serve(async (req) => {
     const raw = RAW[body.mode];
     const key = raw ? raw[1] : renov ? 'cd_flfatura' : 'cd_flremequ';
 
-    const rows = rowsOf(await execRead(source, raw ? raw[0] : renov ? sqlRenov : sql, 90000)).map((r: any) => {
+    const rows = rowsOf(await execRead(source, raw ? raw[0] : renov ? sqlRenovF : sql, 90000)).map((r: any) => {
       const o: any = {};
       for (const [k, v] of Object.entries(r)) o[k] = v instanceof Date ? iso(v) : (v != null && typeof v === 'object' ? null : v);
       return o;
