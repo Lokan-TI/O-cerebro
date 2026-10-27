@@ -64,11 +64,8 @@ function remessaRows(its, remCtrl) {
   };
   for (const e of its) {
     const rm = remCtrl.get(e.cd_flremessa) || {};
-    add(`E${e.cd_flremessa}`, { tipo: "Entrega", nr: s(rm.nr_contrato) || s(e.cd_flremessa), data: dt(rm.dt_entrega) || dt(rm.dt_saida) }, e, num(e.qt_remessa));
-    if (num(e.qt_devolvida_calc) > 0) {
-      const d = s(dt(e.dt_retirada_calc)).slice(0, 10);
-      add(`R${d}`, { tipo: "Retirada", nr: "", data: d }, e, num(e.qt_devolvida_calc));
-    }
+    // Somente equipamentos em posse: quantidade remetida ainda sem devolução
+    add(`E${e.cd_flremessa}`, { tipo: "Entrega", nr: s(rm.nr_contrato) || s(e.cd_flremessa), data: dt(rm.dt_entrega) || dt(rm.dt_saida) }, e, num(e.qt_remessa) - num(e.qt_devolvida_calc));
   }
   return [...ev.values()].sort((a, b) => s(a.data).localeCompare(s(b.data)) || a.tipo.localeCompare(b.tipo)).map((r, i) => ({
     "Seq. remessa": i + 1,
@@ -134,7 +131,10 @@ export async function exportMigracao(sourceId, empresa, onMsg) {
       "Qtd. itens em posse": emPosse.length,
       "Patrimônios em posse": cell(patPosse.join(", ")),
     };
-    const rems = remessaRows(its, remCtrl);
+    const posseSet = new Set(patPosse);
+    const itensPosse = its.filter((e) => dt(remCtrl.get(e.cd_flremessa)?.dt_saida)
+      && num(e.qt_remessa) - num(e.qt_devolvida_calc) > 0 && (!pat(e) || posseSet.has(pat(e))));
+    const rems = remessaRows(itensPosse, remCtrl);
     return rems.length ? rems.map((r) => ({ ...base, ...r })) : [base];
   }).sort((a, b) => a[EMP].localeCompare(b[EMP]) || a[CLI].localeCompare(b[CLI])
     || s(a["Nº ficha"]).localeCompare(s(b["Nº ficha"])) || num(a["Seq. remessa"]) - num(b["Seq. remessa"]));
