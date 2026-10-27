@@ -89,8 +89,14 @@ Deno.serve(async (req) => {
     const ctrls = Array.isArray(body.controles) ? body.controles.map(Number).filter(Number.isInteger).slice(0, 500) : [];
     const inCtrl = ctrls.length ? `r.cd_controle IN (${ctrls.join(',')})` : null;
     const sqlRenovF = sqlRenov.replace('__CTRLFT__', ctrls.length ? ` AND ft.cd_controle IN (${ctrls.join(',')})` : '');
+    // Pré-resolve ids pequenos (pessoas/remessas das fichas) para buscas indexadas por IN literal.
+    const idList = async (q: string, k: string) => [...new Set(rowsOf(await execRead(source, q, 60000)).map((r: any) => Number(r[k])).filter(Number.isInteger))].join(',');
+    const pesIds = ctrls.length && body.mode === 'raw_pessoas'
+      ? await idList(`SELECT DISTINCT f.cd_pessoa FROM fich_loc f WITH (NOLOCK) WHERE f.cd_controle IN (${ctrls.join(',')})`, 'cd_pessoa') : '';
+    const remIds = ctrls.length && body.mode === 'raw_itens'
+      ? await idList(`SELECT r.cd_flremessa FROM fl_remessa r WITH (NOLOCK) WHERE r.cd_controle IN (${ctrls.join(',')})`, 'cd_flremessa') || 'NULL' : '';
     const pesFilter = ctrls.length
-      ? `p.cd_pessoa IN (SELECT f.cd_pessoa FROM fich_loc f WITH (NOLOCK) WHERE f.cd_controle IN (${ctrls.join(',')}))`
+      ? `p.cd_pessoa IN (${pesIds || 'NULL'})`
       : `EXISTS (SELECT 1 ${openF} AND f.cd_pessoa = p.cd_pessoa)`;
     const RAW: Record<string, [string, string]> = {
       raw_fichas: [`SELECT TOP ${limit} f.* ${openF} AND f.cd_controle > ${after} ORDER BY f.cd_controle`, 'cd_controle'],
@@ -106,7 +112,7 @@ Deno.serve(async (req) => {
         FROM fl_rem_equ e WITH (NOLOCK) JOIN fl_remessa r WITH (NOLOCK) ON r.cd_flremessa = e.cd_flremessa
         LEFT JOIN equipto q WITH (NOLOCK) ON q.cd_equipto = e.cd_equipto
         LEFT JOIN patrimon pt WITH (NOLOCK) ON pt.cd_patrimonio = e.cd_patrimonio
-        WHERE r.fl_rem_cancelada = 'N' AND e.cd_flremequ > ${after}
+        WHERE r.fl_rem_cancelada = 'N' AND e.cd_flremequ > ${after}${remIds ? ` AND e.cd_flremessa IN (${remIds})` : ''}
           AND ${inCtrl || `EXISTS (SELECT 1 ${openF} AND f.cd_controle = r.cd_controle)`} ORDER BY e.cd_flremequ`, 'cd_flremequ'],
       raw_faturas: [`SELECT TOP ${limit} ft.* FROM fl_fatura ft WITH (NOLOCK) WHERE ft.cd_flfatura > ${after}
         AND EXISTS (SELECT 1 ${openF} AND f.cd_controle = ft.cd_controle) ORDER BY ft.cd_flfatura`, 'cd_flfatura'],

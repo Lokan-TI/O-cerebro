@@ -26,8 +26,8 @@ async function fetchPage(payload) {
 // Busca por lotes de fichas (cd_controle) — consulta indexada, sem varrer a tabela de itens inteira.
 export async function fetchByFichas(sourceId, cdEmpresa, controles, onProgress, mode) {
   const all = [];
-  for (let i = 0; i < controles.length; i += 300) {
-    const part = await fetchContratos(sourceId, cdEmpresa, (n) => onProgress?.(all.length + n), mode, controles.slice(i, i + 300));
+  for (let i = 0; i < controles.length; i += 100) {
+    const part = await fetchContratos(sourceId, cdEmpresa, (n) => onProgress?.(all.length + n), mode, controles.slice(i, i + 100));
     all.push(...part);
   }
   return all;
