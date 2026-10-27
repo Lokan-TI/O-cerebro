@@ -70,7 +70,7 @@ Deno.serve(async (req) => {
       OUTER APPLY (SELECT SUM(d.qt_devolucao) AS qt FROM fl_dev_equ d WITH (NOLOCK) WHERE d.cd_flremequ = e.cd_flremequ) dv
       WHERE ${ABERTA}${emp}
         AND r.fl_rem_cancelada = 'N'
-        AND e.qt_remessa > ISNULL(dv.qt,0)
+        ${body.incluir_devolvidos ? '' : 'AND e.qt_remessa > ISNULL(dv.qt,0)'}
         AND e.cd_flremequ > ${after}
       ORDER BY e.cd_flremequ`;
 

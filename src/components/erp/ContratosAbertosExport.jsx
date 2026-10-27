@@ -6,12 +6,14 @@ import { buildResumo } from "./contratosResumo";
 import { exportContratosBruto } from "./contratosBrutoExport";
 import ContratosResumoTable from "./ContratosResumoTable";
 import { exportMigracao } from "./migracaoExport";
+import { FILTROS, aplicarFiltro } from "./fichaFiltros";
 
 export default function ContratosAbertosExport({ sourceId, empresas = [] }) {
   const [empresa, setEmpresa] = useState(empresas[0] ? String(empresas[0].cd_empresa) : "");
   const [loading, setLoading] = useState(false);
   const [msg, setMsg] = useState(null);
   const [resumo, setResumo] = useState(null);
+  const [filtro, setFiltro] = useState("posse");
   useEffect(() => {
     if (!empresa && empresas[0]) setEmpresa(String(empresas[0].cd_empresa));
   }, [empresas]);
@@ -19,13 +21,16 @@ export default function ContratosAbertosExport({ sourceId, empresas = [] }) {
   const run = async () => {
     setLoading(true); setMsg("Buscando fichas...");
     try {
-      const fichas = await fetchContratos(sourceId, empresa, (n) => setMsg(`${n} fichas carregadas...`), "fichas");
-      const rows = await fetchContratos(sourceId, empresa, (n) => setMsg(`${n} itens carregados...`));
+      const allFichas = await fetchContratos(sourceId, empresa, (n) => setMsg(`${n} fichas carregadas...`), "fichas");
+      const hist = FILTROS.find((f) => f.id === filtro).historico;
+      const allRows = await fetchContratos(sourceId, empresa, (n) => setMsg(`${n} itens carregados...`), undefined, undefined, hist);
+      const { fichas: fsel, rows } = aplicarFiltro(filtro, allFichas, allRows);
       setMsg("Buscando renovações...");
-      const renovs = await fetchContratos(sourceId, empresa, (n) => setMsg(`${n} renovações carregadas...`), "renovacoes");
-      setResumo(buildResumo(fichas, rows));
-      const n = exportContratosXlsx(fichas, rows, renovs);
-      setMsg(`${n} contratos abertos · ${rows.length} itens exportados`);
+      const ids = new Set(fsel.map((f) => f.cd_controle));
+      const renovs = (await fetchContratos(sourceId, empresa, (n) => setMsg(`${n} renovações carregadas...`), "renovacoes")).filter((r) => ids.has(r.cd_controle));
+      setResumo(buildResumo(fsel, rows));
+      const n = exportContratosXlsx(fsel, rows, renovs);
+      setMsg(`${FILTROS.find((f) => f.id === filtro).label}: ${n} fichas únicas (de ${allFichas.length} abertas) · ${rows.length} linhas de itens`);
     } catch (e) {
       setMsg(`Erro: ${e.message}`);
     }
@@ -61,6 +66,9 @@ export default function ContratosAbertosExport({ sourceId, empresas = [] }) {
       <select value={empresa} onChange={(e) => setEmpresa(e.target.value)} className="bg-gray-800 border border-gray-700 rounded-lg px-2 py-1.5 text-white text-xs">
         <option value="">Todas as empresas</option>
         {empresas.map((e) => <option key={String(e.cd_empresa)} value={String(e.cd_empresa)}>{getEmpresaLabel(e.cd_empresa, e.empresa_nome)}</option>)}
+      </select>
+      <select value={filtro} onChange={(e) => setFiltro(e.target.value)} className="bg-gray-800 border border-gray-700 rounded-lg px-2 py-1.5 text-white text-xs">
+        {FILTROS.map((f) => <option key={f.id} value={f.id}>{f.label}</option>)}
       </select>
       {msg && <span className={`text-xs ${msg.startsWith("Erro") ? "text-red-400" : "text-gray-500"}`}>{msg}</span>}
       <button onClick={runBruto} disabled={loading || !sourceId} className="ml-auto flex items-center gap-1.5 px-3 py-1.5 bg-gray-700 hover:bg-gray-600 rounded-lg text-white text-xs font-medium disabled:opacity-50">
