@@ -23,11 +23,20 @@ export default function ContratosAbertosExport({ sourceId, empresas = [] }) {
     try {
       const allFichas = await fetchContratos(sourceId, empresa, (n) => setMsg(`${n} fichas carregadas...`), "fichas");
       const hist = FILTROS.find((f) => f.id === filtro).historico;
-      const allRows = await fetchContratos(sourceId, empresa, (n) => setMsg(`${n} itens carregados...`), undefined, undefined, hist);
+      const ctrls = allFichas.map((f) => f.cd_controle);
+      const allRows = [];
+      for (let i = 0; i < ctrls.length; i += 100) {
+        allRows.push(...await fetchContratos(sourceId, empresa, undefined, undefined, ctrls.slice(i, i + 100), hist));
+        setMsg(`Itens: ${Math.min(i + 100, ctrls.length)}/${ctrls.length} fichas analisadas...`);
+      }
       const { fichas: fsel, rows } = aplicarFiltro(filtro, allFichas, allRows);
       setMsg("Buscando renovações...");
       const ids = new Set(fsel.map((f) => f.cd_controle));
-      const renovs = (await fetchContratos(sourceId, empresa, (n) => setMsg(`${n} renovações carregadas...`), "renovacoes")).filter((r) => ids.has(r.cd_controle));
+      const sel = [...ids], renovs = [];
+      for (let i = 0; i < sel.length; i += 100) {
+        renovs.push(...await fetchContratos(sourceId, empresa, undefined, "renovacoes", sel.slice(i, i + 100)));
+        setMsg(`Renovações: ${Math.min(i + 100, sel.length)}/${sel.length} fichas...`);
+      }
       setResumo(buildResumo(fsel, rows));
       const n = exportContratosXlsx(fsel, rows, renovs);
       setMsg(`${FILTROS.find((f) => f.id === filtro).label}: ${n} fichas únicas (de ${allFichas.length} abertas) · ${rows.length} linhas de itens`);

@@ -71,6 +71,7 @@ Deno.serve(async (req) => {
       WHERE ${ABERTA}${emp}
         AND r.fl_rem_cancelada = 'N'
         ${body.incluir_devolvidos ? '' : 'AND e.qt_remessa > ISNULL(dv.qt,0)'}
+        ${Array.isArray(body.controles) && body.controles.length ? `AND f.cd_controle IN (${body.controles.map(Number).filter(Number.isInteger).slice(0, 500).join(',') || 'NULL'})` : ''}
         AND e.cd_flremequ > ${after}
       ORDER BY e.cd_flremequ`;
 
