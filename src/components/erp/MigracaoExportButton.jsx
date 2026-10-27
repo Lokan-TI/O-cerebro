@@ -5,6 +5,7 @@ import { useErpSource, ALL_SOURCES_ID } from "@/lib/ErpSourceContext";
 import { useEmpresaFilter } from "@/lib/EmpresaFilterContext";
 import { getEmpresaLabel } from "@/lib/empresaLabels";
 import { exportMigracao } from "./migracaoExport";
+import { FILTROS } from "./fichaFiltros";
 
 export default function MigracaoExportButton() {
   const { selectedSource } = useErpSource();
@@ -14,14 +15,15 @@ export default function MigracaoExportButton() {
   const [empresa, setEmpresa] = useState("");
   const [loading, setLoading] = useState(false);
   const [msg, setMsg] = useState(null);
+  const [filtro, setFiltro] = useState("posse");
 
   useEffect(() => { if (open) { setEmpresa(selectedEmpresa == null ? "" : String(selectedEmpresa)); setMsg(null); } }, [open, selectedEmpresa]);
 
   const run = async () => {
     setLoading(true);
     try {
-      const n = await exportMigracao(sourceId, empresa, setMsg);
-      setMsg(n ? `${n} fichas abertas exportadas.` : "Nenhuma ficha aberta encontrada para esta seleção.");
+      const r = await exportMigracao(sourceId, empresa, setMsg, filtro);
+      setMsg(r.fichas ? `${r.fichas} fichas únicas exportadas (de ${r.total} abertas) · ${r.linhas} linhas.` : `Nenhuma ficha encontrada para este filtro (${r.total} abertas no total).`);
     } catch (e) {
       setMsg(`Erro: ${e.message}`);
     }
@@ -49,6 +51,12 @@ export default function MigracaoExportButton() {
                 className="mt-1 w-full bg-gray-800 border border-gray-700 rounded-lg px-2 py-1.5 text-white text-xs">
                 {!locked && <option value="">Todas as empresas</option>}
                 {empresaList.map((e) => <option key={e.cd_empresa} value={String(e.cd_empresa)}>{getEmpresaLabel(e.cd_empresa, e.nm_empresa)}</option>)}
+              </select>
+            </label>
+            <label className="block text-xs text-gray-400">Situação da ficha
+              <select value={filtro} disabled={loading} onChange={(e) => setFiltro(e.target.value)}
+                className="mt-1 w-full bg-gray-800 border border-gray-700 rounded-lg px-2 py-1.5 text-white text-xs">
+                {FILTROS.map((f) => <option key={f.id} value={f.id}>{f.label}</option>)}
               </select>
             </label>
             <button onClick={run} disabled={loading} className="w-full flex items-center justify-center gap-1.5 px-3 py-2 bg-emerald-700 hover:bg-emerald-600 rounded-lg text-xs font-medium disabled:opacity-50">

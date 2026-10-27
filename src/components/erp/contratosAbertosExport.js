@@ -17,8 +17,8 @@ async function fetchPage(payload) {
       return res;
     } catch (e) {
       const msg = e.response?.data?.error || e.message;
-      if (i >= 3) throw new Error(`${msg} (página após ${payload.after}, ${i} tentativas)`);
-      await new Promise((r) => setTimeout(r, 3000 * i));
+      if (i >= 4) throw new Error(`${msg} (etapa ${payload.mode || "itens"}, página após ${payload.after}, ${i} tentativas)`);
+      await new Promise((r) => setTimeout(r, 5000 * i));
     }
   }
 }
@@ -26,8 +26,8 @@ async function fetchPage(payload) {
 // Busca por lotes de fichas (cd_controle) — consulta indexada, sem varrer a tabela de itens inteira.
 export async function fetchByFichas(sourceId, cdEmpresa, controles, onProgress, mode) {
   const all = [];
-  for (let i = 0; i < controles.length; i += 100) {
-    const part = await fetchContratos(sourceId, cdEmpresa, (n) => onProgress?.(all.length + n), mode, controles.slice(i, i + 100));
+  for (let i = 0; i < controles.length; i += 500) {
+    const part = await fetchContratos(sourceId, cdEmpresa, (n) => onProgress?.(all.length + n), mode, controles.slice(i, i + 500));
     all.push(...part);
   }
   return all;
@@ -37,7 +37,7 @@ export async function fetchContratos(sourceId, cdEmpresa, onProgress, mode, cont
   const rows = [];
   let after = 0;
   for (;;) {
-    const res = await fetchPage({ source_id: sourceId, cd_empresa: cdEmpresa, after, limit: mode === "fichas" ? 300 : 1000, mode, controles, incluir_devolvidos });
+    const res = await fetchPage({ source_id: sourceId, cd_empresa: cdEmpresa, after, limit: mode === "fichas" ? 500 : 1500, mode, controles, incluir_devolvidos });
     rows.push(...res.data.rows);
     onProgress?.(rows.length);
     if (!res.data.has_more) return rows;

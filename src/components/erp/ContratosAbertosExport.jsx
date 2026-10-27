@@ -60,8 +60,8 @@ export default function ContratosAbertosExport({ sourceId, empresas = [] }) {
   const runMigracao = async () => {
     setLoading(true);
     try {
-      const n = await exportMigracao(sourceId, empresa, setMsg);
-      setMsg(n ? `${n} fichas abertas exportadas (1 linha por ficha)` : "Nenhuma ficha aberta encontrada.");
+      const r = await exportMigracao(sourceId, empresa, setMsg, filtro);
+      setMsg(r.fichas ? `${r.fichas} fichas únicas (de ${r.total} abertas) · ${r.linhas} linhas` : "Nenhuma ficha encontrada para este filtro.");
     } catch (e) {
       setMsg(`Erro: ${e.message}`);
     }
