@@ -86,6 +86,45 @@ Deno.serve(async (req: Request) => {
       return Response.json({success:true,source_options:sources.map((s:any)=>({id:s.id,name:s.name})),
         permitted_areas:whitelist});
     }
+    if(input.action==="match") {
+      const cnpj=digits(input.cnpj14),city=safeText(input.city,110),uf=safeText(input.uf,2).toUpperCase();
+      if(!isCNPJ(cnpj))return bad("CNPJ invalido");
+      if(!whitelist.includes(normalizeArea(city,uf)))return bad("Regiao fora do escopo autorizado",403);
+      const normalizedDoc="REPLACE(REPLACE(REPLACE(REPLACE(ISNULL(p.nr_cnpj_pessoa,''),'.',''),'/',''),'-',''),' ','')";
+      const rentals:any[]=[];
+      const matches:any[]=[];
+      let hasRegionalMatch=false;
+      for(const source of sources) {
+        const sql="SELECT TOP 20 p.cd_pessoa,p.cidade_pessoa,p.uf_pessoa,p.nr_cnpj_pessoa " +
+          "FROM pessoa p WITH (NOLOCK) WHERE " + normalizedDoc + " = '" + cnpj +
+          "' AND p.fl_cliente_pessoa=1 ORDER BY p.cd_pessoa";
+        const rows=await sqlRead(source,sql,45000);
+        if(rows.length>=20)return bad("Excesso de duplicacoes cadastrais; auditar no ERP antes de classificar",409);
+        if(rows.some((r:any)=>normalizeArea(r.cidade_pessoa,r.uf_pessoa)===normalizeArea(city,uf)))
+          hasRegionalMatch=true;
+        const ids=[...new Set(rows.map((r:any)=>Number(r.cd_pessoa)).filter((n:number)=>Number.isSafeInteger(n)&&n>0))];
+        matches.push(...rows.map((r:any)=>({source_id:source.id,erp_client_code:String(r.cd_pessoa)})));
+        if(!ids.length)continue;
+        const fiscal=await sqlRead(source,rentalNFByClientSQL(ids),75000);
+        for(const p of fiscal) {
+          if(Number(p.invoice_count)<=0||Number(p.confirmed_rental_revenue)<=0||!p.first_revenue_at)continue;
+          rentals.push({
+            invoice_id:safeText(source.id,50)+":"+safeText(p.proof_invoice_id,60),
+            invoice_date:dateText(p.first_revenue_at),invoice_status:"authorized",
+            cancelled:false,revenue_confirmed:true,
+            revenue_value:Number(p.confirmed_rental_revenue),
+            source_id:source.id,erp_client_code:String(p.cd_pessoa),
+            invoice_count:Number(p.invoice_count)
+          });
+        }
+      }
+      if(!hasRegionalMatch)return bad("CNPJ nao pertence a area piloto autorizada",403);
+      return Response.json({success:true,complete:true,all_sources_checked:true,cnpj14:cnpj,
+        source_key:"cerebro:multi_erp",run_id:"commerce-match:"+new Date().toISOString(),
+        integration_version:"comercial-map-v1",erp_registered:matches.length>0,
+        erp_client_code:matches[0]?.erp_client_code||"",
+        business_unit:"Multiorigem",sources_checked:sources.length,source_matches:matches,rentals});
+    }
     if(input.action!=="page")return bad("Acao desconhecida",400);
     const city=safeText(input.city,110),uf=safeText(input.uf,2).toUpperCase();
     const area=normalizeArea(city,uf);
