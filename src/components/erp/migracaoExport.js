@@ -150,6 +150,18 @@ export async function exportMigracao(sourceId, empresa, onMsg, filtro = "posse")
     const posseSet = new Set(patPosse);
     const itensPosse = its.filter((e) => dt(remCtrl.get(e.cd_flremessa)?.dt_saida)
       && (historico || (num(e.qt_remessa) - num(e.qt_devolvida_calc) > 0 && (!pat(e) || posseSet.has(pat(e))))));
+    // Somente equipamentos atuais: uma linha por ficha, com todos os bens em posse consolidados
+    if (filtro === "atual") {
+      const atuais = itensPosse.map((e) => ({ e, qtd: num(e.qt_remessa) - num(e.qt_devolvida_calc) }));
+      return [{
+        ...base,
+        "Equipamentos em posse": cell([...new Set(atuais.map(({ e }) => prod(e)))].join(" | ")),
+        "Equipamentos detalhados (produto · patrimônio · qtd · vl. unit.)": cell(atuais.map(({ e, qtd }) =>
+          `${prod(e)} · ${pat(e) || "sem patrimônio"} · ${qtd} · ${brl(e.vl_uni_locacao)}`).join(" | ")),
+        "Qtd. unidades em posse": atuais.reduce((t, x) => t + x.qtd, 0),
+        "Vl. locação em posse": atuais.reduce((t, { e, qtd }) => t + qtd * num(e.vl_uni_locacao), 0),
+      }];
+    }
     const rems = remessaRows(itensPosse, remCtrl, historico);
     return rems.length ? rems.map((r) => ({ ...base, ...r })) : [base];
   }).sort((a, b) => a[EMP].localeCompare(b[EMP]) || a[CLI].localeCompare(b[CLI])
