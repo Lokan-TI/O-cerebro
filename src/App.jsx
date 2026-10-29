@@ -22,6 +22,7 @@ import FluxosEmail from './pages/FluxosEmail.jsx';
 import Produtos from './pages/Produtos.jsx';
 import ArquivoSisloc from './pages/ArquivoSisloc.jsx';
 import Configuracoes from './pages/Configuracoes.jsx';
+import OAuthConsent from './pages/OAuthConsent.jsx';
 import { ErpSourceProvider } from '@/lib/ErpSourceContext';
 import { ErpSnapshotProvider } from '@/lib/ErpSnapshotContext';
 import { EmpresaFilterProvider } from '@/lib/EmpresaFilterContext';
@@ -162,6 +163,7 @@ const AuthenticatedApp = () => {
           <RdStationCallback />
         </LayoutWrapper>
       } />
+      <Route path="/oauth/consent" element={<OAuthConsent />} />
       <Route path="*" element={<PageNotFound />} />
     </Routes>
     </GlobalFilterProvider>
