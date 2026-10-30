@@ -19,6 +19,8 @@ function rowsOf(res: any) {
 
 // Mesmo critério do filtro "Aberta" da tela Ficha de Locação do Sisloc
 const ABERTA = isAberta('f');
+// Limite do banco: o máximo que cabe antes de o gateway (~100s) cortar a chamada.
+const DB_TIMEOUT = 85000;
 
 const iso = (v: any) => {
   if (!v || !(v instanceof Date) && typeof v !== 'string') return v ?? null;
@@ -91,7 +93,7 @@ Deno.serve(async (req) => {
     const inCtrl = ctrls.length ? `r.cd_controle IN (${ctrls.join(',')})` : null;
     const sqlRenovF = sqlRenov.replace('__CTRLFT__', ctrls.length ? ` AND ft.cd_controle IN (${ctrls.join(',')})` : '');
     // Pré-resolve ids pequenos (pessoas/remessas das fichas) para buscas indexadas por IN literal.
-    const idList = async (q: string, k: string) => [...new Set(rowsOf(await execRead(source, q, 60000)).map((r: any) => Number(r[k])).filter(Number.isInteger))].join(',');
+    const idList = async (q: string, k: string) => [...new Set(rowsOf(await execRead(source, q, DB_TIMEOUT)).map((r: any) => Number(r[k])).filter(Number.isInteger))].join(',');
     const pesIds = ctrls.length && body.mode === 'raw_pessoas'
       ? await idList(`SELECT DISTINCT f.cd_pessoa FROM fich_loc f WITH (NOLOCK) WHERE f.cd_controle IN (${ctrls.join(',')})`, 'cd_pessoa') : '';
     const remIds = ctrls.length && body.mode === 'raw_itens'
@@ -146,7 +148,7 @@ Deno.serve(async (req) => {
         FROM fl_fatura ft WITH (NOLOCK) JOIN fich_loc f WITH (NOLOCK) ON f.cd_controle = ft.cd_controle
         WHERE ft.dt_geracao >= '${ds}' AND ft.dt_geracao < DATEADD(day, 1, '${de}')${emp}
         GROUP BY YEAR(ft.dt_geracao), MONTH(ft.dt_geracao), f.cd_empresa`;
-      return Response.json({ rows: rowsOf(await execRead(source, sqlFat, 90000)) });
+      return Response.json({ rows: rowsOf(await execRead(source, sqlFat, DB_TIMEOUT)) });
     }
     if (body.mode === 'resumo') {
       // Totais dos contratos abertos: fichas, clientes e valor mensal de locação dos bens em posse.
@@ -158,7 +160,7 @@ Deno.serve(async (req) => {
           WHERE ft.cd_controle = f.cd_controle AND ISNULL(ft.fatura_complementar,'N') <> 'S'
           ORDER BY ft.dt_geracao DESC, ft.cd_flfatura DESC) v
         WHERE ${ABERTA}${emp}`;
-      const r = rowsOf(await execRead(source, sqlRes, 90000))[0] || {};
+      const r = rowsOf(await execRead(source, sqlRes, DB_TIMEOUT))[0] || {};
       return Response.json({ fichas: Number(r.fichas) || 0, clientes: Number(r.clientes) || 0, valor: Number(r.valor) || 0, sem_fatura: Number(r.sem_fatura) || 0 });
     }
     if (body.mode === 'sem_fatura') {
@@ -172,7 +174,7 @@ Deno.serve(async (req) => {
         WHERE ${ABERTA}${emp} AND NOT EXISTS (SELECT 1 FROM fl_fatura ft WITH (NOLOCK)
           WHERE ft.cd_controle = f.cd_controle AND ISNULL(ft.fatura_complementar,'N') <> 'S')
         ORDER BY f.dt_fai_ficha`;
-      const rows = rowsOf(await execRead(source, sqlSem, 90000)).map((r: any) => {
+      const rows = rowsOf(await execRead(source, sqlSem, DB_TIMEOUT)).map((r: any) => {
         const o: any = {};
         for (const [k, v] of Object.entries(r)) o[k] = v instanceof Date ? iso(v) : (v != null && typeof v === 'object' ? null : v);
         return o;
@@ -183,7 +185,7 @@ Deno.serve(async (req) => {
     const raw = RAW[body.mode];
     const key = raw ? raw[1] : renov ? 'cd_flfatura' : 'cd_flremequ';
 
-    const rows = rowsOf(await execRead(source, raw ? raw[0] : renov ? sqlRenovF : sql, 90000)).map((r: any) => {
+    const rows = rowsOf(await execRead(source, raw ? raw[0] : renov ? sqlRenovF : sql, DB_TIMEOUT)).map((r: any) => {
       const o: any = {};
       for (const [k, v] of Object.entries(r)) o[k] = v instanceof Date ? iso(v) : (v != null && typeof v === 'object' ? null : v);
       return o;
