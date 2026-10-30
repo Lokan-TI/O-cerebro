@@ -17,6 +17,8 @@ async function fetchPage(payload) {
       return res;
     } catch (e) {
       const msg = e.response?.data?.error || e.message;
+      // Primeira página sem resposta = servidor da unidade fora do ar: avisa logo em vez de insistir.
+      if (!payload.after && /timed out|conectar/i.test(msg) && i >= 2) throw new Error("O servidor Sisloc desta unidade não está respondendo. Tente outra unidade ou aguarde ele voltar.");
       if (i >= 4) throw new Error(`${msg} (etapa ${payload.mode || "itens"}, página após ${payload.after}, ${i} tentativas)`);
       await new Promise((r) => setTimeout(r, 5000 * i));
     }
