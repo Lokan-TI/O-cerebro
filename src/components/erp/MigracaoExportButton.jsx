@@ -6,6 +6,7 @@ import { useEmpresaFilter } from "@/lib/EmpresaFilterContext";
 import { getEmpresaLabel } from "@/lib/empresaLabels";
 import { exportMigracao } from "./migracaoExport";
 import { FILTROS } from "./fichaFiltros";
+import { runExportPorPatrimonio } from "./patrimonioExport";
 
 export default function MigracaoExportButton() {
   const { selectedSource } = useErpSource();
@@ -24,6 +25,17 @@ export default function MigracaoExportButton() {
     try {
       const r = await exportMigracao(sourceId, empresa, setMsg, filtro);
       setMsg(r.fichas ? `${r.fichas} fichas únicas exportadas (de ${r.total} abertas) · ${r.equipamentos} equipamentos atuais · ${r.semPosse} fichas sem equipamento · ${r.linhas} linhas.` : `Nenhuma ficha encontrada para este filtro (${r.total} abertas no total).`);
+    } catch (e) {
+      setMsg(`Erro: ${e.message}`);
+    }
+    setLoading(false);
+  };
+
+  const runPatrimonio = async () => {
+    setLoading(true);
+    try {
+      const r = await runExportPorPatrimonio(sourceId, empresa, setMsg);
+      setMsg(`${r.linhas} linhas (produto/patrimônio) de ${r.contratos} fichas com bens em posse.`);
     } catch (e) {
       setMsg(`Erro: ${e.message}`);
     }
@@ -61,6 +73,9 @@ export default function MigracaoExportButton() {
             </label>
             <button onClick={run} disabled={loading} className="w-full flex items-center justify-center gap-1.5 px-3 py-2 bg-emerald-700 hover:bg-emerald-600 rounded-lg text-xs font-medium disabled:opacity-50">
               {loading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <FileSpreadsheet className="w-3.5 h-3.5" />} {loading ? "Gerando..." : "Baixar planilha"}
+            </button>
+            <button onClick={runPatrimonio} disabled={loading} className="w-full flex items-center justify-center gap-1.5 px-3 py-2 bg-sky-700 hover:bg-sky-600 rounded-lg text-xs font-medium disabled:opacity-50">
+              {loading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <FileSpreadsheet className="w-3.5 h-3.5" />} Exportar por patrimônio (TOTVS)
             </button>
           </>
         )}

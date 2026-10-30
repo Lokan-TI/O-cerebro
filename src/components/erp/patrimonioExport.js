@@ -1,5 +1,18 @@
 import * as XLSX from "xlsx";
-import { contratoCols } from "./contratosAbertosExport";
+import { contratoCols, fetchContratos } from "./contratosAbertosExport";
+
+// Busca fichas abertas + itens e gera a planilha por patrimônio.
+export async function runExportPorPatrimonio(sourceId, empresa, setMsg) {
+  setMsg("Buscando fichas...");
+  const fichas = await fetchContratos(sourceId, empresa, (n) => setMsg(`${n} fichas carregadas...`), "fichas");
+  const ctrls = fichas.map((f) => f.cd_controle);
+  const rows = [];
+  for (let i = 0; i < ctrls.length; i += 100) {
+    rows.push(...await fetchContratos(sourceId, empresa, undefined, undefined, ctrls.slice(i, i + 100)));
+    setMsg(`Itens: ${Math.min(i + 100, ctrls.length)}/${ctrls.length} fichas analisadas...`);
+  }
+  return exportPorPatrimonio(fichas, rows);
+}
 
 const num = (v) => Number(v) || 0;
 const txt = (v) => (v == null ? "" : String(v).trim());
