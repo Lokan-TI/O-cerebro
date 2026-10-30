@@ -22,11 +22,14 @@ export default function ContratosAbertosCards({ selectedEmpresa }) {
         : (await base44.entities.ErpDataSource.filter({ is_active: true })).map((s) => s.id);
       if (alive) setIds(ids);
       const acc = { fichas: 0, clientes: 0, valor: 0, sem_fatura: 0 };
+      let falhas = 0, ultimoErro = null;
       for (const id of ids) {
-        const res = await base44.functions.invoke("listContratosAbertos", { source_id: id, mode: "resumo", cd_empresa: selectedEmpresa ?? undefined });
-        if (res.data?.error) throw new Error(res.data.error);
+        const res = await base44.functions.invoke("listContratosAbertos", { source_id: id, mode: "resumo", cd_empresa: selectedEmpresa ?? undefined })
+          .catch((e) => ({ data: { error: e.response?.data?.error || e.message } }));
+        if (res.data?.error) { falhas++; ultimoErro = res.data.error; continue; }
         acc.fichas += res.data.fichas; acc.clientes += res.data.clientes; acc.valor += res.data.valor; acc.sem_fatura += res.data.sem_fatura || 0;
       }
+      if (falhas === ids.length) throw new Error(ultimoErro || "Sem resposta do ERP");
       if (alive) setData(acc);
     })().catch((e) => alive && setError(e.response?.data?.error || e.message));
     return () => { alive = false; };
