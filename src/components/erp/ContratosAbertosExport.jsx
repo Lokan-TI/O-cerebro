@@ -7,6 +7,7 @@ import { exportContratosBruto } from "./contratosBrutoExport";
 import ContratosResumoTable from "./ContratosResumoTable";
 import { exportMigracao } from "./migracaoExport";
 import { FILTROS, aplicarFiltro } from "./fichaFiltros";
+import { exportPorPatrimonio } from "./patrimonioExport";
 
 export default function ContratosAbertosExport({ sourceId, empresas = [] }) {
   const [empresa, setEmpresa] = useState(empresas[0] ? String(empresas[0].cd_empresa) : "");
@@ -17,6 +18,24 @@ export default function ContratosAbertosExport({ sourceId, empresas = [] }) {
   useEffect(() => {
     if (!empresa && empresas[0]) setEmpresa(String(empresas[0].cd_empresa));
   }, [empresas]);
+
+  const runPatrimonio = async () => {
+    setLoading(true); setMsg("Buscando fichas...");
+    try {
+      const fichas = await fetchContratos(sourceId, empresa, (n) => setMsg(`${n} fichas carregadas...`), "fichas");
+      const ctrls = fichas.map((f) => f.cd_controle);
+      const rows = [];
+      for (let i = 0; i < ctrls.length; i += 100) {
+        rows.push(...await fetchContratos(sourceId, empresa, undefined, undefined, ctrls.slice(i, i + 100)));
+        setMsg(`Itens: ${Math.min(i + 100, ctrls.length)}/${ctrls.length} fichas analisadas...`);
+      }
+      const r = exportPorPatrimonio(fichas, rows);
+      setMsg(`${r.linhas} linhas (produto/patrimônio) de ${r.contratos} fichas com bens em posse`);
+    } catch (e) {
+      setMsg(`Erro: ${e.message}`);
+    }
+    setLoading(false);
+  };
 
   const run = async () => {
     setLoading(true); setMsg("Buscando fichas...");
@@ -85,6 +104,9 @@ export default function ContratosAbertosExport({ sourceId, empresas = [] }) {
       </button>
       <button onClick={runMigracao} disabled={loading || !sourceId} className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-700 hover:bg-emerald-600 rounded-lg text-white text-xs font-medium disabled:opacity-50">
         {loading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <FileSpreadsheet className="w-3.5 h-3.5" />} Exportar para migração (novo ERP)
+      </button>
+      <button onClick={runPatrimonio} disabled={loading || !sourceId} className="flex items-center gap-1.5 px-3 py-1.5 bg-sky-700 hover:bg-sky-600 rounded-lg text-white text-xs font-medium disabled:opacity-50">
+        {loading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <FileSpreadsheet className="w-3.5 h-3.5" />} Exportar por patrimônio (TOTVS)
       </button>
       <button onClick={run} disabled={loading || !sourceId} className="flex items-center gap-1.5 px-3 py-1.5 bg-violet-700 hover:bg-violet-600 rounded-lg text-white text-xs font-medium disabled:opacity-50">
         {loading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <FileSpreadsheet className="w-3.5 h-3.5" />} Exportar contratos
