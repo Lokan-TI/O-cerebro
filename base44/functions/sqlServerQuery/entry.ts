@@ -83,7 +83,8 @@ Deno.serve(async (req) => {
     const escapedSql = cleaned.replace(/'/g, "''");
     const execSql = built.clientId ? `EXEC DW_API '${built.clientId}', '${escapedSql}'` : cleaned;
 
-    const result = await runQuery(source, execSql);
+    const timeoutMs = Math.min(Math.max(Number(body?.timeout_ms) || 30000, 5000), 85000);
+    const result = await runQuery(source, execSql, timeoutMs);
     const all = result.recordset || [];
     const truncated = all.length > MAX_ROWS_RETURNED;
     const rows = truncated ? all.slice(0, MAX_ROWS_RETURNED) : all;
