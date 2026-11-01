@@ -13,6 +13,16 @@ function sheet(headers, rows) {
 
 export function exportProdutosXlsx(produtos) {
   const wb = XLSX.utils.book_new();
+  const br = (d) => (d ? d.split("-").reverse().join("/") : "");
+  // Layout TOTVS (SB1, igual à aba "Planilha2" da base) + valores e datas do Sisloc (equipto).
+  XLSX.utils.book_append_sheet(wb, sheet(
+    ["Grupo", "Codigo", "Descricao", "Tipo", "Unidade", "Armazem Pad.", "Cod.Referenc", "Fator Conv.", "Pos.IPI/NCM", "Tipo de Conv", "Origem", "Aliq. IPI", "Seg.Un.Medi.", "Cod.Serv.ISS", "Grupo Trib.", "Cont desp", "Alterado Por", "Incluido Por",
+      "Última compra / Produção", "Valor de compra / Produção", "Valor fabricante", "Valor indenização", "Valor venda usado", "Peso líquido", "Peso bruto"],
+    produtos.map((p) => [txt(p.cd_grupo || ""), txt(p.cd_equipto), txt(p.nm_equipto), txt(""), txt("UN"), txt("01"), txt(p.codigo),
+      ...Array(11).fill(0).map(() => txt("")),
+      txt(br(p.dt_ult_compra)), num(p.vl_compra), num(p.vl_fabricante), num(p.vl_indenizacao), num(p.vl_venda_usado),
+      { v: Number(p.peso_liquido || 0), t: "n", z: "#,##0.000" }, { v: Number(p.peso_bruto || 0), t: "n", z: "#,##0.000" }])
+  ), "Produtos TOTVS");
   XLSX.utils.book_append_sheet(wb, sheet(
     ["Código produto", "Código", "Produto", "Grupo", "Família", "Ativo", "Saldo estoque", "Custo médio", "Valor estoque", "Patrimônios", "Locados agora", "Receita estimada", "Custo manutenção", "Resultado"],
     produtos.map((p) => [txt(p.cd_equipto), txt(p.codigo), txt(p.nm_equipto), txt(p.grupo), txt(p.familia), txt(p.ativo ? "Sim" : "Não"),

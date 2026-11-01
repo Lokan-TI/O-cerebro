@@ -8,7 +8,8 @@ const SQL: Record<string, { label: string; description: string; sql: string }> =
     label: 'Catálogo de produtos',
     description: 'equipto + grupo — todos os grupos',
     sql: `SELECT q.cd_equipto, q.nm_equipto, q.codigo, q.fl_ativo, q.cd_grupo, g.nm_grupo,
-        q.vl_aqu_equipto, q.vl_base_locacao, q.vl_venda_usado
+        q.vl_aqu_equipto, q.vl_base_locacao, q.vl_venda_usado, CONVERT(char(10), q.dt_ult_compra, 120) AS dt_ult_compra,
+        q.vl_venda_fabric, q.vl_indenizacao, q.peso_liquido, q.peso_bruto
       FROM equipto q WITH (NOLOCK)
       LEFT JOIN grupo g WITH (NOLOCK) ON g.cd_grupo = q.cd_grupo`,
   },
@@ -68,6 +69,8 @@ const shape: Record<string, (r: any) => any> = {
     cd_equipto: n(r.cd_equipto), nm_equipto: String(r.nm_equipto || '').trim(), codigo: String(r.codigo || ''),
     ativo: String(r.fl_ativo || '').toUpperCase() === 'S', cd_grupo: n(r.cd_grupo), grupo: String(r.nm_grupo || '(sem grupo)'),
     vl_compra: n(r.vl_aqu_equipto), vl_base_locacao: n(r.vl_base_locacao), vl_venda_usado: n(r.vl_venda_usado),
+    dt_ult_compra: r.dt_ult_compra ? String(r.dt_ult_compra).slice(0, 10) : '', vl_fabricante: n(r.vl_venda_fabric),
+    vl_indenizacao: n(r.vl_indenizacao), peso_liquido: n(r.peso_liquido), peso_bruto: n(r.peso_bruto),
   }),
   saldos: (r) => ({ cd_equipto: n(r.cd_equipto), saldo: n(r.qt_saldo_atual), custo_medio: n(r.vl_custo_medio) }),
   ativos: (r) => ({
