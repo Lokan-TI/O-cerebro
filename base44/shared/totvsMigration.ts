@@ -224,7 +224,11 @@ export function buildTotvsSql({ doc, startDate, endDateExclusive, offset, pageSi
 
   const codigo = `CASE WHEN LEN(doc_num) IN (11, 14) THEN LEFT(doc_num, 8) ELSE '' END`;
   const loja = `CASE WHEN LEN(doc_num) = 14 THEN SUBSTRING(doc_num, 9, 4) WHEN LEN(doc_num) = 11 THEN '0001' ELSE '' END`;
-  const filial = `CASE WHEN empresa_cd IS NULL THEN '' ELSE '01' + RIGHT('00' + CAST(empresa_cd AS varchar(4)), 2) END`;
+  const filial = `CASE
+    WHEN UPPER(empresa_nome) LIKE 'LLK RENTAL%' THEN '0102'
+    WHEN UPPER(empresa_nome) LIKE 'JCK RENTAL%' THEN '0103'
+    ELSE CASE CAST(empresa_cd AS int) WHEN 4 THEN '0101' WHEN 7 THEN '0102' WHEN 8 THEN '0103' WHEN 9 THEN '0104'
+      WHEN 11 THEN '0105' WHEN 10 THEN '0106' WHEN 13 THEN '0108' WHEN 12 THEN '0201' ELSE '' END END`;
 
   const saneamento = `LTRIM(
     CASE WHEN LEN(doc_num) NOT IN (11, 14) THEN ' SEM CNPJ/CPF VALIDO;' ELSE '' END +
