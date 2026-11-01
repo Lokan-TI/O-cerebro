@@ -13,16 +13,16 @@ const cache = new Map();
 export async function loadProdutos(sourceId, onProgress, { force = false } = {}) {
   const key = sourceId || "default";
   if (!force && cache.has(key)) return cache.get(key);
-  onProgress?.("Consultando catálogo, saldos, patrimônios e manutenção em paralelo...");
-  const [results, familias] = await Promise.all([
-    Promise.all(PARTS.map(async ([part]) => {
-      const payload = { part };
-      if (sourceId) payload.source_id = sourceId;
-      const res = await base44.functions.invoke("analyzeProdutos", payload);
-      return [part, res.data];
-    })),
-    base44.entities.GrupoFamilia.list("-created_date", 1000),
-  ]);
+  // Sequencial: consultas simultâneas sobrecarregam o ERP e geram 504.
+  const results = [];
+  for (const [part, msg] of PARTS) {
+    onProgress?.(msg);
+    const payload = { part };
+    if (sourceId) payload.source_id = sourceId;
+    const res = await base44.functions.invoke("analyzeProdutos", payload);
+    results.push([part, res.data]);
+  }
+  const familias = await base44.entities.GrupoFamilia.list("-created_date", 1000);
   const out = Object.fromEntries(results.map(([p, d]) => [p, d.rows]));
   const result = { ...merge(out, familias), queries: results.map(([, d]) => d.query) };
   cache.set(key, result);
