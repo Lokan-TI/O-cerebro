@@ -23,9 +23,9 @@ export default function Produtos() {
   const [sort, setSort] = useState("valor_estoque");
 
   const sourceId = selectedSource?.id && selectedSource.id !== ALL_SOURCES_ID ? selectedSource.id : null;
-  const load = async () => {
+  const load = async (force = false) => {
     setLoading(true); setError(null);
-    try { setData(await loadProdutos(sourceId, setMsg)); }
+    try { setData(await loadProdutos(sourceId, setMsg, { force: force === true })); }
     catch (e) { setError(e?.response?.data?.error || e.message); }
     setLoading(false); setMsg(null);
   };
@@ -63,7 +63,7 @@ export default function Produtos() {
           <p className="text-gray-400 text-sm mt-1">Estoque completo, ativos locados, receita e custo de manutenção por patrimônio.</p>
         </div>
         <div className="flex gap-2">
-          <button onClick={load} disabled={loading} className="flex items-center gap-1.5 px-3 py-2 bg-gray-800 hover:bg-gray-700 rounded-lg text-white text-sm disabled:opacity-50">
+          <button onClick={() => load(true)} disabled={loading} className="flex items-center gap-1.5 px-3 py-2 bg-gray-800 hover:bg-gray-700 rounded-lg text-white text-sm disabled:opacity-50">
             <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} /> Recarregar
           </button>
           <button onClick={() => exportProdutosXlsx(rows)} disabled={!data || loading} className="flex items-center gap-1.5 px-4 py-2 bg-violet-600 hover:bg-violet-500 rounded-lg text-white text-sm font-medium disabled:opacity-50">
