@@ -224,11 +224,8 @@ export function buildTotvsSql({ doc, startDate, endDateExclusive, offset, pageSi
 
   const codigo = `CASE WHEN LEN(doc_num) IN (11, 14) THEN LEFT(doc_num, 8) ELSE '' END`;
   const loja = `CASE WHEN LEN(doc_num) = 14 THEN SUBSTRING(doc_num, 9, 4) WHEN LEN(doc_num) = 11 THEN '0001' ELSE '' END`;
-  const filial = `CASE
-    WHEN UPPER(empresa_nome) LIKE 'LLK RENTAL%' THEN '0102'
-    WHEN UPPER(empresa_nome) LIKE 'JCK RENTAL%' THEN '0103'
-    ELSE CASE CAST(empresa_cd AS int) WHEN 4 THEN '0101' WHEN 7 THEN '0102' WHEN 8 THEN '0103' WHEN 9 THEN '0104'
-      WHEN 11 THEN '0105' WHEN 10 THEN '0106' WHEN 13 THEN '0108' WHEN 12 THEN '0201' ELSE '' END END`;
+  const filial = `CASE m.ec WHEN 4 THEN '0101' WHEN 7 THEN '0102' WHEN 8 THEN '0103' WHEN 9 THEN '0104'
+      WHEN 11 THEN '0105' WHEN 10 THEN '0106' WHEN 13 THEN '0108' WHEN 12 THEN '0201' ELSE '' END`;
 
   const saneamento = `LTRIM(
     CASE WHEN LEN(doc_num) NOT IN (11, 14) THEN ' SEM CNPJ/CPF VALIDO;' ELSE '' END +
@@ -265,14 +262,9 @@ export function buildTotvsSql({ doc, startDate, endDateExclusive, offset, pageSi
   return `${baseCte(doc, startDate, endDateExclusive, statuses)}
   SELECT
     ${filial} AS ${p}_FILIAL,
-    CASE CAST(empresa_cd AS int) WHEN 4 THEN '001 - PEMT' WHEN 7 THEN '002 - ESTR' WHEN 8 THEN '003 - FACIL'
-      WHEN 9 THEN '004 - LOND' WHEN 11 THEN '005 - CURI' WHEN 10 THEN '006 - TRÊS' WHEN 13 THEN '008 - PIRA'
-      WHEN 12 THEN '010 - MONT'
-      WHEN 0 THEN CASE WHEN UPPER(empresa_nome) LIKE 'LLK RENTAL%' THEN '002 - ESTR' WHEN UPPER(empresa_nome) LIKE 'JCK RENTAL%' THEN '003 - FACIL' ELSE empresa_nome END
-      ELSE CASE WHEN UPPER(empresa_nome) LIKE 'LLK RENTAL%' THEN '002 - ESTR' WHEN UPPER(empresa_nome) LIKE 'JCK RENTAL%' THEN '003 - FACIL' ELSE empresa_nome END END AS SISLOC_FILIAL_NOME,
-    CASE WHEN UPPER(empresa_nome) LIKE 'LLK RENTAL%' THEN (SELECT ${DOC_CLEAN('cnpj_empresa')} FROM empresa WITH (NOLOCK) WHERE cd_empresa = 7)
-      WHEN UPPER(empresa_nome) LIKE 'JCK RENTAL%' THEN (SELECT ${DOC_CLEAN('cnpj_empresa')} FROM empresa WITH (NOLOCK) WHERE cd_empresa = 8)
-      ELSE empresa_cnpj END AS SISLOC_FILIAL_CNPJ,
+    CASE m.ec WHEN 4 THEN '001 - PEMT' WHEN 7 THEN '002 - ESTR' WHEN 8 THEN '003 - FACIL' WHEN 9 THEN '004 - LOND'
+      WHEN 11 THEN '005 - CURI' WHEN 10 THEN '006 - TRÊS' WHEN 13 THEN '008 - PIRA' WHEN 12 THEN '010 - MONT' ELSE empresa_nome END AS SISLOC_FILIAL_NOME,
+    CASE WHEN m.ec IN (7, 8) AND m.ec <> empresa_cd THEN (SELECT ${DOC_CLEAN('x.cnpj_empresa')} FROM empresa x WITH (NOLOCK) WHERE x.cd_empresa = m.ec) ELSE empresa_cnpj END AS SISLOC_FILIAL_CNPJ,
     ${codigo} AS ${codeCol},
     ${loja} AS ${p}_LOJA,
     nome AS ${nameCol},
@@ -305,8 +297,9 @@ export function buildTotvsSql({ doc, startDate, endDateExclusive, offset, pageSi
     natureza_rateios AS SISLOC_NATUREZA_RATEIOS,
     ${saneamento} AS SANEAMENTO
   FROM src
+  OUTER APPLY (SELECT CASE WHEN UPPER(empresa_nome) LIKE 'LLK RENTAL%' THEN 7 WHEN UPPER(empresa_nome) LIKE 'JCK RENTAL%' THEN 8 ELSE CAST(empresa_cd AS int) END AS ec) m
   ORDER BY cd_lan
-  OFFSET ${off} ROWS FETCH NEXT ${size} ROWS ONLY`;
+  OFFSET ${off} ROWS FETCH NEXT ${size} ROWS ONLY`.replace(/\s+/g, ' ');
 }
 
 // Contagem total + resumo de pendências, para o painel de saneamento.
@@ -326,5 +319,5 @@ export function buildTotvsCountSql({ doc, startDate, endDateExclusive, statuses 
     ROUND(SUM(CASE WHEN em_aberto = 1 THEN valor ELSE 0 END), 2) AS saldo_total,
     CONVERT(char(10), MIN(dt_emissao), 23) AS emissao_min,
     CONVERT(char(10), MAX(dt_emissao), 23) AS emissao_max
-  FROM src`;
+  FROM src`.replace(/\s+/g, ' ');
 }
