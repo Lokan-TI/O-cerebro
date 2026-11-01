@@ -261,7 +261,9 @@ export function buildTotvsSql({ doc, startDate, endDateExclusive, offset, pageSi
   return `${baseCte(doc, startDate, endDateExclusive, statuses)}
   SELECT
     ${filial} AS ${p}_FILIAL,
-    empresa_nome AS SISLOC_FILIAL_NOME,
+    CASE CAST(empresa_cd AS int) WHEN 4 THEN '001 - PEMT' WHEN 7 THEN '002 - ESTR' WHEN 8 THEN '003 - FACIL'
+      WHEN 9 THEN '004 - LOND' WHEN 11 THEN '005 - CURI' WHEN 10 THEN '006 - TRÊS' WHEN 13 THEN '008 - PIRA'
+      WHEN 12 THEN '010 - MONT' ELSE empresa_nome END AS SISLOC_FILIAL_NOME,
     empresa_cnpj AS SISLOC_FILIAL_CNPJ,
     ${codigo} AS ${codeCol},
     ${loja} AS ${p}_LOJA,
