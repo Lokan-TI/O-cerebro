@@ -184,10 +184,6 @@ function baseCte(doc: string, startDate: string, endDateExclusive: string, statu
       LTRIM(RTRIM(COALESCE(pl.fl_balancete, ''))) AS natureza_balancete,
       LTRIM(RTRIM(COALESCE(CAST(c.${hist} AS varchar(4000)), ''))) AS historico,
       ${numExpr} AS num_titulo,
-      ROW_NUMBER() OVER (
-        PARTITION BY ${numExpr}, ${pes}
-        ORDER BY c.${ven}, c.cd_lan
-      ) AS parcela,
       CASE
         WHEN ${stCol} = 5 THEN 'Titulo em aberto (Provisório)'
         WHEN ${stCol} = 40 THEN 'Titulo cancelado'
@@ -214,7 +210,10 @@ function baseCte(doc: string, startDate: string, endDateExclusive: string, statu
   )`;
 }
 
+const EC_APPLY = `OUTER APPLY (SELECT CASE WHEN UPPER(empresa_nome) LIKE 'LLK RENTAL%' THEN 7 WHEN UPPER(empresa_nome) LIKE 'JCK RENTAL%' THEN 8 ELSE CAST(empresa_cd AS int) END AS ec) m`;
+
 // Montagem final no layout TOTVS (SE1/SE2), paginada.
+// Parcela: sequência única por filial + nº (9) + fornecedor/cliente (CNPJ) — chave TOTVS sem duplicidade.
 export function buildTotvsSql({ doc, startDate, endDateExclusive, offset, pageSize, statuses }: {
   doc: string; startDate: string; endDateExclusive: string; offset: number; pageSize: number; statuses?: string[];
 }) {
@@ -270,7 +269,7 @@ export function buildTotvsSql({ doc, startDate, endDateExclusive, offset, pageSi
     nome AS ${nameCol},
     '1' AS ${p}_PREFIXO,
     LEFT(num_titulo, 9) AS ${p}_NUM,
-    CAST(parcela AS varchar(2)) AS ${p}_PARCELA,
+    CASE WHEN rn < 100 THEN RIGHT('0' + CAST(rn AS varchar(3)), 2) ELSE CHAR(65 + (rn - 100) / 36) + SUBSTRING('0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ', (rn - 100) % 36 + 1, 1) END AS ${p}_PARCELA,
     CONVERT(char(10), dt_emissao, 23) AS ${p}_EMISSAO,
     CONVERT(char(10), dt_vencto, 23) AS ${p}_VENCTO,
     CONVERT(char(10), dt_vencto, 23) AS ${p}_VENCREA,
@@ -296,8 +295,9 @@ export function buildTotvsSql({ doc, startDate, endDateExclusive, offset, pageSi
     conta_banco AS SISLOC_CONTA_BANCARIA,
     natureza_rateios AS SISLOC_NATUREZA_RATEIOS,
     ${saneamento} AS SANEAMENTO
-  FROM src
-  OUTER APPLY (SELECT CASE WHEN UPPER(empresa_nome) LIKE 'LLK RENTAL%' THEN 7 WHEN UPPER(empresa_nome) LIKE 'JCK RENTAL%' THEN 8 ELSE CAST(empresa_cd AS int) END AS ec) m
+  FROM (SELECT s.*, ROW_NUMBER() OVER (PARTITION BY m.ec, LEFT(num_titulo, 9), COALESCE(NULLIF(doc_num, ''), nome) ORDER BY dt_vencto, cd_lan) AS rn
+    FROM src s ${EC_APPLY}) src
+  ${EC_APPLY}
   ORDER BY cd_lan
   OFFSET ${off} ROWS FETCH NEXT ${size} ROWS ONLY`.replace(/\s+/g, ' ');
 }
