@@ -5,6 +5,7 @@ import TotvsSaneamentoTab from "@/components/erp/TotvsSaneamentoTab";
 import CapPorContaTab from "@/components/erp/CapPorContaTab";
 import CentrosCustoTab from "@/components/erp/CentrosCustoTab";
 import CashFlowForecastTab from "@/components/erp/CashFlowForecastTab";
+import CarAnaliseTab from "@/components/financeiro/car/CarAnaliseTab";
 import { useAnalyticsView } from "@/lib/analyticsView";
 import { useErpSnapshot } from "@/lib/ErpSnapshotContext";
 import { useEmpresaFilter } from "@/lib/EmpresaFilterContext";
@@ -207,38 +208,7 @@ export default function TabFinanceiro() {
       })()}
 
       {/* CAR por empresa */}
-      {sub === "car_empresa" && (
-        <div className="bg-gray-900 border border-gray-800 rounded-xl p-5">
-          <h3 className="text-white font-semibold mb-4 text-sm">Contas a Receber (CAR) por empresa</h3>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="text-gray-500 text-xs uppercase border-b border-gray-800">
-                  <th className="text-left py-2 px-3">Empresa</th>
-                  <th className="text-right py-2 px-3">Qtd</th>
-                  <th className="text-right py-2 px-3">Total</th>
-                  <th className="text-right py-2 px-3">Em aberto</th>
-                  <th className="text-right py-2 px-3">Baixado</th>
-                  <th className="text-right py-2 px-3">Vencido</th>
-                </tr>
-              </thead>
-              <tbody>
-                {carEmp.map((r, i) => (
-                  <tr key={i} className={`border-b border-gray-800/50 hover:bg-gray-800/30 ${r.cd_empresa === selectedEmpresa ? "bg-purple-950/40" : ""}`}>
-                    <td className="py-2 px-3 text-white">{getEmpresaLabel(r.cd_empresa)}</td>
-                    <td className="py-2 px-3 text-right text-gray-300">{fmtNum(r.qtd)}</td>
-                    <td className="py-2 px-3 text-right text-blue-400 font-medium">{fmtCur(r.vl_total)}</td>
-                    <td className="py-2 px-3 text-right text-amber-400">{fmtCur(r.vl_aberto)}</td>
-                    <td className="py-2 px-3 text-right text-gray-300">{fmtCur(r.vl_baixado)}</td>
-                    <td className="py-2 px-3 text-right text-red-400">{fmtCur(r.vl_vencido)}</td>
-                  </tr>
-                ))}
-                {carEmp.length === 0 && <tr><td colSpan={6} className="text-center text-gray-600 py-6">Sem dados de CAR por empresa</td></tr>}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
+      {sub === "car_empresa" && <CarAnaliseTab dateRange={dateRange} />}
 
       {/* CAP por conta — consulta ao vivo agrupada pelo plano financeiro */}
       {sub === "cap_conta" && <CapPorContaTab dateRange={dateRange} />}
