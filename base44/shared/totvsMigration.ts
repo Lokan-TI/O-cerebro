@@ -97,16 +97,17 @@ const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 // Filtro de status para o saneamento (fl_status no CAR, fl_status_titulo no CAP —
 // domínio oficial do dicionário: 5=Provisório · 10=Aberto · 25/30=Liquidado · 40=Cancelado · 50=Renegociado · 60=PCLD).
 // "Vencido" é avaliado contra a data de hoje.
-const STATUS_FILTERS: Record<string, (st: string, ven: string) => string> = {
-  aberto_vencido: (st, ven) => `(${st} = 10 AND ${ven} < CAST(GETDATE() AS date))`,
-  aberto_a_vencer: (st, ven) => `(${st} = 10 AND (${ven} >= CAST(GETDATE() AS date) OR ${ven} IS NULL))`,
-  provisorio: (st) => `(${st} = 5)`,
+// Regra validada da carteira (mesma do RECEBIVEIS_ABERTO): vencido = status 5 ou 10, sem baixa, vencimento passado.
+const STATUS_FILTERS: Record<string, (st: string, ven: string, bai: string) => string> = {
+  aberto_vencido: (st, ven, bai) => `(${st} IN (5, 10) AND ${bai} IS NULL AND ${ven} < CAST(GETDATE() AS date))`,
+  aberto_a_vencer: (st, ven, bai) => `(${st} = 10 AND ${bai} IS NULL AND (${ven} >= CAST(GETDATE() AS date) OR ${ven} IS NULL))`,
+  provisorio: (st, _ven, bai) => `(${st} = 5 AND ${bai} IS NULL)`,
 };
 
-function statusWhere(statuses: string[] | undefined, st: string, ven: string) {
+function statusWhere(statuses: string[] | undefined, st: string, ven: string, bai: string) {
   const conds = (Array.isArray(statuses) ? statuses : [])
     .filter((s) => STATUS_FILTERS[s])
-    .map((s) => STATUS_FILTERS[s](st, ven));
+    .map((s) => STATUS_FILTERS[s](st, ven, bai));
   return conds.length ? ` AND (${conds.join(' OR ')})` : '';
 }
 
@@ -185,7 +186,7 @@ function baseCte(doc: string, startDate: string, endDateExclusive: string, statu
       LTRIM(RTRIM(COALESCE(CAST(c.${hist} AS varchar(4000)), ''))) AS historico,
       ${numExpr} AS num_titulo,
       CASE
-        WHEN ${stCol} = 5 THEN 'Titulo em aberto (Provisório)'
+        WHEN ${stCol} = 5 AND ${isCap ? '1 = 1' : `(c.${bai} IS NOT NULL OR c.${ven} IS NULL OR c.${ven} >= CAST(GETDATE() AS date))`} THEN 'Titulo em aberto (Provisório)'
         WHEN ${stCol} = 40 THEN 'Titulo cancelado'
         WHEN ${stCol} = 50 THEN 'Titulo renegociado'
         WHEN ${stCol} = 60 THEN 'Titulo em perda (PCLD)'
@@ -206,7 +207,7 @@ function baseCte(doc: string, startDate: string, endDateExclusive: string, statu
     LEFT JOIN plano pl WITH (NOLOCK) ON pl.cd_planfin = lx.cd_planfin
     LEFT JOIN conta co WITH (NOLOCK) ON co.cd_conta = c.cd_conta
     LEFT JOIN empresa e WITH (NOLOCK) ON e.cd_empresa = ${empresaExpr}
-    WHERE c.${emi} >= '${startDate}' AND c.${emi} < '${endDateExclusive}'${statusWhere(statuses, stCol, `c.${ven}`)}
+    WHERE c.${emi} >= '${startDate}' AND c.${emi} < '${endDateExclusive}'${statusWhere(statuses, stCol, `c.${ven}`, `c.${bai}`)}
   )`;
 }
 
