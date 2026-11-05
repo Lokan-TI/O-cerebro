@@ -1,6 +1,7 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.54';
 import { execRead } from '../../shared/erpConnection.ts';
 import { resolvePeriod } from '../../shared/periodContract.ts';
+import { empFilter } from '../../shared/empresaScope.ts';
 
 // CAR agrupado por empresa gestora + ano/mês de emissão, direto do banco.
 // Mesma regra canônica do bloco analítico (car_by_empresa):
@@ -31,7 +32,7 @@ export default async function (req: Request): Promise<Response> {
       SUM(ISNULL(c.vl_juros,0)+ISNULL(c.vl_multa,0)) AS vl_juros_multa
     FROM car c WITH (NOLOCK)
     CROSS APPLY (SELECT ROUND(COALESCE(c.vl_pre_car,0)+COALESCE(c.vl_acr_car,0)-COALESCE(c.vl_des_car,0),2) AS val) v
-    WHERE c.dt_emi_car >= '${period.start}' AND c.dt_emi_car < '${period.endExclusive}'
+    WHERE c.dt_emi_car >= '${period.start}' AND c.dt_emi_car < '${period.endExclusive}' ${empFilter('c', 'cd_empresa_gestora')}
     GROUP BY c.cd_empresa_gestora, YEAR(c.dt_emi_car), MONTH(c.dt_emi_car)`;
 
     let source: Record<string, unknown> = { credential_reference: 'env' };
