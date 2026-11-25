@@ -19,6 +19,28 @@ const txt = (v) => (v == null ? "" : String(v).trim());
 const dt = (v) => (!v || String(v).startsWith("9999") ? "" : String(v).slice(0, 10).split("-").reverse().join("/"));
 const DATE_KEYS = ["Abertura", "Aprovação", "Vigência - período atual início", "Vigência - período atual fim", "Devolução prevista", "Devolução a partir de", "Última geração fatura", "Próxima geração fatura", "Próximo reajuste"];
 
+// Dados da ficha, sem equipamentos: datas em DD/MM/AAAA e número com 6 dígitos.
+export function fichaCols(f) {
+  const base = contratoCols(f);
+  for (const k of DATE_KEYS) base[k] = dt(base[k]);
+  base["Nº contrato"] = String(base["Nº contrato"]).replace(/\d+/, (m) => m.padStart(6, "0"));
+  return base;
+}
+
+// Aba com filtro no cabeçalho e valores (Vl.) em R$.
+export function toSheet(out) {
+  const ws = XLSX.utils.json_to_sheet(out);
+  const hdr = Object.keys(out[0] || {});
+  hdr.forEach((h, i) => {
+    if (!/^(Vl\.|VL)/.test(h)) return;
+    const c = XLSX.utils.encode_col(i);
+    for (let j = 2; j <= out.length + 1; j++) if (ws[c + j]) ws[c + j].z = '"R$" #,##0.00';
+  });
+  if (ws["!ref"]) ws["!autofilter"] = { ref: ws["!ref"] };
+  ws["!cols"] = hdr.map((h) => ({ wch: Math.max(h.length + 2, 14) }));
+  return ws;
+}
+
 // Uma linha por produto/patrimônio em posse, com todos os dados da ficha e do cliente (layout para importação no TOTVS).
 export function exportPorPatrimonio(fichas, rows) {
   const byId = new Map(fichas.map((f) => [f.cd_controle, f]));
@@ -31,9 +53,7 @@ export function exportPorPatrimonio(fichas, rows) {
     const f = byId.get(r.cd_controle);
     if (s <= 0 || !r.dt_saida || !f) continue;
     contratos.add(r.cd_controle);
-    const base = contratoCols(f);
-    for (const k of DATE_KEYS) base[k] = dt(base[k]);
-    base["Nº contrato"] = String(base["Nº contrato"]).replace(/\d+/, (m) => m.padStart(6, "0"));
+    const base = fichaCols(f);
     out.push({
       ...base,
       "ID remessa": txt(r.cd_flremessa),
@@ -56,17 +76,8 @@ export function exportPorPatrimonio(fichas, rows) {
       "VL rateado (item)": Math.round((num(r.vl_nf) * s) / (num(r.qt_remessa) || 1) * 100) / 100,
     });
   }
-  const ws = XLSX.utils.json_to_sheet(out);
-  const hdr = Object.keys(out[0] || {});
-  hdr.forEach((h, i) => {
-    if (!/^(Vl\.|VL)/.test(h)) return;
-    const c = XLSX.utils.encode_col(i);
-    for (let j = 2; j <= out.length + 1; j++) if (ws[c + j]) ws[c + j].z = '"R$" #,##0.00';
-  });
-  if (ws["!ref"]) ws["!autofilter"] = { ref: ws["!ref"] };
-  ws["!cols"] = hdr.map((h) => ({ wch: Math.max(h.length + 2, 14) }));
   const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, "Fichas x Patrimônio");
+  XLSX.utils.book_append_sheet(wb, toSheet(out), "Fichas x Patrimônio");
   XLSX.writeFile(wb, `fichas_abertas_por_patrimonio_${new Date().toISOString().slice(0, 10)}.xlsx`);
   return { linhas: out.length, contratos: contratos.size };
 }

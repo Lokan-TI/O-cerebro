@@ -7,6 +7,7 @@ import { getEmpresaLabel } from "@/lib/empresaLabels";
 import { exportMigracao } from "./migracaoExport";
 import { FILTROS } from "./fichaFiltros";
 import { runExportPorPatrimonio } from "./patrimonioExport";
+import { exportFichasSemEquipamentos } from "./fichasSemEquipamentosExport";
 
 export default function MigracaoExportButton() {
   const { selectedSource } = useErpSource();
@@ -36,6 +37,17 @@ export default function MigracaoExportButton() {
     try {
       const r = await runExportPorPatrimonio(sourceId, empresa, setMsg);
       setMsg(`${r.linhas} linhas (produto/patrimônio) de ${r.contratos} fichas com bens em posse.`);
+    } catch (e) {
+      setMsg(`Erro: ${e.message}`);
+    }
+    setLoading(false);
+  };
+
+  const runFichas = async () => {
+    setLoading(true);
+    try {
+      const r = await exportFichasSemEquipamentos(sourceId, empresa, setMsg);
+      setMsg(r.fichas ? `${r.fichas} fichas abertas de ${r.clientes} clientes — uma linha por ficha, sem equipamentos.` : "Nenhuma ficha aberta encontrada.");
     } catch (e) {
       setMsg(`Erro: ${e.message}`);
     }
@@ -76,6 +88,9 @@ export default function MigracaoExportButton() {
             </button>
             <button onClick={runPatrimonio} disabled={loading} className="w-full flex items-center justify-center gap-1.5 px-3 py-2 bg-sky-700 hover:bg-sky-600 rounded-lg text-xs font-medium disabled:opacity-50">
               {loading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <FileSpreadsheet className="w-3.5 h-3.5" />} Exportar por patrimônio (TOTVS)
+            </button>
+            <button onClick={runFichas} disabled={loading} className="w-full flex items-center justify-center gap-1.5 px-3 py-2 bg-violet-700 hover:bg-violet-600 rounded-lg text-xs font-medium disabled:opacity-50">
+              {loading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <FileSpreadsheet className="w-3.5 h-3.5" />} Todas as fichas, sem equipamentos
             </button>
           </>
         )}
