@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { base44 } from "@/api/base44Client";
+import { invokeFichasStatus } from "@/components/erp/fichasStatusApi";
 import { fmtNum } from "@/lib/erpFormat";
 import FichasStatusTable from "@/components/erp/FichasStatusTable";
 import { exportFichasStatus } from "@/components/erp/fichasStatusExport";
@@ -23,7 +23,7 @@ export default function FichasStatusView({ sourceId, selectedEmpresa, fichaStatu
         const payload = { after, statuses: statusKey ? statusKey.split(",") : [] };
         if (sourceId) payload.source_id = sourceId;
         if (selectedEmpresa != null) payload.cd_empresa = selectedEmpresa;
-        const { data } = await base44.functions.invoke("listFichasStatus", payload);
+        const data = await invokeFichasStatus(payload);
         all.push(...data.rows);
         after = data.next_after; more = data.has_more;
         if (alive) setLoaded(all.length);

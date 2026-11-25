@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { base44 } from "@/api/base44Client";
+import { invokeFichasStatus } from "@/components/erp/fichasStatusApi";
 
 // Total de fichas de locação por status, em todas as datas — a mesma contagem da tela "Ficha de Locação" do Sisloc.
 export default function useFichasResumo(sourceId, selectedEmpresa) {
@@ -12,8 +12,8 @@ export default function useFichasResumo(sourceId, selectedEmpresa) {
     const payload = { mode: "resumo" };
     if (sourceId) payload.source_id = sourceId;
     if (selectedEmpresa != null) payload.cd_empresa = selectedEmpresa;
-    base44.functions.invoke("listFichasStatus", payload)
-      .then(({ data }) => {
+    invokeFichasStatus(payload)
+      .then((data) => {
         if (!alive) return;
         const counts = Object.fromEntries(Object.entries(data.counts).map(([status, n]) => [`fichas_${status}`, n]));
         setState({ resumo: { fichas: data.fichas, clientes: data.clientes, counts }, error: null });

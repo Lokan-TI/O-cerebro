@@ -19,7 +19,7 @@ export default function FichasResumoBar({ resumo, error, onRetry, value, onChang
               <span className="text-gray-200 font-medium">{fmtNum(resumo.fichas)} fichas de locação</span> de {fmtNum(resumo.clientes)} clientes,
               em todas as datas — a mesma contagem da tela Ficha de Locação do Sisloc.
             </>
-          ) : "Contando as fichas de locação no Sisloc…"}
+          ) : "Contando as fichas de locação no Sisloc… pode levar um pouco enquanto a tela carrega."}
           {onShowAll && (
             <>
               {" "}Marque um status para listar as fichas ou{" "}

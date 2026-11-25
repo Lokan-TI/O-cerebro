@@ -38,7 +38,7 @@ export default async function (req: Request): Promise<Response> {
       const sqlResumo = `SELECT COUNT(*) AS fichas, COUNT(DISTINCT x.cd_pessoa) AS clientes,
           ${STATUSES.map((s) => `SUM(CASE WHEN x.st = '${s}' THEN 1 ELSE 0 END) AS ${s}`).join(', ')}
         FROM (SELECT ${status} AS st, f.cd_pessoa FROM fich_loc f WITH (NOLOCK) WHERE 1 = 1 ${scope}) x`;
-      const resumo: any = await execRead(source, sqlResumo, 40000);
+      const resumo: any = await execRead(source, sqlResumo, 85000);
       const r = resumo?.recordset?.[0] || {};
       return Response.json({
         success: true,
