@@ -19,5 +19,8 @@ function Badge({ map, value }) {
 
 export const TendenciaBadge = ({ value }) => <Badge map={TEND} value={value} />;
 export const CicloBadge = ({ value }) => <Badge map={CICLO} value={value} />;
+// Mesmos rótulos dos selos, para as exportações.
+export const tendenciaLabel = (value) => TEND[value]?.[0] || "";
+export const cicloLabel = (value) => CICLO[value]?.[0] || "";
 
 export default TendenciaBadge;

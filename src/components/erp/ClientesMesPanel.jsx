@@ -3,10 +3,10 @@ import { useErpSource, ALL_SOURCES_ID } from "@/lib/ErpSourceContext";
 import { useErpSnapshot } from "@/lib/ErpSnapshotContext";
 import { useEmpresaFilter } from "@/lib/EmpresaFilterContext";
 import { fetchClientesAtivos } from "@/components/erp/clientesAtivosCache";
-import { exportClientesAtivosCsv } from "@/components/erp/clientesAtivosExport";
+import ClientesAtivosExportButton from "@/components/erp/ClientesAtivosExportButton";
 import { fmtCur, fmtNum, fmtMonthLabel } from "@/lib/erpFormat";
 import { getEmpresaLabel } from "@/lib/empresaLabels";
-import { Calendar, Download, X } from "lucide-react";
+import { Calendar, X } from "lucide-react";
 import PadraoCells from "@/components/erp/padrao/PadraoCells";
 import { fetchPadraoLista } from "@/components/erp/padrao/padraoApi";
 
@@ -65,9 +65,7 @@ export default function ClientesMesPanel({ ano, mes, onClose, onSelectClient }) 
         </h3>
         <div className="flex items-center gap-2">
           {list.length > 0 && (
-            <button onClick={() => exportClientesAtivosCsv(list)} className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-700 hover:bg-emerald-600 rounded-lg text-white text-xs font-medium">
-              <Download className="w-3.5 h-3.5" /> Exportar Excel
-            </button>
+            <ClientesAtivosExportButton rows={list} padrao={padrao} />
           )}
           <button onClick={onClose} className="p-1.5 text-gray-400 hover:text-white"><X className="w-4 h-4" /></button>
         </div>

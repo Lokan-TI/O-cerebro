@@ -5,12 +5,12 @@ import { useEmpresaFilter } from "@/lib/EmpresaFilterContext";
 import { useGlobalFilter } from "@/lib/GlobalFilterContext";
 import { fmtCur, fmtNum } from "@/lib/erpFormat";
 import { fetchClientesAtivos, invalidateClientesAtivos } from "@/components/erp/clientesAtivosCache";
-import { exportClientesAtivosCsv } from "@/components/erp/clientesAtivosExport";
+import ClientesAtivosExportButton from "@/components/erp/ClientesAtivosExportButton";
 import QueryInspector from "@/components/erp/QueryInspector";
 import PadraoCells from "@/components/erp/padrao/PadraoCells";
 import { fetchPadraoLista } from "@/components/erp/padrao/padraoApi";
 import FichaStatusFilter from "@/components/erp/FichaStatusFilter";
-import { Users, Download, RefreshCw, Search, Repeat } from "lucide-react";
+import { Users, RefreshCw, Search, Repeat } from "lucide-react";
 
 // Listagem completa (sem corte de top N) de clientes ativos por empresa Sisloc,
 // consultada ao vivo no ERP e exportável em Excel.
@@ -106,9 +106,7 @@ export default function ClientesAtivosTable({ onSelectClient }) {
             {data ? "Recarregar" : "Carregar clientes"}
           </button>
           {data && (
-            <button onClick={() => exportClientesAtivosCsv(rows)} className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-700 hover:bg-emerald-600 rounded-lg text-white text-xs font-medium">
-              <Download className="w-3.5 h-3.5" /> Exportar Excel
-            </button>
+            <ClientesAtivosExportButton rows={rows} padrao={padrao} />
           )}
         </div>
       </div>
