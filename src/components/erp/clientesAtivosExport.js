@@ -10,6 +10,12 @@ const COLS = [
   ["ultima_nf", "Última NF"],
   ["contratos_ativos", "Contratos ativos"],
   ["contratos_total", "Contratos (histórico)"],
+  ["fichas_aberta", "Fichas — Aberta"],
+  ["fichas_orcamento", "Fichas — Orçamento"],
+  ["fichas_orc_vencido", "Fichas — Orç. Vencido"],
+  ["fichas_lembrete", "Fichas — Lembrete"],
+  ["fichas_suspensa", "Fichas — Suspensa"],
+  ["fichas_encerrada", "Fichas — Encerrada"],
 ];
 
 const asExcelText = (v) => (v ? `="${v}"` : "");

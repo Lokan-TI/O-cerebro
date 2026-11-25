@@ -16,6 +16,15 @@ export const isAberta = (a = 'f') => `${a}.tp_ope_pedido IN ('L','C','E') AND ${
 /** Remessa efetivamente expedida (remessa de orçamento tem só quantidade cotada). */
 export const isExpedida = (r = 'r') => `${r}.dt_saida IS NOT NULL AND ISNULL(${r}.fl_rem_cancelada,'N') = 'N'`;
 
+/** Status da ficha como na tela do Sisloc (um por ficha). Evidência Matriz 11/2026: dt_suspensao nunca preenchida;
+ *  orçamento aberto com dt_validade passada = "Orç. Vencido". "Lembrete" não tem campo identificado em fich_loc. */
+export const fichaStatusSql = (a = 'f') => `CASE
+  WHEN ${a}.dt_enc_ficha IS NOT NULL OR ISNULL(${a}.fl_baixada, 'N') = 'S' THEN 'encerrada'
+  WHEN ${a}.dt_suspensao IS NOT NULL THEN 'suspensa'
+  WHEN ${a}.tp_ope_pedido = 'O' AND ${a}.dt_validade < CAST(GETDATE() AS date) THEN 'orc_vencido'
+  WHEN ${a}.tp_ope_pedido = 'O' THEN 'orcamento'
+  ELSE 'aberta' END`;
+
 /** Estado no vocabulário do Sisloc. */
 export function fichaStatus(tp: string, dtEnc: unknown, expedidas = 1) {
   const t = String(tp || '').trim();

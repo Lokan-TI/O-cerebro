@@ -9,6 +9,7 @@ import { exportClientesAtivosCsv } from "@/components/erp/clientesAtivosExport";
 import QueryInspector from "@/components/erp/QueryInspector";
 import PadraoCells from "@/components/erp/padrao/PadraoCells";
 import { fetchPadraoLista } from "@/components/erp/padrao/padraoApi";
+import FichaStatusFilter from "@/components/erp/FichaStatusFilter";
 import { Users, Download, RefreshCw, Search, Repeat } from "lucide-react";
 
 // Listagem completa (sem corte de top N) de clientes ativos por empresa Sisloc,
@@ -25,6 +26,7 @@ export default function ClientesAtivosTable({ onSelectClient }) {
   const [start, setStart] = useState(period.start);
   const [end, setEnd] = useState(period.end);
   const [limit, setLimit] = useState(300);
+  const [fichaStatus, setFichaStatus] = useState([]);
   const loadedRange = useRef(null);
   const [padrao, setPadrao] = useState(null);
 
@@ -69,15 +71,21 @@ export default function ClientesAtivosTable({ onSelectClient }) {
     }
   };
 
+  // Clientes ativos da empresa selecionada, antes do filtro de status da ficha.
+  const scoped = useMemo(() => {
+    const list = data?.rows || [];
+    return selectedEmpresa == null ? list : list.filter((r) => Number(r.cd_empresa) === Number(selectedEmpresa));
+  }, [data, selectedEmpresa]);
+
   const rows = useMemo(() => {
-    let list = data?.rows || [];
-    if (selectedEmpresa != null) list = list.filter((r) => Number(r.cd_empresa) === Number(selectedEmpresa));
+    let list = scoped;
+    if (fichaStatus.length) list = list.filter((r) => fichaStatus.some((s) => Number(r[s]) > 0));
     const totalRev = list.reduce((s, r) => s + r.receita, 0);
     list = list.map((r) => ({ ...r, share: totalRev > 0 ? (r.receita / totalRev) * 100 : 0 }));
     const q = search.trim().toLowerCase();
     if (q) list = list.filter((r) => r.nm_pessoa.toLowerCase().includes(q) || String(r.cd_pessoa).includes(q) || r.nm_empresa.toLowerCase().includes(q));
     return list;
-  }, [data, selectedEmpresa, search]);
+  }, [scoped, fichaStatus, search]);
 
   const totals = useMemo(
     () => rows.reduce((t, r) => ({ receita: t.receita + r.receita, nfs: t.nfs + r.nfs, ativos: t.ativos + r.contratos_ativos }), { receita: 0, nfs: 0, ativos: 0 }),
@@ -128,6 +136,8 @@ export default function ClientesAtivosTable({ onSelectClient }) {
           </select>
         </div>
       </div>
+
+      {data && <FichaStatusFilter value={fichaStatus} onChange={setFichaStatus} rows={scoped} />}
 
       {error && <div className="bg-red-950/40 border border-red-800/50 rounded-lg px-4 py-2 text-red-300 text-sm">{error}</div>}
       {!data && !loading && !error && (
