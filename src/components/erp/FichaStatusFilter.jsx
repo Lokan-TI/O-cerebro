@@ -11,10 +11,10 @@ export const FICHA_STATUS = [
   { id: "fichas_encerrada", label: "Encerrada", dot: "bg-red-500", on: "border-red-500 bg-red-950/40 text-red-200" },
 ];
 
-// Filtro por status da ficha; `counts` traz a quantidade de cada status na visão atual (clientes ou fichas).
+// Filtro por status da ficha; `counts` traz a quantidade de fichas de cada status (null enquanto carrega).
 export default function FichaStatusFilter({ value, onChange, counts }) {
   const toggle = (id) => onChange(value.includes(id) ? value.filter((s) => s !== id) : [...value, id]);
-  const count = (id) => counts[id] || 0;
+  const count = (id) => (counts ? fmtNum(counts[id] || 0) : "…");
 
   return (
     <div>
@@ -29,7 +29,7 @@ export default function FichaStatusFilter({ value, onChange, counts }) {
           >
             <span className={`w-2 h-2 rounded-sm ${s.dot}`} />
             {s.label}
-            <span className="text-gray-500 font-normal">{fmtNum(count(s.id))}</span>
+            <span className="text-gray-500 font-normal">{count(s.id)}</span>
           </button>
         ))}
         {value.length > 0 && (

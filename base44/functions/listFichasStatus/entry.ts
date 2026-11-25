@@ -1,12 +1,17 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.40';
 import { canView, scopedEmpresa } from '../../shared/access.ts';
 import { execRead } from '../../shared/erpConnection.ts';
-import { resolvePeriod } from '../../shared/periodContract.ts';
 import { empFilter } from '../../shared/empresaScope.ts';
 import { fichaStatusSql } from '../../shared/fichaLifecycle.ts';
 
-// Fichas de locação (uma linha por ficha) com o status da tela do Sisloc, o cliente e os contatos.
-// Inclui clientes sem faturamento. Período = data do pedido. Paginação keyset por cd_controle.
+// Status do filtro da tela "Ficha de Locação" do Sisloc, na ordem do ERP.
+const STATUSES = ['aberta', 'orcamento', 'orc_vencido', 'lembrete', 'suspensa', 'encerrada'];
+
+// Fichas de locação com o status da tela do Sisloc: todas as datas e todos os clientes (com ou sem
+// faturamento), para a contagem fechar com a tela "Ficha de Locação" do ERP.
+//  - mode "resumo": total de fichas, de clientes e quantidade de fichas por status.
+//  - padrão: uma linha por ficha com cliente e contatos, opcionalmente só dos `statuses` pedidos.
+//    Paginação keyset por cd_controle.
 export default async function (req: Request): Promise<Response> {
   try {
     const base44 = createClientFromRequest(req);
@@ -14,18 +19,11 @@ export default async function (req: Request): Promise<Response> {
     if (!canView(user)) return Response.json({ success: false, error: 'Acesso restrito.' }, { status: 403 });
 
     const body = await req.json().catch(() => ({}));
-    const period = resolvePeriod({
-      start: body?.start_date,
-      endInclusive: body?.end_date,
-      endExclusive: body?.end_date_exclusive,
-      defaultStart: '2000-01-01',
-      defaultEndInclusive: new Date().toISOString().slice(0, 10),
-    });
-    const after = Math.max(0, Number(body?.after) || 0);
-    const limit = Math.min(5000, Math.max(100, Number(body?.limit) || 5000));
     const empRaw = scopedEmpresa(user, body?.cd_empresa);
     const emp = empRaw != null && empRaw !== '' ? Number(empRaw) : null;
     if (emp != null && !Number.isInteger(emp)) return Response.json({ success: false, error: 'cd_empresa inválido.' }, { status: 400 });
+    const wanted: string[] = Array.isArray(body?.statuses) ? body.statuses : [];
+    if (wanted.some((s) => !STATUSES.includes(s))) return Response.json({ success: false, error: 'Status de ficha inválido.' }, { status: 400 });
 
     let source: Record<string, unknown> = { credential_reference: 'env' };
     if (body?.source_id) {
@@ -33,10 +31,29 @@ export default async function (req: Request): Promise<Response> {
       if (!source) return Response.json({ success: false, error: 'Fonte de dados não encontrada.' }, { status: 404 });
     }
 
+    const status = fichaStatusSql('f');
+    const scope = `${emp != null ? `AND f.cd_empresa = ${emp}` : ''} ${empFilter('f')}`;
+
+    if (body?.mode === 'resumo') {
+      const sqlResumo = `SELECT COUNT(*) AS fichas, COUNT(DISTINCT x.cd_pessoa) AS clientes,
+          ${STATUSES.map((s) => `SUM(CASE WHEN x.st = '${s}' THEN 1 ELSE 0 END) AS ${s}`).join(', ')}
+        FROM (SELECT ${status} AS st, f.cd_pessoa FROM fich_loc f WITH (NOLOCK) WHERE 1 = 1 ${scope}) x`;
+      const resumo: any = await execRead(source, sqlResumo, 40000);
+      const r = resumo?.recordset?.[0] || {};
+      return Response.json({
+        success: true,
+        fichas: Number(r.fichas) || 0,
+        clientes: Number(r.clientes) || 0,
+        counts: Object.fromEntries(STATUSES.map((s) => [s, Number(r[s]) || 0])),
+      });
+    }
+
+    const after = Math.max(0, Number(body?.after) || 0);
+    const limit = Math.min(5000, Math.max(100, Number(body?.limit) || 5000));
     const sql = `SELECT TOP ${limit}
         f.cd_controle, f.numero, f.cd_empresa,
         COALESCE(NULLIF(LTRIM(RTRIM(e.nm_fan_empresa)), ''), CONCAT('Empresa ', f.cd_empresa)) AS nm_empresa,
-        ${fichaStatusSql('f')} AS status,
+        ${status} AS status,
         f.dt_pedido, f.dt_validade, f.dt_enc_ficha, f.cd_pessoa,
         COALESCE(NULLIF(LTRIM(RTRIM(p.nm_pessoa)), ''), NULLIF(LTRIM(RTRIM(p.nm_fan_pessoa)), ''), CONCAT('Cliente ', f.cd_pessoa)) AS nm_pessoa,
         f.contato, f.telefone, CAST(f.email_contato AS varchar(300)) AS email_contato,
@@ -45,9 +62,8 @@ export default async function (req: Request): Promise<Response> {
       LEFT JOIN pessoa p WITH (NOLOCK) ON p.cd_pessoa = f.cd_pessoa
       LEFT JOIN empresa e WITH (NOLOCK) ON e.cd_empresa = f.cd_empresa
       WHERE f.cd_controle > ${after}
-        AND f.dt_pedido >= '${period.start}' AND f.dt_pedido < '${period.endExclusive}'
-        ${emp != null ? `AND f.cd_empresa = ${emp}` : ''}
-        ${empFilter('f')}
+        ${wanted.length ? `AND ${status} IN (${wanted.map((s) => `'${s}'`).join(', ')})` : ''}
+        ${scope}
       ORDER BY f.cd_controle`;
 
     const res: any = await execRead(source, sql, 85000);
@@ -77,7 +93,6 @@ export default async function (req: Request): Promise<Response> {
       rows,
       next_after: rows.length ? rows[rows.length - 1].cd_controle : after,
       has_more: rows.length === limit,
-      period: { start: period.start, end: period.endInclusive },
     });
   } catch (error) {
     return Response.json({ success: false, error: (error as Error)?.message || String(error) }, { status: 500 });

@@ -9,8 +9,9 @@ import ClientesAtivosExportButton from "@/components/erp/ClientesAtivosExportBut
 import QueryInspector from "@/components/erp/QueryInspector";
 import PadraoCells from "@/components/erp/padrao/PadraoCells";
 import { fetchPadraoLista } from "@/components/erp/padrao/padraoApi";
-import FichaStatusFilter, { FICHA_STATUS } from "@/components/erp/FichaStatusFilter";
+import FichasResumoBar from "@/components/erp/FichasResumoBar";
 import FichasStatusView from "@/components/erp/FichasStatusView";
+import useFichasResumo from "@/components/erp/useFichasResumo";
 import { Users, RefreshCw, Search, Repeat } from "lucide-react";
 
 // Listagem completa (sem corte de top N) de clientes ativos por empresa Sisloc,
@@ -30,6 +31,11 @@ export default function ClientesAtivosTable({ onSelectClient }) {
   const [fichaStatus, setFichaStatus] = useState([]);
   // "clientes" = clientes com faturamento · "fichas" = todas as fichas de locação (uma linha por ficha).
   const [view, setView] = useState("clientes");
+  const sourceId = selectedSource?.id && selectedSource.id !== ALL_SOURCES_ID ? selectedSource.id : null;
+  const fichasResumo = useFichasResumo(sourceId, selectedEmpresa);
+  // O filtro de status vale para as fichas: marcar um status abre a lista de fichas.
+  const changeStatus = (next) => { setFichaStatus(next); setView("fichas"); };
+  const changeView = (id) => { setView(id); if (id === "clientes") setFichaStatus([]); };
   const loadedRange = useRef(null);
   const [padrao, setPadrao] = useState(null);
 
@@ -63,7 +69,6 @@ export default function ClientesAtivosTable({ onSelectClient }) {
     setError(null);
     try {
       if (force) invalidateClientesAtivos();
-      const sourceId = selectedSource?.id && selectedSource.id !== ALL_SOURCES_ID ? selectedSource.id : null;
       const result = await fetchClientesAtivos(sourceId, start, end, snapshot?.version);
       setData(result);
       loadedRange.current = `${start}|${end}|${snapshot?.version || ""}`;
@@ -74,26 +79,20 @@ export default function ClientesAtivosTable({ onSelectClient }) {
     }
   };
 
-  // Clientes ativos da empresa selecionada, antes do filtro de status da ficha.
+  // Clientes ativos da empresa selecionada.
   const scoped = useMemo(() => {
     const list = data?.rows || [];
     return selectedEmpresa == null ? list : list.filter((r) => Number(r.cd_empresa) === Number(selectedEmpresa));
   }, [data, selectedEmpresa]);
 
-  const statusCounts = useMemo(
-    () => Object.fromEntries(FICHA_STATUS.map((s) => [s.id, scoped.filter((r) => Number(r[s.id]) > 0).length])),
-    [scoped]
-  );
-
   const rows = useMemo(() => {
     let list = scoped;
-    if (fichaStatus.length) list = list.filter((r) => fichaStatus.some((s) => Number(r[s]) > 0));
     const totalRev = list.reduce((s, r) => s + r.receita, 0);
     list = list.map((r) => ({ ...r, share: totalRev > 0 ? (r.receita / totalRev) * 100 : 0 }));
     const q = search.trim().toLowerCase();
     if (q) list = list.filter((r) => r.nm_pessoa.toLowerCase().includes(q) || String(r.cd_pessoa).includes(q) || r.nm_empresa.toLowerCase().includes(q));
     return list;
-  }, [scoped, fichaStatus, search]);
+  }, [scoped, search]);
 
   const totals = useMemo(
     () => rows.reduce((t, r) => ({ receita: t.receita + r.receita, nfs: t.nfs + r.nfs, ativos: t.ativos + r.contratos_ativos }), { receita: 0, nfs: 0, ativos: 0 }),
@@ -110,7 +109,7 @@ export default function ClientesAtivosTable({ onSelectClient }) {
         <div className="flex items-center gap-2 flex-wrap">
           <div className="flex gap-1 bg-gray-800 border border-gray-700 rounded-lg p-0.5">
             {[["clientes", "Clientes ativos"], ["fichas", "Fichas de locação"]].map(([id, label]) => (
-              <button key={id} onClick={() => setView(id)} className={`px-3 py-1 rounded-md text-xs font-medium ${view === id ? "bg-purple-600 text-white" : "text-gray-400 hover:text-gray-200"}`}>{label}</button>
+              <button key={id} onClick={() => changeView(id)} className={`px-3 py-1 rounded-md text-xs font-medium ${view === id ? "bg-purple-600 text-white" : "text-gray-400 hover:text-gray-200"}`}>{label}</button>
             ))}
           </div>
           {view === "clientes" && <>
@@ -127,17 +126,19 @@ export default function ClientesAtivosTable({ onSelectClient }) {
       </div>
 
       <div className="flex items-end gap-3 flex-wrap">
+        {view === "clientes" && <>
         <div>
-          <label className="block text-xs text-gray-500 mb-1">{view === "fichas" ? "Pedido de" : "Receita de"}</label>
+          <label className="block text-xs text-gray-500 mb-1">Receita de</label>
           <input type="date" value={start} onChange={(e) => setStart(e.target.value)} className="px-3 py-1.5 bg-gray-800 border border-gray-700 rounded-lg text-sm text-gray-200" />
         </div>
         <div>
           <label className="block text-xs text-gray-500 mb-1">até</label>
           <input type="date" value={end} onChange={(e) => setEnd(e.target.value)} className="px-3 py-1.5 bg-gray-800 border border-gray-700 rounded-lg text-sm text-gray-200" />
         </div>
+        </>}
         <div className="relative">
           <Search className="w-4 h-4 text-gray-500 absolute left-2.5 top-1/2 -translate-y-1/2" />
-          <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Buscar cliente ou empresa…" className="pl-8 pr-3 py-1.5 bg-gray-800 border border-gray-700 rounded-lg text-sm text-white w-64 focus:outline-none focus:border-purple-500" />
+          <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder={view === "fichas" ? "Buscar cliente, ficha ou empresa…" : "Buscar cliente ou empresa…"} className="pl-8 pr-3 py-1.5 bg-gray-800 border border-gray-700 rounded-lg text-sm text-white w-64 focus:outline-none focus:border-purple-500" />
         </div>
         <div>
           <label className="block text-xs text-gray-500 mb-1">Linhas exibidas</label>
@@ -150,16 +151,16 @@ export default function ClientesAtivosTable({ onSelectClient }) {
         </div>
       </div>
 
+      <FichasResumoBar
+        resumo={fichasResumo.resumo} error={fichasResumo.error} onRetry={fichasResumo.retry}
+        value={fichaStatus} onChange={changeStatus} onShowAll={view === "clientes" ? () => changeStatus([]) : null}
+      />
+
       {view === "fichas" && (
-        <FichasStatusView
-          sourceId={selectedSource?.id && selectedSource.id !== ALL_SOURCES_ID ? selectedSource.id : null}
-          selectedEmpresa={selectedEmpresa} start={start} end={end} search={search} limit={limit}
-          fichaStatus={fichaStatus} onStatusChange={setFichaStatus}
-        />
+        <FichasStatusView sourceId={sourceId} selectedEmpresa={selectedEmpresa} fichaStatus={fichaStatus} search={search} limit={limit} />
       )}
 
       {view === "clientes" && <>
-      {data && <FichaStatusFilter value={fichaStatus} onChange={setFichaStatus} counts={statusCounts} />}
 
       {error && <div className="bg-red-950/40 border border-red-800/50 rounded-lg px-4 py-2 text-red-300 text-sm">{error}</div>}
       {!data && !loading && !error && (
