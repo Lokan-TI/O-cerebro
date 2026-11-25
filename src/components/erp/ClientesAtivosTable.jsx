@@ -9,7 +9,8 @@ import ClientesAtivosExportButton from "@/components/erp/ClientesAtivosExportBut
 import QueryInspector from "@/components/erp/QueryInspector";
 import PadraoCells from "@/components/erp/padrao/PadraoCells";
 import { fetchPadraoLista } from "@/components/erp/padrao/padraoApi";
-import FichaStatusFilter from "@/components/erp/FichaStatusFilter";
+import FichaStatusFilter, { FICHA_STATUS } from "@/components/erp/FichaStatusFilter";
+import FichasStatusView from "@/components/erp/FichasStatusView";
 import { Users, RefreshCw, Search, Repeat } from "lucide-react";
 
 // Listagem completa (sem corte de top N) de clientes ativos por empresa Sisloc,
@@ -27,6 +28,8 @@ export default function ClientesAtivosTable({ onSelectClient }) {
   const [end, setEnd] = useState(period.end);
   const [limit, setLimit] = useState(300);
   const [fichaStatus, setFichaStatus] = useState([]);
+  // "clientes" = clientes com faturamento · "fichas" = todas as fichas de locação (uma linha por ficha).
+  const [view, setView] = useState("clientes");
   const loadedRange = useRef(null);
   const [padrao, setPadrao] = useState(null);
 
@@ -77,6 +80,11 @@ export default function ClientesAtivosTable({ onSelectClient }) {
     return selectedEmpresa == null ? list : list.filter((r) => Number(r.cd_empresa) === Number(selectedEmpresa));
   }, [data, selectedEmpresa]);
 
+  const statusCounts = useMemo(
+    () => Object.fromEntries(FICHA_STATUS.map((s) => [s.id, scoped.filter((r) => Number(r[s.id]) > 0).length])),
+    [scoped]
+  );
+
   const rows = useMemo(() => {
     let list = scoped;
     if (fichaStatus.length) list = list.filter((r) => fichaStatus.some((s) => Number(r[s]) > 0));
@@ -97,9 +105,15 @@ export default function ClientesAtivosTable({ onSelectClient }) {
       <div className="flex items-center justify-between flex-wrap gap-3">
         <h3 className="text-white font-semibold text-sm flex items-center gap-2">
           <Users className="w-4 h-4 text-purple-400" /> Todos os clientes ativos
-          {data && <span className="text-gray-500 font-normal">· {fmtNum(rows.length)} clientes · {fmtCur(totals.receita)} atribuídos · {start} → {end}</span>}
+          {data && view === "clientes" && <span className="text-gray-500 font-normal">· {fmtNum(rows.length)} clientes · {fmtCur(totals.receita)} atribuídos · {start} → {end}</span>}
         </h3>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
+          <div className="flex gap-1 bg-gray-800 border border-gray-700 rounded-lg p-0.5">
+            {[["clientes", "Clientes ativos"], ["fichas", "Fichas de locação"]].map(([id, label]) => (
+              <button key={id} onClick={() => setView(id)} className={`px-3 py-1 rounded-md text-xs font-medium ${view === id ? "bg-purple-600 text-white" : "text-gray-400 hover:text-gray-200"}`}>{label}</button>
+            ))}
+          </div>
+          {view === "clientes" && <>
           <QueryInspector queries={data?.sql ? [data.sql, data.fiscal_sql].filter(Boolean) : null} title="Queries — Clientes ativos e total fiscal" />
           <button onClick={() => load(true)} disabled={loading} className="flex items-center gap-1.5 px-3 py-1.5 bg-purple-600 hover:bg-purple-500 disabled:opacity-50 rounded-lg text-white text-xs font-medium">
             <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin" : ""}`} />
@@ -108,12 +122,13 @@ export default function ClientesAtivosTable({ onSelectClient }) {
           {data && (
             <ClientesAtivosExportButton rows={rows} padrao={padrao} />
           )}
+          </>}
         </div>
       </div>
 
       <div className="flex items-end gap-3 flex-wrap">
         <div>
-          <label className="block text-xs text-gray-500 mb-1">Receita de</label>
+          <label className="block text-xs text-gray-500 mb-1">{view === "fichas" ? "Pedido de" : "Receita de"}</label>
           <input type="date" value={start} onChange={(e) => setStart(e.target.value)} className="px-3 py-1.5 bg-gray-800 border border-gray-700 rounded-lg text-sm text-gray-200" />
         </div>
         <div>
@@ -135,7 +150,16 @@ export default function ClientesAtivosTable({ onSelectClient }) {
         </div>
       </div>
 
-      {data && <FichaStatusFilter value={fichaStatus} onChange={setFichaStatus} rows={scoped} />}
+      {view === "fichas" && (
+        <FichasStatusView
+          sourceId={selectedSource?.id && selectedSource.id !== ALL_SOURCES_ID ? selectedSource.id : null}
+          selectedEmpresa={selectedEmpresa} start={start} end={end} search={search} limit={limit}
+          fichaStatus={fichaStatus} onStatusChange={setFichaStatus}
+        />
+      )}
+
+      {view === "clientes" && <>
+      {data && <FichaStatusFilter value={fichaStatus} onChange={setFichaStatus} counts={statusCounts} />}
 
       {error && <div className="bg-red-950/40 border border-red-800/50 rounded-lg px-4 py-2 text-red-300 text-sm">{error}</div>}
       {!data && !loading && !error && (
@@ -211,6 +235,7 @@ export default function ClientesAtivosTable({ onSelectClient }) {
           </div>
         </>
       )}
+      </>}
     </div>
   );
 }

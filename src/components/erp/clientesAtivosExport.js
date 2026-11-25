@@ -5,10 +5,10 @@ import { tendenciaLabel, cicloLabel } from "@/components/erp/padrao/PadraoBadges
 
 const CHUNK = 500;
 const text = (v) => String(v ?? "").replace(/\s+/g, " ").trim();
-const brDate = (d) => (d ? String(d).slice(0, 10).split("-").reverse().join("/") : "");
+export const brDate = (d) => (d ? String(d).slice(0, 10).split("-").reverse().join("/") : "");
 const decimal = (v) => Number(v || 0).toFixed(2).replace(".", ",");
 // Códigos e telefones vão como texto para o Excel não remover zeros nem converter em número.
-const asText = (v) => (text(v) ? `="${text(v).replace(/"/g, '""')}"` : "");
+export const asText = (v) => (text(v) ? `="${text(v).replace(/"/g, '""')}"` : "");
 
 // [título, valor(linha, padrão de locação do cliente, contatos do cliente)]
 const COLS = [
@@ -43,7 +43,7 @@ const COLS = [
   ["Tel. últ. locação", (r, p, c) => asText(c?.loc_telefone)],
 ];
 
-const esc = (v) => {
+export const esc = (v) => {
   if (typeof v === "number") return String(v).replace(".", ",");
   let s = text(v);
   // Texto livre do ERP iniciado por = + - @ seria lido pelo Excel como fórmula.
@@ -72,17 +72,21 @@ function buildCsv(clients, padrao, contatos) {
     const k = String(r.cd_pessoa);
     return COLS.map(([, value]) => esc(value(r, padrao?.get(k), contatos[k]))).join(";");
   });
-  return "\uFEFF" + [COLS.map(([label]) => label).join(";"), ...lines].join("\r\n");
+  return [COLS.map(([label]) => label).join(";"), ...lines].join("\r\n");
+}
+
+export function downloadCsv(csv, filename) {
+  const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
 }
 
 export async function exportClientesAtivos(clients, padrao, sourceId, onProgress) {
   const ids = [...new Set(clients.map((r) => String(r.cd_pessoa)))];
   const contatos = await fetchContatos(ids, sourceId, onProgress);
-  const blob = new Blob([buildCsv(clients, padrao, contatos)], { type: "text/csv;charset=utf-8" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = "clientes_ativos.csv";
-  a.click();
-  URL.revokeObjectURL(url);
+  downloadCsv(buildCsv(clients, padrao, contatos), "clientes_ativos.csv");
 }
