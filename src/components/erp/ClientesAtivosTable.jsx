@@ -26,7 +26,7 @@ export default function ClientesAtivosTable({ onSelectClient }) {
   const [search, setSearch] = useState("");
   const [start, setStart] = useState(period.start);
   const [end, setEnd] = useState(period.end);
-  const [limit, setLimit] = useState(300);
+  const [limit, setLimit] = useState(1000);
   const [fichaStatus, setFichaStatus] = useState([]);
   // "clientes" = clientes com faturamento · "fichas" = todas as fichas de locação (uma linha por ficha).
   const [view, setView] = useState("clientes");
