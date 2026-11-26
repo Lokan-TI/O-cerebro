@@ -24,7 +24,7 @@ export default function FichasReativacaoButton({ sourceId, selectedEmpresa }) {
     <div className="flex items-center gap-2">
       {msg && <span className={`text-xs ${msg.startsWith("Erro") ? "text-red-400" : "text-gray-400"}`}>{msg}</span>}
       <button onClick={run} disabled={busy}
-        title="Todas as fichas, de qualquer status: cliente, contato, telefone da ficha e produto, com uma aba por filial."
+        title="Todas as fichas, de qualquer status: filial, cidade da obra, cliente, contato, telefone da ficha e produto, com uma aba por filial."
         className="flex items-center gap-1.5 px-3 py-1.5 bg-violet-700 hover:bg-violet-600 rounded-lg text-white text-xs font-medium disabled:opacity-50">
         {busy ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <FileSpreadsheet className="w-3.5 h-3.5" />} Lista de reativação por filial
       </button>

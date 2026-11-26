@@ -11,7 +11,7 @@ const STATUSES = ['aberta', 'orcamento', 'orc_vencido', 'lembrete', 'suspensa', 
 // Fichas de locação com o status da tela do Sisloc: todas as datas e todos os clientes (com ou sem
 // faturamento), para a contagem fechar com a tela "Ficha de Locação" do ERP.
 //  - mode "resumo": total de fichas, de clientes e quantidade de fichas por status.
-//  - padrão: uma linha por ficha com cliente e contatos, opcionalmente só dos `statuses` pedidos.
+//  - padrão: uma linha por ficha com cliente, contatos e cidade da obra, opcionalmente só dos `statuses` pedidos.
 //    Paginação keyset por cd_controle. Com `com_produtos`, cada ficha traz também os seus produtos
 //    (lista de reativação por filial).
 export default async function (req: Request): Promise<Response> {
@@ -59,7 +59,7 @@ export default async function (req: Request): Promise<Response> {
         ${status} AS status,
         f.dt_pedido, f.dt_validade, f.dt_enc_ficha, f.cd_pessoa,
         COALESCE(NULLIF(LTRIM(RTRIM(p.nm_pessoa)), ''), NULLIF(LTRIM(RTRIM(p.nm_fan_pessoa)), ''), CONCAT('Cliente ', f.cd_pessoa)) AS nm_pessoa,
-        f.contato, f.telefone, CAST(f.email_contato AS varchar(300)) AS email_contato,
+        f.contato, f.telefone, f.ci_entrega, CAST(f.email_contato AS varchar(300)) AS email_contato,
         p.en_mail_pessoa AS email, p.tel_pessoa AS tel_cadastro, p.tl_cel_pessoa AS cel_cadastro
       FROM fich_loc f WITH (NOLOCK)
       LEFT JOIN pessoa p WITH (NOLOCK) ON p.cd_pessoa = f.cd_pessoa
@@ -83,6 +83,7 @@ export default async function (req: Request): Promise<Response> {
       nm_pessoa: t(r.nm_pessoa),
       contato: t(r.contato),
       telefone: t(r.telefone),
+      cidade_obra: t(r.ci_entrega),
       email_contato: t(r.email_contato),
       email: t(r.email),
       tel_cadastro: t(r.tel_cadastro),
