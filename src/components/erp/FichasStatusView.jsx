@@ -3,6 +3,7 @@ import { invokeFichasStatus } from "@/components/erp/fichasStatusApi";
 import { fmtNum } from "@/lib/erpFormat";
 import FichasStatusTable from "@/components/erp/FichasStatusTable";
 import { exportFichasStatus } from "@/components/erp/fichasStatusExport";
+import FichasReativacaoButton from "@/components/erp/FichasReativacaoButton";
 import { Download, RefreshCw } from "lucide-react";
 
 // Fichas de locação dos status marcados (todas quando nenhum está marcado), uma linha por ficha:
@@ -57,9 +58,12 @@ export default function FichasStatusView({ sourceId, selectedEmpresa, fichaStatu
         <div className="text-sm text-gray-400">
           <span className="text-white font-medium">{fmtNum(rows.length)} fichas</span> de {fmtNum(new Set(rows.map((f) => f.cd_pessoa)).size)} clientes
         </div>
-        <button onClick={() => exportFichasStatus(rows)} className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-700 hover:bg-emerald-600 rounded-lg text-white text-xs font-medium">
-          <Download className="w-3.5 h-3.5" /> Exportar Excel
-        </button>
+        <div className="flex items-center gap-2 flex-wrap">
+          <FichasReativacaoButton sourceId={sourceId} selectedEmpresa={selectedEmpresa} />
+          <button onClick={() => exportFichasStatus(rows)} className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-700 hover:bg-emerald-600 rounded-lg text-white text-xs font-medium">
+            <Download className="w-3.5 h-3.5" /> Exportar Excel
+          </button>
+        </div>
       </div>
       <FichasStatusTable rows={rows.slice(0, limit)} />
       <div className="text-xs text-gray-600">

@@ -3,6 +3,7 @@ import { canView, scopedEmpresa } from '../../shared/access.ts';
 import { execRead } from '../../shared/erpConnection.ts';
 import { empFilter } from '../../shared/empresaScope.ts';
 import { fichaStatusSql } from '../../shared/fichaLifecycle.ts';
+import { produtosPorFicha } from './produtos.ts';
 
 // Status do filtro da tela "Ficha de Locação" do Sisloc, na ordem do ERP.
 const STATUSES = ['aberta', 'orcamento', 'orc_vencido', 'lembrete', 'suspensa', 'encerrada'];
@@ -11,7 +12,8 @@ const STATUSES = ['aberta', 'orcamento', 'orc_vencido', 'lembrete', 'suspensa', 
 // faturamento), para a contagem fechar com a tela "Ficha de Locação" do ERP.
 //  - mode "resumo": total de fichas, de clientes e quantidade de fichas por status.
 //  - padrão: uma linha por ficha com cliente e contatos, opcionalmente só dos `statuses` pedidos.
-//    Paginação keyset por cd_controle.
+//    Paginação keyset por cd_controle. Com `com_produtos`, cada ficha traz também os seus produtos
+//    (lista de reativação por filial).
 export default async function (req: Request): Promise<Response> {
   try {
     const base44 = createClientFromRequest(req);
@@ -50,6 +52,7 @@ export default async function (req: Request): Promise<Response> {
 
     const after = Math.max(0, Number(body?.after) || 0);
     const limit = Math.min(5000, Math.max(100, Number(body?.limit) || 5000));
+    const filtro = `${wanted.length ? `AND ${status} IN (${wanted.map((s) => `'${s}'`).join(', ')})` : ''} ${scope}`;
     const sql = `SELECT TOP ${limit}
         f.cd_controle, f.numero, f.cd_empresa,
         COALESCE(NULLIF(LTRIM(RTRIM(e.nm_fan_empresa)), ''), CONCAT('Empresa ', f.cd_empresa)) AS nm_empresa,
@@ -61,15 +64,13 @@ export default async function (req: Request): Promise<Response> {
       FROM fich_loc f WITH (NOLOCK)
       LEFT JOIN pessoa p WITH (NOLOCK) ON p.cd_pessoa = f.cd_pessoa
       LEFT JOIN empresa e WITH (NOLOCK) ON e.cd_empresa = f.cd_empresa
-      WHERE f.cd_controle > ${after}
-        ${wanted.length ? `AND ${status} IN (${wanted.map((s) => `'${s}'`).join(', ')})` : ''}
-        ${scope}
+      WHERE f.cd_controle > ${after} ${filtro}
       ORDER BY f.cd_controle`;
 
     const res: any = await execRead(source, sql, 85000);
     const day = (v: unknown) => (v ? new Date(v as string).toISOString().slice(0, 10) : null);
     const t = (v: unknown) => String(v ?? '').trim();
-    const rows = (Array.isArray(res?.recordset) ? res.recordset : []).map((r: any) => ({
+    const rows: any[] = (Array.isArray(res?.recordset) ? res.recordset : []).map((r: any) => ({
       cd_controle: Number(r.cd_controle),
       numero: r.numero,
       cd_empresa: Number(r.cd_empresa) || 0,
@@ -87,6 +88,12 @@ export default async function (req: Request): Promise<Response> {
       tel_cadastro: t(r.tel_cadastro),
       cel_cadastro: t(r.cel_cadastro),
     }));
+
+    // Lista de reativação: produtos das fichas desta página (mesmo filtro, mesmo intervalo de cd_controle).
+    if (body?.com_produtos && rows.length) {
+      const produtos = await produtosPorFicha(base44, source, `f.cd_controle > ${after} AND f.cd_controle <= ${rows[rows.length - 1].cd_controle} ${filtro}`);
+      for (const r of rows) r.produtos = produtos.get(r.cd_controle) || [];
+    }
 
     return Response.json({
       success: true,
